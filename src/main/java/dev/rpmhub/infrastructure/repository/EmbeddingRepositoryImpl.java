@@ -124,7 +124,7 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
                         EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
                                         .embeddingStore(embeddingStore)
                                         .embeddingModel(embeddingModel)
-                                        .documentSplitter(recursive(500, 250, new HuggingFaceTokenCountEstimator()))
+                                        .documentSplitter(recursive(200, 50, new HuggingFaceTokenCountEstimator()))
                                         .build();
 
                         ingestor.ingest(documents);

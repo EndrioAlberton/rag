@@ -67,9 +67,33 @@ cd rag
 
 ### Modo de Desenvolvimento
 
-Execute a aplicação em modo de desenvolvimento com live reload:
+**⚠️ Importante:** Antes de executar o Quarkus em modo dev, você precisa fazer o build do frontend se quiser usar a interface web servida pelo Quarkus. As variáveis de ambiente do frontend (como `VITE_GOOGLE_CLIENT_ID`) são embutidas no código durante o build.
+
+#### 1. Build do Frontend (Obrigatório para interface web)
 
 ```bash
+# Navegue até o diretório do frontend
+cd frontend
+
+# Configure as variáveis de ambiente (crie o arquivo .env se não existir)
+# Veja frontend/README.md para mais detalhes sobre as variáveis necessárias
+
+# Instale as dependências (se ainda não fez)
+npm install
+
+# Faça o build do frontend
+npm run build
+```
+
+**Nota:** O build gera os arquivos estáticos em `src/main/resources/META-INF/resources/` que serão servidos pelo Quarkus. Se você modificar as variáveis de ambiente no `frontend/.env`, será necessário fazer um novo build para que as mudanças sejam refletidas.
+
+#### 2. Executar Quarkus em Modo Dev
+
+```bash
+# Volte para a raiz do projeto
+cd ..
+
+# Execute a aplicação em modo de desenvolvimento
 ./mvnw quarkus:dev
 ```
 
