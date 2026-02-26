@@ -53,7 +53,9 @@ public class UserRepositoryImpl implements PanacheRepositoryBase<User, String>, 
     
     @Override
     public Uni<Boolean> deleteById(String id) {
-        return PanacheRepositoryBase.super.deleteById(id);
+        // Usar delete() com query em vez de super.deleteById() para evitar
+        // IllegalStateException quando o repositório implementa interface adicional
+        return delete("id", id).map(count -> count > 0);
     }
     
     @Override

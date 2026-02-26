@@ -71,15 +71,15 @@ public class ConversationServiceImpl implements ConversationService {
                 if (user == null) {
                     // Usuário não encontrado, pode estar sendo criado assincronamente
                     // Retornar lista vazia em vez de erro
-                    Log.debug("Usuário não encontrado (ID ou hash: " + userId + "), retornando lista vazia.");
+                    Log.debug("User not found (ID or hash: " + userId + "), returning empty list.");
                     return Uni.createFrom().item(List.<Conversation>of());
                 }
                 // Usuário encontrado, buscar conversações usando o ID real
-                Log.debug("Usuário encontrado, buscando conversações para ID: " + user.getId());
+                Log.debug("User found, fetching conversations for ID: " + user.getId());
                 return conversationRepository.findOwnedByUserId(user.getId());
             })
             .onFailure().recoverWithItem(e -> {
-                Log.error("Erro ao buscar conversações para usuário " + userId + ": " + e.getMessage(), e);
+                Log.error("Error fetching conversations for user " + userId + ": " + e.getMessage(), e);
                 return List.<Conversation>of();
             });
     }
@@ -100,7 +100,7 @@ public class ConversationServiceImpl implements ConversationService {
                 return conversationRepository.userHasAccess(user.getId(), conversationId);
             })
             .onFailure().recoverWithItem(e -> {
-                Log.error("Erro ao verificar acesso do usuário " + userId + " à conversa " + conversationId, e);
+                Log.error("Error verifying user " + userId + " access to conversation " + conversationId, e);
                 return false;
             });
     }

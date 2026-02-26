@@ -7,9 +7,12 @@
  */
 package dev.rpmhub.domain.port;
 
+import dev.langchain4j.data.document.Document;
 import dev.rpmhub.domain.model.RagQuery;
 import dev.rpmhub.domain.model.RagResponse;
 import io.smallrye.mutiny.Multi;
+
+import java.util.List;
 
 public interface EmbeddingRepository {
 
@@ -27,4 +30,11 @@ public interface EmbeddingRepository {
      * @param directoryPath the path to the directory containing the documents
      */
     void ingestDocuments(String directoryPath);
+
+    /**
+     * Ingests the given documents into the embedding store (chunking + embedding + persist).
+     *
+     * @param documents the list of documents to ingest
+     */
+    void ingestDocuments(List<Document> documents);
 }

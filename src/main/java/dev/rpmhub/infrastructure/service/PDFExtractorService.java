@@ -39,10 +39,10 @@ public class PDFExtractorService {
                 PDFTextStripper stripper = new PDFTextStripper();
                 text = stripper.getText(document);
             } else {
-                Log.error("O documento está criptografado.");
+                Log.error("The document is encrypted.");
             }
         } catch (IOException e) {
-            Log.error("Nao foi possível ler o arquivo.");
+            Log.error("Could not read the file.");
         }
         return text;
     }

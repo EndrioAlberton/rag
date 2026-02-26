@@ -72,7 +72,10 @@ public class ConversationRepositoryImpl implements PanacheRepositoryBase<Convers
     
     @Override
     public Uni<Boolean> deleteById(String id) {
-        return PanacheRepositoryBase.super.deleteById(id);
+        // Usar delete() com query em vez de super.deleteById() para evitar
+        // IllegalStateException quando o repositório implementa interface adicional
+        // (bug do Panache bytecode enhancement - issue quarkus#29296)
+        return delete("id", id).map(count -> count > 0);
     }
 }
 

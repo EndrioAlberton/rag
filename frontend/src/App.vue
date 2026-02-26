@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-app-bar color="primary" dark>
-      <v-app-bar-title>RAG Chatbot</v-app-bar-title>
+      <v-app-bar-title>Chatbot</v-app-bar-title>
       <v-spacer></v-spacer>
       <v-btn v-if="isAuthenticated" to="/chat" icon>
         <v-icon>mdi-message</v-icon>

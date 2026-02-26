@@ -43,6 +43,15 @@ export const orionUsersService = {
     return response.data;
   },
 
+  // Login com Google (Social Authentication)
+  async loginWithGoogle(idToken) {
+    const formData = new URLSearchParams();
+    formData.append('idToken', idToken);
+    
+    const response = await orionUsersApi.post('/users/login/google', formData);
+    return response.data;
+  },
+
   // Login com 2FA
   async loginWith2FA(email, code) {
     const formData = new URLSearchParams();
