@@ -107,31 +107,51 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
                                                                 Document pdfDocument = Document
                                                                                 .from(extractedText);
                                                                 documents.add(pdfDocument);
-                                                                Log.info("PDF processado: "
+                                                                Log.info("PDF processed: "
                                                                                 + file.getFileName());
                                                         }
                                                 } else {
                                                         Document fileDoc = FileSystemDocumentLoader
                                                                         .loadDocument(file);
                                                         documents.add(fileDoc);
-                                                        Log.info("Arquivo processado: " + file.getFileName());
+                                                        Log.info("File processed: " + file.getFileName());
                                                 }
                                         });
                         }
 
-                        Log.info("Total de documentos processados: " + documents.size());
+                        Log.info("Total documents processed: " + documents.size());
 
                         EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
                                         .embeddingStore(embeddingStore)
                                         .embeddingModel(embeddingModel)
-                                        .documentSplitter(recursive(200, 50, new HuggingFaceTokenCountEstimator()))
+                                        .documentSplitter(recursive(800, 300, new HuggingFaceTokenCountEstimator()))
                                         .build();
 
                         ingestor.ingest(documents);
-                        Log.info("Ingestão concluída com sucesso!");
+                        Log.info("Ingestion completed successfully!");
 
                 } catch (IOException e) {
-                        Log.error("Erro ao processar diretório: " + directoryPath, e);
+                        Log.error("Error processing directory: " + directoryPath, e);
                 }
+        }
+
+        /**
+         * Ingests the given documents into the embedding store (same chunking and embedding pipeline as directory ingest).
+         *
+         * @param documents the list of documents to ingest
+         */
+        @Override
+        public void ingestDocuments(List<Document> documents) {
+                if (documents == null || documents.isEmpty()) {
+                        Log.info("📭 No documents to ingest.");
+                        return;
+                }
+                EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
+                                .embeddingStore(embeddingStore)
+                                .embeddingModel(embeddingModel)
+                                .documentSplitter(recursive(800, 300, new HuggingFaceTokenCountEstimator()))
+                                .build();
+                ingestor.ingest(documents);
+                Log.info("✅ Ingestion of " + documents.size() + " document(s) completed successfully!");
         }
 }

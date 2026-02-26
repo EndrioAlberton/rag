@@ -98,7 +98,7 @@ public class RagController {
                     return conversationService.userHasAccess(syncedUserId, request.conversationId)
                         .onItem().transformToMulti(hasAccess -> {
                             if (!hasAccess) {
-                                Log.warn("Acesso negado para usuário " + syncedUserId + " na conversa " + request.conversationId);
+                                Log.warn("Access denied for user " + syncedUserId + " to conversation " + request.conversationId);
                                 return Multi.createFrom().failure(new SecurityException("Acesso negado"));
                             }
                             // Passar o ID do usuário sincronizado, não o hash
@@ -112,7 +112,7 @@ public class RagController {
                             return Multi.createFrom().item("data: " + errorMessage + "\n\n");
                         });
                 })
-                .onFailure().invoke(e -> Log.error("Erro ao processar requisição de chatbot", e))
+                .onFailure().invoke(e -> Log.error("Error processing chatbot request", e))
                 .onFailure().recoverWithMulti(e -> {
                     // Tratar falhas na sincronização do usuário
                     String errorMessage = e.getMessage() != null ? e.getMessage() : "Erro desconhecido";
@@ -120,7 +120,7 @@ public class RagController {
                 });
         } else {
             // Token não presente - retornar erro
-            Log.warn("JWT token não encontrado na requisição POST /chatbot");
+            Log.warn("JWT token not found in POST /chatbot request");
             return Multi.createFrom().item("data: Erro: Token de autenticação não encontrado\n\n");
         }
     }
@@ -146,7 +146,7 @@ public class RagController {
                     return conversationService.userHasAccess(syncedUserId, conversationId)
                         .onItem().transformToMulti(hasAccess -> {
                             if (!hasAccess) {
-                                Log.warn("Acesso negado para usuário " + syncedUserId + " na conversa " + conversationId);
+                                Log.warn("Access denied for user " + syncedUserId + " to conversation " + conversationId);
                                 return Multi.createFrom().failure(new SecurityException("Acesso negado"));
                             }
                             // Passar o ID do usuário sincronizado, não o hash
@@ -160,7 +160,7 @@ public class RagController {
                             return Multi.createFrom().item("data: " + errorMessage + "\n\n");
                         });
                 })
-                .onFailure().invoke(e -> Log.error("Erro ao processar requisição de chatbot", e))
+                .onFailure().invoke(e -> Log.error("Error processing chatbot request", e))
                 .onFailure().recoverWithMulti(e -> {
                     // Tratar falhas na sincronização do usuário
                     String errorMessage = e.getMessage() != null ? e.getMessage() : "Erro desconhecido";
@@ -171,7 +171,7 @@ public class RagController {
             Log.info("Chatbot GET (legacy) Session: " + session);
             return chatbotUseCase.execute(session, prompt)
                 .onFailure().recoverWithMulti(e -> {
-                    Log.error("Erro ao processar chatbot com sessão", e);
+                    Log.error("Error processing chatbot with session", e);
                     String errorMessage = e.getMessage() != null ? e.getMessage() : "Erro desconhecido";
                     return Multi.createFrom().item("data: Erro: " + errorMessage + "\n\n");
                 });
