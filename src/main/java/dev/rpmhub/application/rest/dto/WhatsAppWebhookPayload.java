@@ -99,11 +99,26 @@ public class WhatsAppWebhookPayload {
 
         @JsonProperty("text")
         public WebhookText text;
+
+        @JsonProperty("audio")
+        public WebhookAudio audio;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class WebhookText {
         @JsonProperty("body")
         public String body;
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class WebhookAudio {
+        @JsonProperty("id")
+        public String id;
+
+        @JsonProperty("mime_type")
+        public String mimeType;
+
+        @JsonProperty("sha256")
+        public String sha256;
     }
 }
