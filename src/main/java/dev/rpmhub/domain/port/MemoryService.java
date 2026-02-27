@@ -14,14 +14,14 @@ import io.smallrye.mutiny.Uni;
 import java.util.List;
 
 /**
- * Port for managing conversation memory using MySQL + Redis hybrid approach.
- * MySQL for persistence, Redis for cache/performance.
+ * Port for managing conversation memory using PostgreSQL + Redis hybrid approach.
+ * PostgreSQL for persistence, Redis for cache/performance.
  */
 public interface MemoryService {
 
     /**
      * Saves a chat message to the conversation memory.
-     * Uses MySQL for persistence and Redis for cache.
+     * Uses PostgreSQL for persistence and Redis for cache.
      *
      * @param message the message to save
      * @return a Uni that completes when the message is saved
@@ -30,7 +30,7 @@ public interface MemoryService {
 
     /**
      * Retrieves the conversation memory for a specific session.
-     * Tries Redis cache first, falls back to MySQL if not found.
+     * Tries Redis cache first, falls back to PostgreSQL if not found.
      *
      * @param sessionId the session identifier (for backward compatibility)
      * @return a Uni containing the conversation memory, or null if not found
@@ -39,7 +39,7 @@ public interface MemoryService {
     
     /**
      * Retrieves the conversation memory for a specific conversation.
-     * Tries Redis cache first, falls back to MySQL if not found.
+     * Tries Redis cache first, falls back to PostgreSQL if not found.
      *
      * @param userId the user identifier
      * @param conversationId the conversation identifier
