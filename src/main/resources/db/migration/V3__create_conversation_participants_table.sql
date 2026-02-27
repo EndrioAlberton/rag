@@ -7,6 +7,5 @@ CREATE TABLE IF NOT EXISTS conversation_participants (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_participants_conversation ON conversation_participants(conversation_id);
-CREATE INDEX idx_participants_user ON conversation_participants(user_id);
-
+CREATE INDEX IF NOT EXISTS idx_participants_conversation ON conversation_participants(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_participants_user ON conversation_participants(user_id);

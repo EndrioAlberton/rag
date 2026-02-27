@@ -66,7 +66,7 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
                 return BlockingToReactive.wrap(() -> {
                         // These operations are blocking:
                         // 1. embeddingModel.embed() - ML model processing
-                        // 2. embeddingStore.search() - Database query to Chroma
+                        // 2. embeddingStore.search() - Database query to PGVector
                         EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
                                         .queryEmbedding(embeddingModel.embed(query.getQuery())
                                                         .content())

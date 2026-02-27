@@ -31,8 +31,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 /**
- * Implementation of MemoryService using MySQL + Redis hybrid approach.
- * MySQL for persistence, Redis for cache/performance.
+ * Implementation of MemoryService using PostgreSQL + Redis hybrid approach.
+ * PostgreSQL for persistence, Redis for cache/performance.
  */
 @ApplicationScoped
 public class MemoryServiceImpl implements MemoryService {
@@ -113,7 +113,7 @@ public class MemoryServiceImpl implements MemoryService {
                     return Uni.createFrom().failure(new SecurityException("Usuário não tem acesso a esta conversa"));
                 }
                 
-                // 2. Salvar no MySQL (persistência permanente)
+                // 2. Salvar no PostgreSQL (persistência permanente)
                 // Buscar conversa para verificar existência e obter referência
                 return conversationRepository.findById(message.getConversationId())
                     .onItem().ifNull().failWith(() -> new IllegalArgumentException("Conversa não encontrada"))
@@ -188,7 +188,7 @@ public class MemoryServiceImpl implements MemoryService {
     
     /**
      * Retrieves the conversation memory for a specific conversation.
-     * Tries Redis cache first, falls back to MySQL if not found.
+     * Tries Redis cache first, falls back to PostgreSQL if not found.
      *
      * @param userId the user identifier
      * @param conversationId the conversation identifier
@@ -336,7 +336,7 @@ public class MemoryServiceImpl implements MemoryService {
         String redisKey = MEMORY_PREFIX + conversationId;
         ReactiveKeyCommands<String> keyCommands = reactiveRedisDataSource.key();
         
-        // Limpar apenas do cache Redis (mensagens permanecem no MySQL)
+        // Limpar apenas do cache Redis (mensagens permanecem no PostgreSQL)
         return keyCommands.del(redisKey)
                 .onItem().invoke(() -> Log.info("Cleared conversation cache for: " + conversationId))
                 .onFailure().invoke(e -> Log.error("Error clearing conversation cache: " + e.getMessage(), e))
