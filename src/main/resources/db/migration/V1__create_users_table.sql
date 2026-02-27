@@ -1,3 +1,6 @@
+-- Enable pgvector extension for vector storage
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- Create users table
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(255) PRIMARY KEY,
