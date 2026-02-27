@@ -19,8 +19,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Fetches HTML from URLs and converts to LangChain4j Document (Markdown + source metadata).
@@ -36,6 +39,12 @@ public class WebScraperService {
 
     @ConfigProperty(name = "rag.scrape.user-agent", defaultValue = "RAG-Scraper/1.0")
     String userAgent;
+
+    @ConfigProperty(name = "rag.scrape.save-markdown", defaultValue = "false")
+    boolean saveMarkdownToDisk;
+
+    @ConfigProperty(name = "rag.scrape.save-markdown.dir", defaultValue = "target/scraped-markdown")
+    String markdownOutputDir;
 
     @Inject
     public WebScraperService(HtmlToMarkdownService htmlToMarkdownService) {
@@ -74,12 +83,14 @@ public class WebScraperService {
                 return Optional.empty();
             }
 
-            String html = response.body();
-            String markdown = htmlToMarkdownService.toMarkdown(html);
+            String body = response.body();
+            String markdown = toMarkdownFromResponse(url, body);
             if (markdown.isBlank()) {
-                Log.warn("⚠️ HTML→Markdown conversion returned empty for " + url);
+                Log.warn("⚠️ Conteúdo vazio ou conversão falhou para " + url);
                 return Optional.empty();
             }
+
+            persistMarkdownIfEnabled(url, markdown);
 
             Metadata metadata = Metadata.from("source", url);
             Document document = Document.from(markdown, metadata);
@@ -88,5 +99,83 @@ public class WebScraperService {
             Log.warn("❌ Error scraping " + url, e);
             return Optional.empty();
         }
+    }
+
+    /**
+     * Produces markdown from the HTTP response body. If the URL ends with .md and the body
+     * is not HTML, treats the body as raw markdown (strips nav menu + normalizes line breaks).
+     * Otherwise converts HTML to markdown and strips the menu.
+     */
+    private String toMarkdownFromResponse(String url, String body) {
+        if (body == null || body.isBlank()) {
+            return "";
+        }
+        boolean urlEndsWithMd = url != null && url.trim().toLowerCase().endsWith(".md");
+        boolean bodyLooksLikeHtml = body.trim().startsWith("<");
+        if (urlEndsWithMd && !bodyLooksLikeHtml) {
+            String md = htmlToMarkdownService.stripLeadingNavigationMenu(body);
+            return htmlToMarkdownService.normalizeMarkdownLineBreaks(md);
+        }
+        String md = htmlToMarkdownService.toMarkdown(body);
+        return htmlToMarkdownService.normalizeMarkdownLineBreaks(md);
+    }
+
+    private void persistMarkdownIfEnabled(String url, String markdown) {
+        if (!saveMarkdownToDisk) {
+            return;
+        }
+        try {
+            Path dir = Path.of(markdownOutputDir);
+            Files.createDirectories(dir);
+
+            String safeFileName = toSafeFileName(url) + ".md";
+            Path file = dir.resolve(safeFileName);
+
+            Files.writeString(file, markdown, StandardCharsets.UTF_8);
+            Log.debug("💾 Saved scraped markdown for " + url + " to " + file);
+        } catch (Exception e) {
+            Log.warn("⚠️ Failed to persist markdown for " + url, e);
+        }
+    }
+
+    /**
+     * Clears all existing markdown files from the output directory when saving is enabled.
+     * Used at the start of a scrape ingestion run to avoid mixing old and new files.
+     */
+    public void clearMarkdownOutputDirIfEnabled() {
+        if (!saveMarkdownToDisk) {
+            return;
+        }
+        try {
+            Path dir = Path.of(markdownOutputDir);
+            if (!Files.exists(dir) || !Files.isDirectory(dir)) {
+                return;
+            }
+            try (Stream<Path> paths = Files.walk(dir)) {
+                paths.filter(Files::isRegularFile).forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (Exception e) {
+                        Log.warn("⚠️ Failed to delete old markdown file " + path, e);
+                    }
+                });
+            }
+            Log.debug("🧹 Cleared existing markdown files from directory " + dir);
+        } catch (Exception e) {
+            Log.warn("⚠️ Failed to clear markdown output directory " + markdownOutputDir, e);
+        }
+    }
+
+    private String toSafeFileName(String url) {
+        String sanitized = url
+                .replaceFirst("^https?://", "")
+                .replaceAll("[^a-zA-Z0-9-_\\.]", "_");
+        if (sanitized.length() > 100) {
+            sanitized = sanitized.substring(0, 100);
+        }
+        if (sanitized.isBlank()) {
+            sanitized = "document";
+        }
+        return sanitized + "_" + System.currentTimeMillis();
     }
 }

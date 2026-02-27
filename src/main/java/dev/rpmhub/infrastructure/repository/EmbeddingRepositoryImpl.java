@@ -119,7 +119,8 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
                                         });
                         }
 
-                        Log.info("Total documents processed: " + documents.size());
+                        Log.info("📂 Total filesystem documents loaded from directory '" + directoryPath
+                                        + "': " + documents.size());
 
                         EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
                                         .embeddingStore(embeddingStore)
