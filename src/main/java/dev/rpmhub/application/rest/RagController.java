@@ -211,7 +211,7 @@ public class RagController {
             Log.info("Memory Session: " + session);
             return memoryService.getConversationMemory(session);
         } else {
-            return Uni.createFrom().failure(new IllegalArgumentException("Deve fornecer session ou userId+conversationId"));
+            return Uni.createFrom().nullItem();
         }
     }
     
