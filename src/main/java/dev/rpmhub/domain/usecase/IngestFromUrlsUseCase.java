@@ -45,6 +45,8 @@ public class IngestFromUrlsUseCase {
             Log.info("📭 Lista de URLs vazia, nada a ingerir.");
             return new IngestFromUrlsResult(0, 0, List.of());
         }
+        // Antes de iniciar um novo ciclo de scrape, limpamos o diretório de markdown (se estiver habilitado)
+        webScraperService.clearMarkdownOutputDirIfEnabled();
         List<Document> documents = new ArrayList<>();
         List<String> failed = new ArrayList<>();
         for (String url : urls) {

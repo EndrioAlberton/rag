@@ -36,7 +36,7 @@ public class IngestDocumentsUseCase {
             @ConfigProperty(name = "rag.location") Path documents) {
         try {
             embeddingRepository.ingestDocuments(documents.toString());
-            Log.info("Documents ingested successfully");
+            Log.info("📂 Base documents from rag.location '" + documents + "' ingested successfully");
         } catch (Exception e) {
             Log.error("Error ingesting documents", e);
         }
