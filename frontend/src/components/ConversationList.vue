@@ -4,7 +4,7 @@
       <v-col cols="12">
         <v-card>
           <v-card-title class="d-flex align-center">
-            <span>Minhas Conversas</span>
+            <span>My Conversations</span>
             <v-spacer></v-spacer>
             <v-btn 
               type="button"
@@ -14,13 +14,13 @@
               :disabled="creatingConversation"
             >
               <v-icon left>mdi-plus</v-icon>
-              Nova Conversa
+              New Conversation
             </v-btn>
           </v-card-title>
           <v-card-text>
             <v-text-field
               v-model="search"
-              label="Buscar conversas"
+              label="Search conversations"
               prepend-inner-icon="mdi-magnify"
               clearable
               class="mb-4"
@@ -37,7 +37,7 @@
             </v-list>
 
             <v-alert v-else-if="!loading" type="info">
-              Você ainda não tem conversas. Crie uma nova conversa para começar!
+              You don't have any conversations yet. Create a new conversation to get started!
             </v-alert>
 
             <div v-if="loading" class="text-center mt-4">
@@ -46,7 +46,7 @@
           </v-card-text>
         </v-card>
         
-        <!-- Snackbar para erros -->
+        <!-- Snackbar for errors -->
         <v-snackbar
           v-model="showError"
           color="error"
@@ -60,7 +60,7 @@
               v-bind="attrs"
               @click="showError = false"
             >
-              Fechar
+              Close
             </v-btn>
           </template>
         </v-snackbar>
@@ -115,14 +115,14 @@ export default {
       try {
         this.conversations = await apiService.getUserConversations(user.id);
       } catch (error) {
-        console.error('Erro ao carregar conversas:', error);
+        console.error('Error loading conversations:', error);
       } finally {
         this.loading = false;
       }
     },
 
     async createNewConversation(event) {
-      // Prevenir comportamento padrão (navegação, submit, etc)
+      // Prevent default behavior (navigation, submit, etc)
       if (event) {
         event.preventDefault();
         event.stopPropagation();
@@ -140,35 +140,35 @@ export default {
       this.errorMessage = '';
 
       try {
-        console.log('Criando nova conversa para usuário:', user.id);
-        // Criar conversa no banco de dados antes de navegar
-        const conversation = await apiService.createConversation(user.id, 'Nova Conversa');
-        console.log('Conversa criada com sucesso:', conversation);
-        console.log('Tipo da resposta:', typeof conversation);
-        console.log('ID da conversa:', conversation?.id);
+        console.log('Creating new conversation for user:', user.id);
+        // Create conversation in database before navigating
+        const conversation = await apiService.createConversation(user.id, 'New Conversation');
+        console.log('Conversation created successfully:', conversation);
+        console.log('Response type:', typeof conversation);
+        console.log('Conversation ID:', conversation?.id);
         
-        // Validar resposta
+        // Validate response
         if (!conversation) {
-          throw new Error('Resposta vazia do servidor');
+          throw new Error('Empty response from server');
         }
         
         if (!conversation.id) {
-          console.error('Resposta sem ID:', conversation);
-          throw new Error('Resposta inválida do servidor: conversa criada sem ID');
+          console.error('Response without ID:', conversation);
+          throw new Error('Invalid server response: conversation created without ID');
         }
         
-        // Navegar para a tela de chat com o ID da conversa criada
+        // Navigate to chat screen with the created conversation ID
         const chatRoute = `/chat/${conversation.id}`;
-        console.log('Navegando para:', chatRoute);
+        console.log('Navigating to:', chatRoute);
         await this.$router.push(chatRoute);
-        console.log('Navegação concluída');
+        console.log('Navigation completed');
       } catch (error) {
-        console.error('Erro ao criar nova conversa:', error);
+        console.error('Error creating new conversation:', error);
         console.error('Stack trace:', error.stack);
-        const errorMsg = error.message || error.response?.data?.message || 'Erro ao criar conversa. Tente novamente.';
+        const errorMsg = error.message || error.response?.data?.message || 'Error creating conversation. Please try again.';
         this.errorMessage = errorMsg;
         this.showError = true;
-        // Não navegar em caso de erro - deixar o usuário na página de conversas
+        // Do not navigate on error - leave user on conversations page
       } finally {
         this.creatingConversation = false;
       }
@@ -188,7 +188,7 @@ export default {
         await apiService.deleteConversation(conversationId, user.id);
         await this.loadConversations();
       } catch (error) {
-        console.error('Erro ao deletar conversa:', error);
+        console.error('Error deleting conversation:', error);
       }
     }
   }

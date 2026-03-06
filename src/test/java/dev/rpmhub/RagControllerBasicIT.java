@@ -19,19 +19,19 @@ import io.quarkus.test.junit.QuarkusIntegrationTest;
 class RagControllerBasicIT {
 
     @Test
-    @DisplayName("Teste básico de endpoint - status code e content type")
+    @DisplayName("Basic endpoint test - status code and content type")
     void testBasicEndpointResponse() {
-        // Teste simples do endpoint de memory que é mais rápido
+        // Simple test of memory endpoint which is faster
         given()
             .when()
                 .queryParam("session", "basic-test-session")
                 .get("/ai/memory")
             .then()
-                .statusCode(204); // Esperamos 204 para sessão não existente
+                .statusCode(204); // Expect 204 for non-existent session
     }
 
     @Test
-    @DisplayName("Teste de endpoint chatbot - apenas validação de headers")
+    @DisplayName("Chatbot endpoint test - header validation only")
     void testChatbotEndpointHeaders() {
         given()
             .when()
@@ -44,7 +44,7 @@ class RagControllerBasicIT {
     }
 
     @Test
-    @DisplayName("Teste de endpoint ask - apenas validação de headers")
+    @DisplayName("Ask endpoint test - header validation only")
     void testAskEndpointHeaders() {
         given()
             .when()
@@ -57,7 +57,7 @@ class RagControllerBasicIT {
     }
 
     @Test
-    @DisplayName("Teste específico Vue.js - pergunta sobre componentes")
+    @DisplayName("Vue.js specific test - question about components")
     void testVueComponentsQuestion() {
         given()
             .when()
@@ -70,7 +70,7 @@ class RagControllerBasicIT {
     }
 
     @Test
-    @DisplayName("Teste Vue.js - pergunta sobre diretivas")
+    @DisplayName("Vue.js test - question about directives")
     void testVueDirectivesQuestion() {
         given()
             .when()
@@ -83,7 +83,7 @@ class RagControllerBasicIT {
     }
 
     @Test
-    @DisplayName("Teste Vue.js - pergunta sobre reatividade")
+    @DisplayName("Vue.js test - question about reactivity")
     void testVueReactivityQuestion() {
         given()
             .when()
@@ -96,7 +96,7 @@ class RagControllerBasicIT {
     }
 
     @Test
-    @DisplayName("Teste Vue.js - pergunta sobre Composition API")
+    @DisplayName("Vue.js test - question about Composition API")
     void testVueCompositionApiQuestion() {
         given()
             .when()
@@ -109,7 +109,7 @@ class RagControllerBasicIT {
     }
 
     @Test
-    @DisplayName("Teste de caracteres especiais em sessão")
+    @DisplayName("Special characters in session test")
     void testSpecialCharactersInSession() {
         given()
             .when()
@@ -122,7 +122,7 @@ class RagControllerBasicIT {
     }
 
     @Test
-    @DisplayName("Teste de sessão com UUID")
+    @DisplayName("UUID session test")
     void testUuidSession() {
         String uuid = java.util.UUID.randomUUID().toString();
         given()
@@ -136,7 +136,7 @@ class RagControllerBasicIT {
     }
 
     @Test
-    @DisplayName("Teste de prompt com JSON-like content")
+    @DisplayName("Prompt with JSON-like content test")
     void testJsonLikePrompt() {
         given()
             .when()

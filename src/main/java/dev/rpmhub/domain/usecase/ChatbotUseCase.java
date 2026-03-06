@@ -174,13 +174,15 @@ public class ChatbotUseCase {
                                                     .group().intoLists().of(20)
                                                     .onItem().transform(list -> String.join("", list))
                                                     .onItem().call(response -> {
+                                                        // Save assistant response to memory
+                                                        // ASSISTANT messages should not have userId
                                                         long llmLatencyMs = System.currentTimeMillis() - llmStart;
                                                         ChatMessage assistantMessage = new ChatMessage();
                                                         assistantMessage.setConversationId(conversationId);
-                                                        assistantMessage.setSessionId(conversationId);
+                                                        assistantMessage.setSessionId(conversationId); // For compatibility
                                                         assistantMessage.setContent(response);
                                                         assistantMessage.setType(ChatMessage.MessageType.ASSISTANT);
-                                                        assistantMessage.setUserId(null);
+                                                        assistantMessage.setUserId(null); // Assistant messages do not have userId
                                                         return memoryService.saveMessage(assistantMessage)
                                                                 .chain(() -> requestLogService.log(
                                                                         phoneNumber, userId, prompt,

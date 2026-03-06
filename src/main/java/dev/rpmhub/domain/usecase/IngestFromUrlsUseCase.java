@@ -45,7 +45,7 @@ public class IngestFromUrlsUseCase {
             Log.info("📭 Lista de URLs vazia, nada a ingerir.");
             return new IngestFromUrlsResult(0, 0, List.of());
         }
-        // Antes de iniciar um novo ciclo de scrape, limpamos o diretório de markdown (se estiver habilitado)
+        // Before starting a new scrape cycle, clean the markdown directory (if enabled)
         webScraperService.clearMarkdownOutputDirIfEnabled();
         List<Document> documents = new ArrayList<>();
         List<String> failed = new ArrayList<>();

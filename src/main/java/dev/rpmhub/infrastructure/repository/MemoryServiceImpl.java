@@ -67,14 +67,14 @@ public class MemoryServiceImpl implements MemoryService {
 
     @Override
     public Uni<Void> saveMessage(ChatMessage message) {
-        // Se tem userId e conversationId, usar novo fluxo híbrido
-        // NÃO gerar ID aqui para o fluxo híbrido - deixar o Hibernate gerar
+        // If has userId and conversationId, use new hybrid flow
+        // Do NOT generate ID here for hybrid flow - let Hibernate generate it
         if (message.getUserId() != null && message.getConversationId() != null) {
             return saveMessageHybrid(message);
         }
         
-        // Fluxo antigo para compatibilidade (apenas Redis)
-        // Generate ID if not set (apenas para Redis)
+        // Legacy flow for compatibility (Redis only)
+        // Generate ID if not set (for Redis only)
         if (message.getId() == null || message.getId().isEmpty()) {
             message.setId(UUID.randomUUID().toString());
         }
@@ -98,55 +98,55 @@ public class MemoryServiceImpl implements MemoryService {
     
     @WithTransaction
     public Uni<Void> saveMessageHybrid(ChatMessage message) {
-        // 1. Verificar acesso do usuário à conversa (apenas para mensagens USER)
+        // 1. Verify user access to conversation (only for USER messages)
         Uni<Boolean> accessCheck;
         if (message.getType() == ChatMessage.MessageType.USER && message.getUserId() != null) {
             accessCheck = conversationService.userHasAccess(message.getUserId(), message.getConversationId());
         } else {
-            // Mensagens ASSISTANT e SYSTEM não precisam de verificação de acesso
+            // ASSISTANT and SYSTEM messages do not need access verification
             accessCheck = Uni.createFrom().item(true);
         }
         
         return accessCheck
             .chain(hasAccess -> {
                 if (!hasAccess) {
-                    return Uni.createFrom().failure(new SecurityException("Usuário não tem acesso a esta conversa"));
+                    return Uni.createFrom().failure(new SecurityException("User does not have access to this conversation"));
                 }
                 
-                // 2. Salvar no PostgreSQL (persistência permanente)
-                // Buscar conversa para verificar existência e obter referência
+                // 2. Save to PostgreSQL (permanent persistence)
+                // Fetch conversation to verify existence and get reference
                 return conversationRepository.findById(message.getConversationId())
-                    .onItem().ifNull().failWith(() -> new IllegalArgumentException("Conversa não encontrada"))
+                    .onItem().ifNull().failWith(() -> new IllegalArgumentException("Conversation not found"))
                     .chain(conversation -> {
-                        // Configurar relacionamentos
+                        // Configure relationships
                         message.setConversationId(conversation.getId());
-                        message.setSessionId(conversation.getId()); // Para compatibilidade
+                        message.setSessionId(conversation.getId()); // For compatibility
                         
-                        // Remover ID se existir para garantir que seja uma nova entidade
-                        // O Hibernate gerará o ID automaticamente via @GeneratedValue
+                        // Remove ID if exists to ensure it is a new entity
+                        // Hibernate will generate the ID automatically via @GeneratedValue
                         message.setId(null);
                         
-                        // Buscar usuário se for mensagem de usuário
+                        // Fetch user if it is a user message
                         if (message.getType() == ChatMessage.MessageType.USER && message.getUserId() != null) {
-                            // Tentar buscar pelo ID primeiro
+                            // Try to fetch by ID first
                             return userRepository.findById(message.getUserId())
                                 .onItem().ifNull().switchTo(() -> {
-                                    // Se não encontrar pelo ID, tentar buscar pelo hash (compatibilidade)
+                                    // If not found by ID, try to fetch by hash (compatibility)
                                     return userRepository.findByOrionUserHash(message.getUserId());
                                 })
                                 .chain(user -> {
                                     if (user == null) {
-                                        return Uni.createFrom().failure(new IllegalArgumentException("Usuário não encontrado: " + message.getUserId()));
+                                        return Uni.createFrom().failure(new IllegalArgumentException("User not found: " + message.getUserId()));
                                     }
-                                    // Garantir que o userId na mensagem seja o ID do banco, não o hash
+                                    // Ensure message userId is the database ID, not the hash
                                     message.setUserId(user.getId());
                                     message.setUser(user);
-                                    // Persistir mensagem diretamente em vez de usar cascade
+                                    // Persist message directly instead of using cascade
                                     return chatMessageRepository.persist(message)
                                         .chain(() -> conversationRepository.flush());
                                 });
                         } else {
-                            // Mensagem do assistente ou sistema - não deve ter user_id
+                            // Assistant or system message - should not have user_id
                             message.setUserId(null);
                             message.setUser(null);
                             // Persistir mensagem diretamente em vez de usar cascade
@@ -157,8 +157,8 @@ public class MemoryServiceImpl implements MemoryService {
             })
             .onFailure().invoke(e -> Log.error("Error saving message to database: " + e.getMessage(), e))
             .replaceWithVoid();
-            // Nota: Cache Redis será atualizado na próxima leitura (lazy update)
-            // Isso evita problemas de contexto de thread após @WithTransaction
+            // Note: Redis cache will be updated on next read (lazy update)
+            // This avoids thread context issues after @WithTransaction
     }
 
     /**
@@ -199,12 +199,12 @@ public class MemoryServiceImpl implements MemoryService {
     public Uni<ConversationMemory> getConversationMemory(String userId, String conversationId) {
         String redisKey = MEMORY_PREFIX + conversationId;
         
-        // Tentar buscar do cache primeiro
+        // Try to fetch from cache first
         return getConversationMemoryFromRedis(redisKey)
             .onItem().ifNull().switchTo(() -> loadConversationMemoryFromDB(conversationId)
                 .chain(memory -> {
                     if (memory != null) {
-                        // Salvar no cache para próximas consultas
+                        // Save to cache for next queries
                         ReactiveValueCommands<String, ConversationMemory> valueCommands = 
                             reactiveRedisDataSource.value(ConversationMemory.class);
                         return valueCommands.setex(redisKey, ttlHours * 3600L, memory)

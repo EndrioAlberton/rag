@@ -42,7 +42,7 @@ public class Conversation {
     @Column(name = "last_activity", nullable = false)
     private LocalDateTime lastActivity;
     
-    // Relacionamento one-to-many: mensagens da conversa
+    // One-to-many relationship: conversation messages
     @JsonIgnore
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("timestamp ASC")

@@ -17,14 +17,14 @@ export default defineConfig(({ mode }) => {
   const googleClientId = env.VITE_GOOGLE_CLIENT_ID || '';
   const hasGoogleClientId = googleClientId.trim().length > 0;
   
-  console.log('🔧 Variáveis de ambiente carregadas (' + mode + '):');
-  console.log('  VITE_API_BASE_URL:', env.VITE_API_BASE_URL || '(não definido - usando padrão)');
-  console.log('  VITE_ORION_USERS_URL:', env.VITE_ORION_USERS_URL || '(não definido - usando padrão)');
+  console.log('🔧 Environment variables loaded (' + mode + '):');
+  console.log('  VITE_API_BASE_URL:', env.VITE_API_BASE_URL || '(not defined - using default)');
+  console.log('  VITE_ORION_USERS_URL:', env.VITE_ORION_USERS_URL || '(not defined - using default)');
   if (hasGoogleClientId) {
     console.log('  VITE_GOOGLE_CLIENT_ID: ✅ configurado (' + googleClientId.substring(0, 20) + '...)');
   } else {
-    console.log('  VITE_GOOGLE_CLIENT_ID: ❌ NÃO DEFINIDO - Botão de login Google será oculto');
-    console.log('  💡 Para habilitar, adicione VITE_GOOGLE_CLIENT_ID no arquivo frontend/.env');
+    console.log('  VITE_GOOGLE_CLIENT_ID: ❌ NOT DEFINED - Google login button will be hidden');
+    console.log('  💡 To enable, add VITE_GOOGLE_CLIENT_ID to the frontend/.env file');
   }
   
   return {

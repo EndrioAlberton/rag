@@ -23,8 +23,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.util.Optional;
 
 /**
- * Controller para integração com WhatsApp via webhook.
- * Endpoints públicos (sem autenticação JWT) para receber mensagens da WhatsApp Cloud API.
+ * Controller for WhatsApp integration via webhook.
+ * Public endpoints (no JWT authentication) to receive messages from WhatsApp Cloud API.
  * 
  * @see <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks">WhatsApp Webhooks</a>
  */
@@ -50,8 +50,8 @@ public class WhatsAppController {
     }
 
     /**
-     * Verificação do webhook (GET) - exigida pela Meta ao configurar o webhook.
-     * Retorna hub.challenge se hub.verify_token for válido.
+     * Webhook verification (GET) - required by Meta when configuring the webhook.
+     * Returns hub.challenge if hub.verify_token is valid.
      */
     @GET
     public Response verifyWebhook(
@@ -67,8 +67,8 @@ public class WhatsAppController {
     }
 
     /**
-     * Recebe mensagens do WhatsApp (POST).
-     * Processa em background e retorna 200 imediatamente para evitar timeout.
+     * Receives WhatsApp messages (POST).
+     * Processes in background and returns 200 immediately to avoid timeout.
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -90,10 +90,10 @@ public class WhatsAppController {
 
                     if ("text".equals(msg.type) && msg.text != null && msg.text.body != null && !msg.text.body.isBlank()) {
                         String prompt = msg.text.body.trim();
-                        Log.info("WhatsApp mensagem de " + from + ": " + prompt);
+                        Log.info("WhatsApp message from " + from + ": " + prompt);
                         processAndReplyAsync(sessionId, from, phoneNumberId, prompt);
                     } else if ("audio".equals(msg.type) && msg.audio != null && msg.audio.id != null) {
-                        Log.info("WhatsApp áudio de " + from + " (media id: " + msg.audio.id + ")");
+                        Log.info("WhatsApp audio from " + from + " (media id: " + msg.audio.id + ")");
                         processAudioAndReplyAsync(msg.audio.id, msg.audio.mimeType, from, phoneNumberId);
                     }
                 }
@@ -111,7 +111,7 @@ public class WhatsAppController {
                 .onItem().invoke(transcribedOpt -> {
                     if (transcribedOpt.isEmpty()) {
                         whatsAppMessageSender.sendTextMessage(from,
-                                "Não foi possível transcrever o áudio. Verifique se o OpenAI está configurado e tente enviar uma mensagem de texto.",
+                                "Could not transcribe the audio. Please verify OpenAI is configured and try sending a text message.",
                                 phoneNumberIdFromWebhook);
                     } else {
                         String sessionId = "whatsapp:" + from;
@@ -119,14 +119,14 @@ public class WhatsAppController {
                     }
                 })
                 .onFailure().invoke(e -> {
-                    Log.error("Erro ao processar áudio WhatsApp de " + from, e);
+                    Log.error("Error processing WhatsApp audio from " + from, e);
                     whatsAppMessageSender.sendTextMessage(from,
-                            "Desculpe, ocorreu um erro ao processar seu áudio. Tente novamente ou envie uma mensagem de texto.",
+                            "Sorry, an error occurred while processing your audio. Please try again or send a text message.",
                             phoneNumberIdFromWebhook);
                 })
                 .subscribe().with(
-                        r -> Log.debug("Áudio WhatsApp processado para " + from),
-                        e -> Log.error("Falha no processamento de áudio WhatsApp", e)
+                        r -> Log.debug("WhatsApp audio processed for " + from),
+                        e -> Log.error("WhatsApp audio processing failure", e)
                 );
     }
 
@@ -137,17 +137,17 @@ public class WhatsAppController {
                 .onItem().invoke(response -> {
                     boolean sent = whatsAppMessageSender.sendTextMessage(to, response, phoneNumberIdFromWebhook);
                     if (!sent) {
-                        Log.warn("Falha ao enviar resposta WhatsApp para " + to + " - verifique whatsapp.phone-number-id e whatsapp.access-token");
+                        Log.warn("Failed to send WhatsApp response to " + to + " - check whatsapp.phone-number-id and whatsapp.access-token");
                     }
                 })
                 .onFailure().invoke(e -> {
-                    Log.error("Erro ao processar mensagem WhatsApp de " + to, e);
-                    String errorMsg = "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.";
+                    Log.error("Error processing WhatsApp message from " + to, e);
+                    String errorMsg = "Sorry, an error occurred while processing your message. Please try again.";
                     whatsAppMessageSender.sendTextMessage(to, errorMsg, phoneNumberIdFromWebhook);
                 })
                 .subscribe().with(
-                        r -> Log.debug("Resposta WhatsApp enviada para " + to),
-                        e -> Log.error("Falha no processamento WhatsApp", e)
+                        r -> Log.debug("WhatsApp response sent to " + to),
+                        e -> Log.error("WhatsApp processing failure", e)
                 );
     }
 }

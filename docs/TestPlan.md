@@ -1,105 +1,105 @@
-# Testes REST Assured para Endpoints RAG com Foco em Vue.js
+# REST Assured Tests for RAG Endpoints with Vue.js Focus
 
-Este projeto contém testes automatizados usando REST Assured para validar os endpoints da aplicação RAG (Retrieval-Augmented Generation) com foco especial em perguntas relacionadas ao Vue.js.
+This project contains automated tests using REST Assured to validate the RAG (Retrieval-Augmented Generation) application endpoints with special focus on Vue.js-related questions.
 
-## Estrutura dos Testes
+## Test Structure
 
 ### `RagServiceTest.java`
-Testes completos e abrangentes para todos os endpoints:
+Comprehensive tests for all endpoints:
 
-#### Endpoints Testados
+#### Tested Endpoints
 
 **1. `/ai/chatbot` - Server-Sent Events**
-- ✅ Teste com parâmetros válidos (session + prompt)
-- ✅ Teste sem prompt (deve falhar com status 500)
-- ✅ Teste com prompt específico sobre Vue.js
-- ✅ Teste com caracteres especiais no prompt
-- ✅ Teste com prompt longo
-- ✅ Teste com sessão vazia
+- ✅ Test with valid parameters (session + prompt)
+- ✅ Test without prompt (should fail with status 500)
+- ✅ Test with Vue.js-specific prompt
+- ✅ Test with special characters in prompt
+- ✅ Test with long prompt
+- ✅ Test with empty session
 
 **2. `/ai/ask` - Server-Sent Events**
-- ✅ Teste com parâmetros válidos
-- ✅ Teste sem prompt (deve falhar com status 500)
-- ✅ Teste com pergunta específica sobre Vue.js
-- ✅ Teste de URL encoding com caracteres especiais
+- ✅ Test with valid parameters
+- ✅ Test without prompt (should fail with status 500)
+- ✅ Test with Vue.js-specific question
+- ✅ URL encoding test with special characters
 
 **3. `/ai/memory` - JSON Response**
-- ✅ Teste de recuperação de memória existente
-- ✅ Teste com sessão inexistente (status 204)
-- ✅ Teste sem parâmetro de sessão (status 204)
+- ✅ Test existing memory retrieval
+- ✅ Test with non-existent session (status 204)
+- ✅ Test without session parameter (status 204)
 
-#### Cenários Especiais
+#### Special Scenarios
 
-**Integração Vue.js**
-- ✅ Simulação de fluxo frontend completo
-- ✅ Tutorial interativo com múltiplas perguntas
-- ✅ Verificação de persistência de memória entre requisições
+**Vue.js Integration**
+- ✅ Full frontend flow simulation
+- ✅ Interactive tutorial with multiple questions
+- ✅ Memory persistence verification between requests
 
 **Performance**
-- ✅ Teste de múltiplas requisições simultâneas
-- ✅ Teste de timeout e handling de requisições longas
+- ✅ Multiple simultaneous requests test
+- ✅ Timeout and long request handling test
 
 ### `RagControllerBasicTest.java`
-Testes rápidos e focados especificamente em Vue.js:
+Fast and focused tests specifically for Vue.js:
 
-#### Testes Específicos Vue.js
-- ✅ **Componentes**: "Como criar componentes Vue.js com props?"
-- ✅ **Diretivas**: "Explique as diretivas v-if e v-for do Vue.js"
-- ✅ **Reatividade**: "Como funciona o sistema de reatividade do Vue.js?"
-- ✅ **Composition API**: "Qual a diferença entre Options API e Composition API?"
+#### Vue.js Specific Tests
+- ✅ **Components**: "How to create Vue.js components with props?"
+- ✅ **Directives**: "Explain the v-if and v-for directives in Vue.js"
+- ✅ **Reactivity**: "How does the Vue.js reactivity system work?"
+- ✅ **Composition API**: "What is the difference between Options API and Composition API?"
 
-#### Testes de Validação
-- ✅ Validação de headers HTTP
-- ✅ Validação de Content-Type (text/event-stream para SSE)
-- ✅ Validação de status codes corretos
+#### Validation Tests
+- ✅ HTTP headers validation
+- ✅ Content-Type validation (text/event-stream for SSE)
+- ✅ Correct status codes validation
 
-## Como Executar os Testes
+## How to Run Tests
 
-### Executar todos os testes básicos (mais rápido):
+### Run all basic tests (faster):
 ```bash
 ./mvnw verify -Dtest=RagControllerBasicIT
 ```
 
-### Executar testes específicos do Vue.js:
+### Run Vue.js specific tests:
 ```bash
 ./mvnw verify -Dtest="RagControllerBasicIT#testVue*"
 ```
 
-### Executar um teste específico:
+### Run a specific test:
 ```bash
 ./mvnw verify -Dtest="RagControllerBasicIT#testVueComponentsQuestion"
 ```
 
-### Executar todos os testes completos:
+### Run all complete tests:
 ```bash
 ./mvnw verify -Dtest=RagServiceIT
 ```
 
-## Características dos Testes
+## Test Characteristics
 
-### Content-Type Validação
-Os testes validam que:
-- Endpoints `/ai/chatbot` e `/ai/ask` retornam `text/event-stream` (SSE)
-- Endpoint `/ai/memory` retorna `application/json`
+### Content-Type Validation
+Tests validate that:
+- `/ai/chatbot` and `/ai/ask` endpoints return `text/event-stream` (SSE)
+- `/ai/memory` endpoint returns `application/json`
 
-### Status Codes Esperados
-- **200**: Requisições válidas com prompt
-- **204**: Endpoint memory para sessões inexistentes
-- **500**: Requisições sem prompt (texto em branco)
+### Expected Status Codes
+- **200**: Valid requests with prompt
+- **204**: Memory endpoint for non-existent sessions
+- **500**: Requests without prompt (blank text)
 
-### Casos de Teste Vue.js
+### Vue.js Test Cases
 
-#### 1. **Componentes Vue.js**
+#### 1. **Vue.js Components**
 ```http
 GET /ai/chatbot?session=vue-components-test&prompt=Como criar componentes Vue.js com props?
 ```
 
-#### 2. **Diretivas Vue.js**
+#### 2. **Vue.js Directives**
 ```http
 GET /ai/ask?session=vue-directives-test&prompt=Explique as diretivas v-if e v-for do Vue.js
 ```
 
-#### 3. **Sistema de Reatividade**
+#### 3. **Reactivity System**
 ```http
 GET /ai/chatbot?session=vue-reactivity-test&prompt=Como funciona o sistema de reatividade do Vue.js?
 ```
@@ -109,77 +109,77 @@ GET /ai/chatbot?session=vue-reactivity-test&prompt=Como funciona o sistema de re
 GET /ai/ask?session=vue-composition-api-test&prompt=Qual a diferença entre Options API e Composition API no Vue.js?
 ```
 
-### Fluxo de Integração Testado
+### Integration Flow Tested
 
-1. **Pergunta inicial** sobre Vue.js via `/ai/chatbot`
-2. **Verificação de memória** via `/ai/memory`
-3. **Pergunta de follow-up** via `/ai/ask`
-4. **Validação da persistência** da conversa
+1. **Initial question** about Vue.js via `/ai/chatbot`
+2. **Memory verification** via `/ai/memory`
+3. **Follow-up question** via `/ai/ask`
+4. **Conversation persistence** validation
 
-## Dados de Teste Utilizados
+## Test Data Used
 
-### Base de Conhecimento
-Os testes utilizam documentos sobre Vue.js incluindo:
-- `instancia.pdf`: Documentação sobre instâncias Vue
-- `eventos.txt`: Informações sobre eventos e manipuladores
+### Knowledge Base
+Tests use Vue.js documents including:
+- `instancia.pdf`: Documentation about Vue instances
+- `eventos.txt`: Information about events and handlers
 
-### Sessões de Teste
-Cada teste usa sessões únicas com prefixos identificadores:
-- `vue-*`: Testes específicos de Vue.js
-- `test-*`: Testes gerais
-- `performance-*`: Testes de performance
-- Timestamps são usados para garantir unicidade
+### Test Sessions
+Each test uses unique sessions with identifier prefixes:
+- `vue-*`: Vue.js specific tests
+- `test-*`: General tests
+- `performance-*`: Performance tests
+- Timestamps are used to ensure uniqueness
 
-## Melhores Práticas Implementadas
+## Best Practices Implemented
 
-### ✅ Isolamento de Testes
-Cada teste usa uma sessão única para evitar interferência
+### ✅ Test Isolation
+Each test uses a unique session to avoid interference
 
-### ✅ Timeouts Configurados
-Testes com timeouts apropriados para evitar execução infinita
+### ✅ Configured Timeouts
+Tests with appropriate timeouts to avoid infinite execution
 
-### ✅ Validação Completa
+### ✅ Complete Validation
 - Status codes
-- Headers HTTP
+- HTTP headers
 - Content-Type
-- Estrutura de resposta
+- Response structure
 
-### ✅ Casos de Erro
-Testes para cenários de falha (prompt vazio, sessão inexistente)
+### ✅ Error Cases
+Tests for failure scenarios (empty prompt, non-existent session)
 
-### ✅ Caracteres Especiais
-Validação com acentos, emojis e caracteres especiais
+### ✅ Special Characters
+Validation with accents, emojis and special characters
 
 ### ✅ Performance
-Testes de múltiplas requisições simultâneas
+Multiple simultaneous requests tests
 
-## Resultados dos Testes
+## Test Results
 
-Exemplo de saída bem-sucedida:
+Example of successful output:
 ```
 [INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
 
-Os testes validam que a aplicação RAG está funcionando corretamente para:
-- ✅ Responder perguntas sobre Vue.js
-- ✅ Manter contexto de conversação
-- ✅ Lidar com caracteres especiais
-- ✅ Retornar formatos corretos (SSE/JSON)
-- ✅ Gerenciar sessões de usuário
+Tests validate that the RAG application is working correctly for:
+- ✅ Answering Vue.js questions
+- ✅ Maintaining conversation context
+- ✅ Handling special characters
+- ✅ Returning correct formats (SSE/JSON)
+- ✅ Managing user sessions
 
-## Observações Importantes
+## Important Notes
 
 ### Server-Sent Events (SSE)
-Os endpoints de chat retornam streams de eventos, não texto simples. Os testes validam:
+Chat endpoints return event streams, not plain text. Tests validate:
 - Content-Type: `text/event-stream`
-- Status 200 para início do stream
-- Headers apropriados para SSE
+- Status 200 for stream start
+- Appropriate headers for SSE
 
-### Dependências de Serviços
-Os testes dependem de:
-- Ollama (modelo de IA)
-- ChromaDB (banco vetorial)
-- Redis (cache/memória)
+### Service Dependencies
+Tests depend on:
+- Ollama (AI model)
+- ChromaDB (vector database)
+- Redis (cache/memory)
 
-Porém, estes serviços são iniciados automaticamente via Testcontainers durante os testes.
+However, these services are started automatically via Testcontainers during tests.

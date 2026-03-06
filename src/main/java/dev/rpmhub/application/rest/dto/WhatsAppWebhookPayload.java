@@ -14,7 +14,7 @@ import java.util.List;
 
 /**
  * DTO para o payload do webhook da WhatsApp Cloud API (Meta).
- * Estrutura baseada na documentação oficial:
+ * Structure based on official documentation:
  * https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/components
  */
 @JsonIgnoreProperties(ignoreUnknown = true)

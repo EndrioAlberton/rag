@@ -1,6 +1,6 @@
 <template>
   <div class="chat-wrapper">
-    <!-- Área de mensagens -->
+    <!-- Messages area -->
     <div class="messages-container" ref="chatContainer">
       <div v-if="error" class="mb-4">
         <v-alert type="error" dismissible @click:close="error = null">
@@ -15,14 +15,14 @@
               @click="initializeChat"
               class="ml-2"
             >
-              Tentar Novamente
+              Try Again
             </v-btn>
           </div>
         </v-alert>
       </div>
       <div v-if="initializing" class="text-center mt-4">
         <v-progress-circular indeterminate color="primary"></v-progress-circular>
-        <div class="mt-2 text-body-2">Inicializando conversa...</div>
+        <div class="mt-2 text-body-2">Initializing conversation...</div>
       </div>
       <div v-else>
         <div 
@@ -47,16 +47,16 @@
         </div>
         <div v-if="isLoading" class="text-center mt-4">
           <v-progress-circular indeterminate color="primary" size="32"></v-progress-circular>
-          <div class="mt-2 text-body-2 text--secondary">Processando...</div>
+          <div class="mt-2 text-body-2 text--secondary">Processing...</div>
         </div>
       </div>
     </div>
 
-    <!-- Input de mensagem - Sempre visível na parte inferior -->
+    <!-- Message input - Always visible at the bottom -->
     <div class="input-container">
       <v-text-field
         v-model="prompt"
-        label="Digite sua mensagem..."
+        label="Type your message..."
         outlined
         dense
         hide-details
@@ -85,9 +85,9 @@ import 'highlight.js/styles/github-dark.css';
 import { apiService } from '../services/api';
 import { authService } from '../services/auth';
 
-// Configurar marked com opções adequadas
+// Configure marked with appropriate options
 marked.use({
-  breaks: true, // Quebras de linha como <br>
+  breaks: true, // Line breaks as <br>
   gfm: true, // GitHub Flavored Markdown
   highlight: function(code, lang) {
     const language = hljs.getLanguage(lang) ? lang : 'plaintext';
@@ -118,8 +118,8 @@ export default {
   watch: {
     '$route.params.conversationId': {
       handler(newId, oldId) {
-        // Sempre reinicializar quando o conversationId mudar
-        // Isso inclui quando muda de um ID para undefined (nova conversa)
+        // Always reinitialize when conversationId changes
+        // This includes when changing from an ID to undefined (new conversation)
         if (newId !== oldId) {
           this.initializeChat();
         }
@@ -128,8 +128,8 @@ export default {
     },
     '$route.fullPath': {
       handler(newPath, oldPath) {
-        // Se navegar para /chat sem conversationId, criar nova conversa
-        // Isso garante que mesmo quando já estamos em /chat, uma nova navegação força a criação
+        // If navigating to /chat without conversationId, create new conversation
+        // This ensures that even when already on /chat, a new navigation forces creation
         if (newPath === '/chat' && newPath !== oldPath) {
           this.initializeChat();
         }
@@ -140,7 +140,7 @@ export default {
   methods: {
     getRenderedMarkdown(message) {
       if (message.type !== 'assistant') return '';
-      // Não chamar cleanContent aqui, será chamado em renderMarkdown
+      // Do not call cleanContent here, it will be called in renderMarkdown
       return this.renderMarkdown(message.content);
     },
     
@@ -151,18 +151,18 @@ export default {
         
         const user = authService.getUser();
         if (!user) {
-          console.warn('Usuário não autenticado, redirecionando para login');
+          console.warn('User not authenticated, redirecting to login');
           this.$router.push('/login');
           return;
         }
 
-        // Usar hash como userId (o backend sincroniza automaticamente via JWT)
-        // O hash do Orion Users é usado para mapear com o usuário do sistema RAG
+        // Use hash as userId (backend syncs automatically via JWT)
+        // Orion Users hash is used to map with the RAG system user
         this.userId = user.id || user.hash || user.email;
         
         if (!this.userId) {
-          console.error('Usuário sem identificador válido:', user);
-          this.error = 'Erro: usuário sem identificador válido. Faça login novamente.';
+          console.error('User without valid identifier:', user);
+          this.error = 'Error: user without valid identifier. Please log in again.';
           this.initializing = false;
           setTimeout(() => {
             this.$router.push('/login');
@@ -170,40 +170,40 @@ export default {
           return;
         }
         
-        console.log('Inicializando chat para usuário:', this.userId);
+        console.log('Initializing chat for user:', this.userId);
         const routeConversationId = this.$route.params.conversationId;
         
-        // Limpar estado anterior ao criar nova conversa
+        // Clear previous state when creating new conversation
         if (!routeConversationId || routeConversationId === 'undefined' || routeConversationId === 'null') {
           this.conversationId = null;
           this.messages = [];
         }
         
-        // Verificar se conversationId é válido (não undefined, null ou string vazia)
+        // Verify if conversationId is valid (not undefined, null or empty string)
         if (routeConversationId && routeConversationId !== 'undefined' && routeConversationId !== 'null') {
           this.conversationId = routeConversationId;
-          // Carregar histórico de mensagens
+          // Load message history
           await this.loadHistory();
         } else {
-          // Se não há conversationId, criar nova conversa
-          console.log('Criando nova conversa para usuário:', this.userId);
+          // If no conversationId, create new conversation
+          console.log('Creating new conversation for user:', this.userId);
           try {
-            const conversation = await apiService.createConversation(this.userId, 'Nova Conversa');
-            console.log('Conversa criada:', conversation);
+            const conversation = await apiService.createConversation(this.userId, 'New Conversation');
+            console.log('Conversation created:', conversation);
             
             if (conversation && conversation.id) {
               this.conversationId = conversation.id;
               // Usar replace para não adicionar ao histórico de navegação
               await this.$router.replace(`/chat/${this.conversationId}`);
             } else {
-              throw new Error('Resposta inválida ao criar conversa: sem ID');
+              throw new Error('Invalid response when creating conversation: no ID');
             }
           } catch (error) {
-            console.error('Erro ao criar conversa:', error);
-            const errorMessage = error.message || error.response?.data?.message || 'Erro ao criar conversa. Tente novamente.';
+            console.error('Error creating conversation:', error);
+            const errorMessage = error.message || error.response?.data?.message || 'Error creating conversation. Please try again.';
             this.error = errorMessage;
             this.initializing = false;
-            // Redirecionar após mostrar erro
+            // Redirect after showing error
             setTimeout(() => {
               this.$router.push('/conversations');
             }, 3000);
@@ -212,8 +212,8 @@ export default {
         }
 
       } catch (error) {
-        console.error('Erro ao inicializar chat:', error);
-        this.error = error.message || 'Erro ao inicializar chat. Tente recarregar a página.';
+        console.error('Error initializing chat:', error);
+        this.error = error.message || 'Error initializing chat. Please reload the page.';
       } finally {
         this.initializing = false;
         this.$nextTick(() => {
@@ -224,10 +224,10 @@ export default {
 
     cleanContent(text) {
       if (!text) return '';
-      // Remover apenas prefixos "data:" que possam aparecer no início de linhas
-      // Preservar todo o resto do conteúdo, incluindo markdown
+      // Remove only "data:" prefixes that may appear at the start of lines
+      // Preserve all other content, including markdown
       let cleaned = text.replace(/^data:\s*/gm, '');
-      // Não remover espaços ou quebras de linha - o marked precisa deles
+      // Do not remove spaces or line breaks - marked needs them
       return cleaned;
     },
 
@@ -235,21 +235,21 @@ export default {
       try {
         if (!text) return '';
         
-        // Limpar conteúdo primeiro
+        // Clean content first
         const cleaned = this.cleanContent(text);
         if (!cleaned) return '';
         
-        // Normalizar markdown incompleto durante streaming
+        // Normalize incomplete markdown during streaming
         const normalized = this.normalizeIncompleteMarkdown(cleaned);
         
-        // Processar quebras de linha antes de renderizar
-        // Garantir que quebras de linha duplas criem parágrafos
+        // Process line breaks before rendering
+        // Ensure double line breaks create paragraphs
         const processed = this.processLineBreaks(normalized);
         
-        // Renderizar markdown - opções já configuradas globalmente com marked.use()
+        // Render markdown - options already configured globally with marked.use()
         const html = marked.parse(processed);
         
-        // Aplicar highlight.js após renderização
+        // Apply highlight.js after rendering
         this.$nextTick(() => {
           const elements = this.$el?.querySelectorAll('.markdown-content');
           if (elements) {
@@ -265,19 +265,19 @@ export default {
         
         return html;
       } catch (error) {
-        console.error('Erro ao renderizar markdown:', error);
-        // Em caso de erro, retornar texto escapado
+        console.error('Error rendering markdown:', error);
+        // On error, return escaped text
         return this.escapeHtml(text);
       }
     },
 
     processLineBreaks(text) {
-      // Normalizar diferentes tipos de quebras de linha
+      // Normalize different types of line breaks
       let processed = text
-        .replace(/\r\n/g, '\n') // Normalizar quebras de linha Windows
-        .replace(/\r/g, '\n');   // Normalizar quebras de linha Mac
+        .replace(/\r\n/g, '\n') // Normalize Windows line breaks
+        .replace(/\r/g, '\n');   // Normalize Mac line breaks
       
-      // Se o texto não tem quebras de linha (tudo em uma linha), adicionar quebras inteligentes
+      // If text has no line breaks (all on one line), add intelligent breaks
       const hasLineBreaks = processed.includes('\n');
       if (!hasLineBreaks || processed.split('\n').length < 3) {
         processed = this.addIntelligentLineBreaks(processed);
@@ -289,47 +289,51 @@ export default {
     addIntelligentLineBreaks(text) {
       let processed = text;
       
-      // Padrões para adicionar quebras de linha duplas (novos parágrafos):
-      // 1. Antes de palavras-chave importantes (com ou sem dois pontos)
+      // Patterns to add double line breaks (new paragraphs):
+      // 1. Before important keywords (with or without colons)
       const keywords = [
+        'History:', 'Context:', 'Question:', 'Answer:', 'Answers:',
+        'Problems', 'Need', 'Architecture', 'Features', 'Benefits',
+        'Example:', 'Examples:', 'Resources', 'Documentation', 'Tutorial', 'GitHub',
+        'How it works:', 'What is:', 'Here are', "Let's go!", 'In summary',
         'Histórico:', 'Contexto:', 'Pergunta:', 'Resposta:', 'Respostas:',
         'Problemas', 'Necessidade', 'Arquitetura', 'Características', 'Benefícios',
-        'Exemplo:', 'Exemplos:', 'Recursos', 'Documentação', 'Tutorial', 'GitHub',
+        'Exemplo:', 'Exemplos:', 'Recursos', 'Documentação', 'Tutorial',
         'Como funciona:', 'O que é:', 'Aqui estão', 'Vamos lá!', 'Em resumo'
       ];
       keywords.forEach(keyword => {
         const escaped = this.escapeRegex(keyword);
-        // Quebrar antes da palavra-chave se não estiver no início
+        // Break before keyword if not at the start
         const regex = new RegExp(`([^\\n\\s])(${escaped})`, 'gi');
         processed = processed.replace(regex, '$1\n\n$2');
       });
       
-      // 2. Antes de listas numeradas (1., 2., 3., etc.) - padrão mais específico
+      // 2. Before numbered lists (1., 2., 3., etc.) - more specific pattern
       processed = processed.replace(/([^\d])(\d+\.\s+[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ])/g, '$1\n\n$2');
       
-      // 3. Antes de listas com marcadores (*, -, •) quando seguido de maiúscula
+      // 3. Before bullet lists (*, -, •) when followed by uppercase
       processed = processed.replace(/([^\n])([\*\-•]\s+[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ])/g, '$1\n$2');
       
-      // 4. Antes de seções em negrito/markdown (**texto**)
+      // 4. Before bold/markdown sections (**text**)
       processed = processed.replace(/([^\n])(\*\*[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ])/g, '$1\n\n$2');
       
-      // 5. Após pontos finais seguidos de espaço e maiúscula (novas frases importantes)
-      // Mas evitar quebrar em abreviações comuns
+      // 5. After periods followed by space and uppercase (new important sentences)
+      // But avoid breaking on common abbreviations
       processed = processed.replace(/([.!?])\s+([A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ][a-záéíóúàèìòùâêîôûãõç]{3,})/g, '$1\n\n$2');
       
-      // 6. Quebrar após dois pontos quando seguido de texto longo (definições)
+      // 6. Break after colons when followed by long text (definitions)
       processed = processed.replace(/(:[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ][^.!?]{40,}?)([.!?]|$)/g, '$1$2\n\n');
       
-      // 7. Quebrar após exclamações seguidas de maiúscula
+      // 7. Break after exclamations followed by uppercase
       processed = processed.replace(/(!)\s+([A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ][a-záéíóúàèìòùâêîôûãõç]{2,})/g, '$1\n\n$2');
       
-      // Limpar múltiplas quebras de linha consecutivas (mais de 2)
+      // Clean consecutive line breaks (more than 2)
       processed = processed.replace(/\n{3,}/g, '\n\n');
       
-      // Limpar espaços no início de linhas
+      // Clean spaces at the start of lines
       processed = processed.replace(/\n\s+/g, '\n');
       
-      // Limpar quebras de linha no início e fim
+      // Clean line breaks at start and end
       processed = processed.trim();
       
       return processed;
@@ -340,18 +344,18 @@ export default {
     },
 
     normalizeIncompleteMarkdown(text) {
-      // Apenas tentar fechar blocos de código incompletos durante streaming
-      // Não modificar outros aspectos do markdown para preservar formatação
+      // Only try to close incomplete code blocks during streaming
+      // Do not modify other markdown aspects to preserve formatting
       let normalized = text;
       
-      // Contar backticks para verificar se há blocos de código incompletos
+      // Count backticks to check for incomplete code blocks
       const codeBlockMatches = normalized.match(/```/g);
       if (codeBlockMatches && codeBlockMatches.length % 2 !== 0) {
-        // Bloco de código incompleto - adicionar fechamento temporário
+        // Incomplete code block - add temporary closing
         normalized += '\n```';
       }
       
-      // Retornar texto sem outras modificações para preservar formatação markdown
+      // Return text without other modifications to preserve markdown formatting
       return normalized;
     },
 
@@ -369,7 +373,7 @@ export default {
         const memory = await apiService.getMemory(this.userId, this.conversationId);
         if (memory && memory.messages && Array.isArray(memory.messages)) {
           this.messages = memory.messages.map(msg => {
-            // Mapear tipos do backend (ASSISTANT, USER) para lowercase
+              // Map backend types (ASSISTANT, USER) to lowercase
             let type = 'assistant';
             if (msg.type) {
               const msgType = msg.type.toUpperCase();
@@ -387,9 +391,9 @@ export default {
           });
         }
       } catch (error) {
-        console.error('Erro ao carregar histórico:', error);
-        // Não mostrar erro fatal, apenas logar
-        // O usuário pode continuar a conversar mesmo sem histórico
+        console.error('Error loading history:', error);
+        // Do not show fatal error, only log
+        // User can continue chatting even without history
       }
     },
 
@@ -405,7 +409,7 @@ export default {
     async sendMessage() {
       if (!this.prompt.trim() || this.isLoading || !this.conversationId) {
         if (!this.conversationId) {
-          this.error = 'Conversa não inicializada. Por favor, recarregue a página.';
+          this.error = 'Conversation not initialized. Please reload the page.';
         }
         return;
       }
@@ -414,7 +418,7 @@ export default {
       this.prompt = '';
       this.error = null;
       
-      // Adicionar mensagem do usuário
+      // Add user message
       const userMsgIndex = this.messages.length;
       this.messages.push({
         type: 'user',
@@ -422,7 +426,7 @@ export default {
         isNew: true
       });
 
-      // Remover flag isNew após animação
+      // Remove isNew flag after animation
       this.$nextTick(() => {
         setTimeout(() => {
           if (this.messages[userMsgIndex] && this.messages[userMsgIndex].type === 'user') {
@@ -434,7 +438,7 @@ export default {
       this.scrollToBottom();
       this.isLoading = true;
 
-      // Adicionar mensagem do assistente (vazia inicialmente)
+      // Add assistant message (empty initially)
       const botMessageIndex = this.messages.length;
       this.messages.push({
         type: 'assistant',
@@ -447,28 +451,28 @@ export default {
           this.conversationId,
           userMessage,
           (data) => {
-            // Atualizar mensagem do bot incrementalmente
+            // Update bot message incrementally
             if (this.messages[botMessageIndex]) {
-              // Limpar qualquer "data:" que possa aparecer
+              // Clean any "data:" that may appear
               const cleanedData = data.replace(/^data:\s*/gm, '').trim();
               if (cleanedData) {
                 this.messages[botMessageIndex].content += cleanedData;
-                // Scroll automático enquanto recebe dados
+                // Auto-scroll while receiving data
                 this.scrollToBottom();
               }
             }
           },
           (error) => {
-            console.error('Erro no stream:', error);
+            console.error('Stream error:', error);
             if (this.messages[botMessageIndex]) {
-              this.messages[botMessageIndex].content = 'Erro ao processar mensagem. Por favor, tente novamente.';
+              this.messages[botMessageIndex].content = 'Error processing message. Please try again.';
             }
-            this.error = error.message || 'Erro ao processar mensagem. Verifique sua conexão e tente novamente.';
+            this.error = error.message || 'Error processing message. Check your connection and try again.';
             this.isLoading = false;
           },
           () => {
             this.isLoading = false;
-            // Remover flag isNew da mensagem do assistente após animação
+            // Remove isNew flag from assistant message after animation
             if (this.messages[botMessageIndex]) {
               this.$nextTick(() => {
                 setTimeout(() => {
@@ -480,11 +484,11 @@ export default {
           }
         );
       } catch (error) {
-        console.error('Erro ao enviar mensagem:', error);
+        console.error('Error sending message:', error);
         if (this.messages[botMessageIndex]) {
-          this.messages[botMessageIndex].content = 'Erro ao enviar mensagem. Por favor, tente novamente.';
+          this.messages[botMessageIndex].content = 'Error sending message. Please try again.';
         }
-        this.error = error.response?.data?.message || error.message || 'Erro ao enviar mensagem. Verifique sua conexão e tente novamente.';
+        this.error = error.response?.data?.message || error.message || 'Error sending message. Check your connection and try again.';
         this.isLoading = false;
       }
     }
@@ -564,28 +568,28 @@ export default {
   color: #333;
 }
 
-/* Parágrafos */
+/* Paragraphs */
 .markdown-content :deep(p) {
   margin-bottom: 1rem;
   line-height: 1.6;
-  min-height: 1.6em; /* Garantir altura mínima para parágrafos */
+  min-height: 1.6em; /* Ensure minimum height for paragraphs */
 }
 
 .markdown-content :deep(p:last-child) {
   margin-bottom: 0;
 }
 
-/* Espaçamento entre parágrafos consecutivos */
+/* Spacing between consecutive paragraphs */
 .markdown-content :deep(p + p) {
   margin-top: 0.5rem;
 }
 
-/* Quebras de linha - garantir que sejam visíveis */
+/* Line breaks - ensure they are visible */
 .markdown-content :deep(br) {
   line-height: 1.6;
 }
 
-/* Garantir espaçamento entre parágrafos */
+/* Ensure spacing between paragraphs */
 .markdown-content :deep(p + p) {
   margin-top: 0.75rem;
 }
@@ -639,7 +643,7 @@ export default {
   margin-top: 0;
 }
 
-/* Código inline */
+/* Inline code */
 .markdown-content :deep(code) {
   background-color: rgba(0, 0, 0, 0.05);
   padding: 0.2em 0.4em;
@@ -649,7 +653,7 @@ export default {
   color: #e83e8c;
 }
 
-/* Blocos de código */
+/* Code blocks */
 .markdown-content :deep(pre) {
   background-color: #1e1e1e;
   padding: 1rem;
@@ -669,7 +673,7 @@ export default {
   overflow-x: auto;
 }
 
-/* Listas */
+/* Lists */
 .markdown-content :deep(ul),
 .markdown-content :deep(ol) {
   margin: 0.75rem 0;
@@ -689,7 +693,7 @@ export default {
   margin-bottom: 0.25rem;
 }
 
-/* Listas de tarefas */
+/* Task lists */
 .markdown-content :deep(input[type="checkbox"]) {
   margin-right: 0.5rem;
 }
@@ -708,7 +712,7 @@ export default {
   margin-bottom: 0;
 }
 
-/* Tabelas */
+/* Tables */
 .markdown-content :deep(table) {
   border-collapse: collapse;
   margin: 1rem 0;
@@ -751,7 +755,7 @@ export default {
   color: #6f42c1;
 }
 
-/* Imagens */
+/* Images */
 .markdown-content :deep(img) {
   max-width: 100%;
   height: auto;
@@ -760,14 +764,14 @@ export default {
   display: block;
 }
 
-/* Regra horizontal */
+/* Horizontal rule */
 .markdown-content :deep(hr) {
   border: none;
   border-top: 1px solid #eaecef;
   margin: 1.5rem 0;
 }
 
-/* Texto forte e itálico - usar maior especificidade */
+/* Bold and italic text - use higher specificity */
 .assistant-message-content.markdown-content :deep(strong),
 .assistant-message-content.markdown-content :deep(b),
 .markdown-content :deep(strong),
@@ -783,14 +787,14 @@ export default {
   font-style: italic;
 }
 
-/* Texto riscado */
+/* Strikethrough text */
 .markdown-content :deep(del),
 .markdown-content :deep(s) {
   text-decoration: line-through;
   opacity: 0.7;
 }
 
-/* Garantir que o conteúdo preserve formatação */
+/* Ensure content preserves formatting */
 .markdown-content {
   word-wrap: break-word;
   overflow-wrap: break-word;
