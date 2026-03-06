@@ -57,6 +57,20 @@ class RagControllerBasicIT {
     }
 
     @Test
+    @DisplayName("Context endpoint test - MCP course-aware retrieval")
+    void testContextEndpoint() {
+        given()
+            .when()
+                .queryParam("session", "context-test")
+                .queryParam("prompt", "variáveis em JavaScript")
+                .queryParam("maxResults", 3)
+                .get("/ai/context")
+            .then()
+                .statusCode(200)
+                .header("Content-Type", "application/json");
+    }
+
+    @Test
     @DisplayName("Vue.js specific test - question about components")
     void testVueComponentsQuestion() {
         given()

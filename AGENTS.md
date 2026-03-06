@@ -24,4 +24,5 @@ RAG (Retrieval-Augmented Generation) Chatbot — a Java 21 / Quarkus 3.31.4 back
 - **No ESLint/lint configuration** exists in this project.
 - **Tests are integration tests only** (`*IT.java`) — they run via `./mvnw verify`, not `./mvnw test`. They require Docker for Testcontainers and `OPENAI_API_KEY` for AI endpoints.
 - **Startup takes ~60-90s** on first run due to Docker image pulls (PostgreSQL+PGVector, Redis, Testcontainers Ryuk) and document ingestion (scraping 19 URLs + local files).
-- **Authentication.** The frontend login requires an external "Orion Users" service at `http://localhost:8080` which is not part of this repo. The RAG chatbot API endpoints (`/ai/chatbot`, `/ai/ask`, `/ai/memory`) can be tested directly via curl without authentication.
+- **Authentication.** The frontend login requires an external "Orion Users" service at `http://localhost:8080` which is not part of this repo. The RAG chatbot API endpoints (`/ai/chatbot`, `/ai/ask`, `/ai/memory`, `/ai/context`) can be tested directly via curl without authentication.
+- **MCP Server (issue #12).** The Quarkus backend includes an MCP server (quarkus-mcp-server-http) for course-aware Q&A. When Quarkus is running, the MCP endpoint is at `http://localhost:8081/mcp/sse`. Configure Cursor/Claude to connect via HTTP/SSE.

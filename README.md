@@ -1,10 +1,21 @@
-# RAG Test - RAG System with Generative AI
+# RAG - RAG System with Generative AI
 
 This project implements a RAG (Retrieval-Augmented Generation) system
-using Quarkus, LangChain4j and Ollama to create an intelligent chatbot that
+using Quarkus, LangChain4j and OpenAI to create an intelligent chatbot that
 can answer questions based on ingested documents.
 
-## RAG Directory
+## Project Layout
+
+```text
+rag/
+├── frontend/              # Vue.js 3 + Vuetify frontend
+├── src/main/java/         # Quarkus backend (Java 21)
+├── src/main/resources/
+│   ├── rag/               # Sample documents for ingestion
+│   └── db/migration/      # Flyway migrations (PostgreSQL)
+├── docs/                  # Documentation (MCP, TestPlan)
+└── pom.xml
+```
 
 The `src/main/resources/rag` directory contains sample documents for
 ingestion and system testing. You can add your own documents to this
@@ -13,10 +24,10 @@ directory to expand the chatbot's knowledge.
 ## 🛠️ Technologies Used
 
 - **Java 21** - Programming language
-- **Quarkus 3.26.2** - Framework for cloud-native Java applications
+- **Quarkus 3.31.4** - Framework for cloud-native Java applications
 - **LangChain4j** - Framework for AI integration
-- **Ollama** - Platform to run AI models locally
-- **Chroma** - Vector database for embeddings
+- **OpenAI** - LLM (gpt-4o-mini) and embeddings (text-embedding-3-small)
+- **PostgreSQL + PGVector** - Vector database for embeddings (via LangChain4j)
 - **Redis** - Cache and memory management
 - **Maven** - Dependency management
 
@@ -24,39 +35,16 @@ directory to expand the chatbot's knowledge.
 
 - Java 21 or higher
 - Maven 3.8+
-- Ollama installed and configured
-- Docker and Docker Compose
+- Docker (for PostgreSQL+PGVector and Redis via Quarkus Dev Services)
+- **OPENAI_API_KEY** - Required for AI endpoints
 
 ## 🚀 Installation and Configuration
 
-### 1. Ollama Installation
+### 1. Environment
 
 ```bash
-# macOS
-brew install ollama
-
-# Linux
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Windows
-# Download the installer from https://ollama.com/download/windows
-```
-
-### 2. Download AI Models in Ollama
-
-```bash
-# Chat model
-ollama pull gemma3:1b
-
-# Embeddings model
-ollama pull all-minilm:33m
-```
-
-### 3. Service Initialization
-
-```bash
-# Start Ollama
-ollama serve
+# Required: OpenAI API key for chat and embeddings
+export OPENAI_API_KEY=your-openai-api-key
 
 # Clone the repository
 git clone https://github.com/rodrigoprestesmachado/rag.git
@@ -97,13 +85,13 @@ cd ..
 ./mvnw quarkus:dev
 ```
 
-***Note:*** Chroma and Redis will be started automatically via Quarkus Dev Services. Dev Services is a Quarkus feature that facilitates local development by automatically starting services such as databases, message queues, caches, and more, without configuration. However, Docker must be installed for Quarkus to create and manage these containers.
+***Note:*** PostgreSQL (with PGVector extension) and Redis are started automatically via Quarkus Dev Services. Docker must be installed and running for Quarkus to create and manage these containers.
 
 ### User Interface
 
 If you want to test the chat interface, simply press the `w` key in the
 terminal when the application is running and Quarkus will open the
-web interface at: <http://localhost:8080/>.
+web interface at: <http://localhost:8081/>.
 
 ### Production Mode
 
@@ -132,9 +120,12 @@ java -jar target/*-runner.jar
 # Build Docker image
 docker build -f src/main/docker/Dockerfile.jvm -t rag:jvm .
 
-# Run container
-docker run -i --rm -p 8080:8080 \
-  -e QUARKUS_LANGCHAIN4J_OLLAMA_BASE_URL=http://host.docker.internal:11434/ \
+# Run container (requires OPENAI_API_KEY and PostgreSQL/Redis URLs)
+docker run -i --rm -p 8081:8081 \
+  -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  -e QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://host.docker.internal:5432/rag_db \
+  -e QUARKUS_DATASOURCE_REACTIVE_URL=postgresql://host.docker.internal:5432/rag_db \
+  -e QUARKUS_REDIS_HOSTS=redis://host.docker.internal:6379 \
   rag:jvm
 ```
 
@@ -147,9 +138,12 @@ docker run -i --rm -p 8080:8080 \
 # Build Docker image
 docker build -f src/main/docker/Dockerfile.native -t rag:native .
 
-# Run container
-docker run -i --rm -p 8080:8080 \
-  -e QUARKUS_LANGCHAIN4J_OLLAMA_BASE_URL=http://host.docker.internal:11434/ \
+# Run container (same env vars as JVM)
+docker run -i --rm -p 8081:8081 \
+  -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  -e QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://host.docker.internal:5432/rag_db \
+  -e QUARKUS_DATASOURCE_REACTIVE_URL=postgresql://host.docker.internal:5432/rag_db \
+  -e QUARKUS_REDIS_HOSTS=redis://host.docker.internal:6379 \
   rag:native
 ```
 
@@ -165,22 +159,29 @@ services:
       context: .
       dockerfile: src/main/docker/Dockerfile.jvm
     ports:
-      - "8080:8080"
+      - "8081:8081"
     environment:
-      - QUARKUS_LANGCHAIN4J_OLLAMA_BASE_URL=http://host.docker.internal:11434/
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://postgres:5432/rag_db
+      - QUARKUS_DATASOURCE_REACTIVE_URL=postgresql://postgres:5432/rag_db
+      - QUARKUS_REDIS_HOSTS=redis://redis:6379
     depends_on:
       - redis
-      - chroma
+      - postgres
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
 
-  chroma:
-    image: chromadb/chroma:latest
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: quarkus
+      POSTGRES_PASSWORD: quarkus
+      POSTGRES_DB: rag_db
     ports:
-      - "8000:8000"
+      - "5432:5432"
 ```
 
 Run with:
@@ -203,13 +204,13 @@ src/main/java/dev/rpmhub/
 │   ├── port/              # Interfaces/Contracts
 │   └── usecase/           # Use cases/Business rules
 ├── application/           # Application layer
-│   ├── adapter/           # Application adapters
+│   ├── mcp/               # MCP tools (course-aware Q&A)
 │   └── rest/              # REST controllers
 └── infrastructure/        # Infrastructure layer
-    ├── adapter/           # External adapters
-    ├── config/            # Configuration
+    ├── adapter/           # External adapters (AI, etc.)
     ├── repository/        # Repository implementations
-    └── service/           # Infrastructure services
+    ├── service/           # Infrastructure services
+    └── util/              # Utilities
 ```
 
 ### Hexagonal Architecture Principles
@@ -284,7 +285,7 @@ Hexagonal architecture is especially valuable in RAG systems due to the evolutio
 
 1. **Model Experimentation**: Facilitates testing with different LLMs (Ollama, OpenAI, Claude) without changing business logic
 2. **Multiple Embedding Strategies**: Allows comparing different vectorization algorithms (sentence-transformers, OpenAI embeddings, etc.)
-3. **Interchangeable Vector Databases**: Easy support for Chroma, Pinecone, Weaviate or Qdrant
+3. **Interchangeable Vector Databases**: Easy support for PostgreSQL+PGVector, Pinecone, Weaviate or Qdrant
 4. **Chunking Strategies**: Implementation of different approaches for document splitting
 5. **Adaptable Memory**: Switching between Redis, relational database or in-process memory
 6. **Document Processing**: Extensibility for PDF, Word, HTML, etc.
@@ -294,6 +295,7 @@ Hexagonal RAG System:
 
 ┌─────────────────────────┐
 │    REST Controllers     │ ← Interface Layer
+│    MCP Tools            │
 ├─────────────────────────┤
 │      Use Cases          │ ← RAG Orchestration
 │  • ChatbotUseCase       │
@@ -306,8 +308,8 @@ Hexagonal RAG System:
 │  • MemoryService        │
 ├─────────────────────────┤
 │      Adapters           │ ← Implementations
-│  • OllamaAdapter        │
-│  • ChromaAdapter        │
+│  • OpenAIAdapter        │
+│  • PGVector (Embedding) │
 │  • RedisAdapter         │
 └─────────────────────────┘
 ```
@@ -330,10 +332,7 @@ public interface AIService {
 
 // Infrastructure implements different adapters
 @ApplicationScoped
-public class OllamaAdapter implements AIService { ... }
-
-@ApplicationScoped  
-public class OpenAIAdapter implements AIService { ... }
+public class LangChainAIService implements AIService { ... }  // OpenAI, Azure, etc.
 
 // Use case remains unchanged
 @ApplicationScoped
@@ -379,21 +378,28 @@ public interface EmbeddingRepository {
 
 ```bash
 # Conversation with context maintained per session
-curl "http://localhost:8080/ai/chatbot?session=user123&prompt=Hello, how can you help me?"
+curl "http://localhost:8081/ai/chatbot?session=user123&prompt=Hello, how can you help me?"
 ```
 
 #### 2. Questions about Documents
 
 ```bash
 # Query based on ingested documents
-curl "http://localhost:8080/ai/ask?session=user123&prompt=What is Vue.js?"
+curl "http://localhost:8081/ai/ask?session=user123&prompt=What is Vue.js?"
 ```
 
 #### 3. Memory Management
 
 ```bash
 # Get conversation history
-curl "http://localhost:8080/ai/memory?session=user123"
+curl "http://localhost:8081/ai/memory?session=user123"
+```
+
+#### 4. Context Retrieval (MCP / Course-Aware Q&A)
+
+```bash
+# Retrieve semantically relevant course content for a query (used by MCP tools)
+curl "http://localhost:8081/ai/context?session=user123&prompt=What%20are%20variables%20in%20JavaScript?&maxResults=5"
 ```
 
 ### Usage Examples
@@ -401,7 +407,7 @@ curl "http://localhost:8080/ai/memory?session=user123"
 ```javascript
 // JavaScript/Frontend
 const response = await fetch(
-  'http://localhost:8080/ai/chatbot?session=user123&prompt=Explain generative AI'
+  'http://localhost:8081/ai/chatbot?session=user123&prompt=Explain generative AI'
 );
 
 const reader = response.body.getReader();
@@ -422,25 +428,25 @@ while (true) {
 
 ```properties
 # Application port
-quarkus.http.port=8080
+quarkus.http.port=8081
 
-# Ollama configuration
-quarkus.langchain4j.ollama.base-url=http://localhost:11434/
-quarkus.langchain4j.ollama.chat-model.model-id=gemma3:1b
-quarkus.langchain4j.ollama.embedding-model.model-id=all-minilm:33m
-quarkus.langchain4j.ollama.devservices.enabled=false
+# OpenAI (LLM + embeddings)
+quarkus.langchain4j.openai.api-key=${OPENAI_API_KEY}
+quarkus.langchain4j.openai.chat-model.model-name=gpt-4o-mini
+quarkus.langchain4j.openai.embedding-model.model-name=text-embedding-3-small
+quarkus.langchain4j.embedding-model.provider=openai
 
-# RAG configuration
-rag.location=src/main/resources/rag
-rag.context=Vue.js
-quarkus.langchain4j.embedding-model.provider=ollama
-
-# Chroma (Vector Database)
-quarkus.langchain4j.chroma.collection-name=chatbot
-quarkus.langchain4j.chroma.timeout=30000
+# PostgreSQL + PGVector (vector database for embeddings)
+quarkus.datasource.db-kind=postgresql
+quarkus.langchain4j.pgvector.dimension=1536
+# Dev Services starts PostgreSQL+PGVector automatically when Docker is available
 
 # Redis (Cache/Memory)
 quarkus.redis.devservices.enabled=true
+
+# RAG configuration
+rag.location=src/main/resources/rag
+rag.context=JavaScript
 
 # Memory Management
 memory.default.max-messages=100
@@ -460,11 +466,24 @@ memory.ttl.hours=48
 ./mvnw verify -Dnative
 ```
 
+## 🔌 MCP Server (Course-Aware Q&A)
+
+The Quarkus backend includes an MCP (Model Context Protocol) server for integrating the RAG system with LLM platforms (e.g., Claude, Cursor). It exposes tools for course-aware question answering via HTTP/SSE.
+
+**Endpoint:** `http://localhost:8081/mcp/sse` (or `/mcp` for Streamable HTTP)
+
+**Tools:**
+- `retrieve_course_context` — Retrieves semantically relevant course content for a query
+- `ask_course_question` — Asks a question and returns the RAG-generated answer
+
+See [docs/MCP.md](docs/MCP.md) for Cursor/Claude configuration.
+
 ## 📖 Additional Documentation
 
 - [Quarkus Guide](https://quarkus.io/guides/)
 - [LangChain4j Documentation](https://docs.langchain4j.dev/)
-- [Ollama Documentation](https://ollama.com/docs/)
+- [OpenAI API](https://platform.openai.com/docs/)
+- [PGVector](https://github.com/pgvector/pgvector)
 
 ## 🤝 Contributing
 
