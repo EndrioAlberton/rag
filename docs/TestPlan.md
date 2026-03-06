@@ -178,8 +178,8 @@ Chat endpoints return event streams, not plain text. Tests validate:
 
 ### Service Dependencies
 Tests depend on:
-- Ollama (AI model)
-- ChromaDB (vector database)
+- OpenAI (AI model + embeddings)
+- PostgreSQL+PGVector (vector database for embeddings)
 - Redis (cache/memory)
 
 However, these services are started automatically via Testcontainers during tests.

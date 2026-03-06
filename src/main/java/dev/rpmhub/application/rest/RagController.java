@@ -15,12 +15,15 @@ import dev.rpmhub.domain.port.ConversationService;
 import dev.rpmhub.domain.port.MemoryService;
 import dev.rpmhub.domain.port.RequestLogService;
 import dev.rpmhub.domain.port.UserService;
+import dev.rpmhub.domain.model.RagQuery;
+import dev.rpmhub.domain.port.EmbeddingRepository;
 import dev.rpmhub.domain.usecase.AskQuestionUseCase;
 import dev.rpmhub.domain.usecase.ChatbotUseCase;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -38,6 +41,7 @@ public class RagController {
 
     private final ChatbotUseCase chatbotUseCase;
     private final AskQuestionUseCase askQuestionUseCase;
+    private final EmbeddingRepository embeddingRepository;
     private final MemoryService memoryService;
     private final UserService userService;
     private final ConversationService conversationService;
@@ -50,6 +54,7 @@ public class RagController {
     @Inject
     public RagController(ChatbotUseCase chatbotUseCase,
             AskQuestionUseCase askQuestionUseCase,
+            EmbeddingRepository embeddingRepository,
             MemoryService memoryService,
             UserService userService,
             ConversationService conversationService,
@@ -58,6 +63,7 @@ public class RagController {
 
         this.chatbotUseCase = chatbotUseCase;
         this.askQuestionUseCase = askQuestionUseCase;
+        this.embeddingRepository = embeddingRepository;
         this.memoryService = memoryService;
         this.userService = userService;
         this.conversationService = conversationService;
@@ -192,6 +198,34 @@ public class RagController {
             @QueryParam("prompt") @NotBlank String prompt) {
         Log.info("Ask Model Session: " + session);
         return askQuestionUseCase.execute(session, prompt);
+    }
+
+    /**
+     * Retrieves semantically relevant course content for a natural language query.
+     * Used by MCP tools to provide course-aware context to LLMs.
+     *
+     * @param session    session/course identifier
+     * @param prompt     natural language question
+     * @param maxResults maximum number of context chunks to return (default: 5)
+     * @return JSON with query, contexts, and relevance score
+     */
+    @GET
+    @Path("/context")
+    @Produces(MediaType.APPLICATION_JSON)
+    @WithSession
+    public Uni<ContextResponse> getContext(
+            @QueryParam("session") @NotBlank String session,
+            @QueryParam("prompt") @NotBlank String prompt,
+            @QueryParam("maxResults") @DefaultValue("5") int maxResults) {
+        Log.info("Context retrieval Session: " + session + ", prompt: " + prompt);
+        RagQuery query = new RagQuery(prompt, Math.min(Math.max(maxResults, 1), 20), 0.5);
+        return embeddingRepository.searchChunks(query)
+                .collect().first()
+                .map(ragResponse -> new ContextResponse(
+                        ragResponse.getQuery(),
+                        ragResponse.getContexts(),
+                        ragResponse.getScore()))
+                .onItem().ifNull().continueWith(() -> new ContextResponse(prompt, List.of(), 0.0));
     }
 
     @GET
@@ -346,5 +380,20 @@ public class RagController {
         
         @NotBlank
         public String prompt;
+    }
+
+    /**
+     * Response for context retrieval (MCP / course-aware Q&A).
+     */
+    public static class ContextResponse {
+        public final String query;
+        public final List<String> contexts;
+        public final double score;
+
+        public ContextResponse(String query, List<String> contexts, double score) {
+            this.query = query;
+            this.contexts = contexts;
+            this.score = score;
+        }
     }
 }
