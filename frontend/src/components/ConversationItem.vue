@@ -3,9 +3,9 @@
     <v-list-item-content>
       <v-list-item-title>{{ conversation.title }}</v-list-item-title>
       <v-list-item-subtitle>
-        Criada em: {{ formatDate(conversation.createdAt) }}
+        Created at: {{ formatDate(conversation.createdAt) }}
         <span v-if="conversation.lastActivity">
-          | Última atividade: {{ formatDate(conversation.lastActivity) }}
+          | Last activity: {{ formatDate(conversation.lastActivity) }}
         </span>
       </v-list-item-subtitle>
     </v-list-item-content>
@@ -18,10 +18,10 @@
         </template>
         <v-list>
           <v-list-item @click="$emit('select', conversation.id)">
-            <v-list-item-title>Abrir</v-list-item-title>
+            <v-list-item-title>Open</v-list-item-title>
           </v-list-item>
           <v-list-item @click="confirmDelete">
-            <v-list-item-title>Deletar</v-list-item-title>
+            <v-list-item-title>Delete</v-list-item-title>
           </v-list-item>
         </v-list>
       </v-menu>
@@ -44,7 +44,7 @@ export default {
     formatDate(dateString) {
       if (!dateString) return '';
       const date = new Date(dateString);
-      return date.toLocaleDateString('pt-BR', {
+      return date.toLocaleDateString('en-US', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -54,7 +54,7 @@ export default {
     },
 
     confirmDelete() {
-      if (confirm('Tem certeza que deseja deletar esta conversa?')) {
+      if (confirm('Are you sure you want to delete this conversation?')) {
         this.$emit('delete', this.conversation.id);
       }
     }

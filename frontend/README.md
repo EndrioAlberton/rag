@@ -1,105 +1,105 @@
 # Frontend RAG Chatbot
 
-Este é o frontend da aplicação RAG Chatbot, desenvolvido com Vue.js 3, Vuetify e Vite. O frontend fornece uma interface moderna e responsiva para interagir com o sistema RAG através de um chatbot conversacional.
+This is the frontend for the RAG Chatbot application, built with Vue.js 3, Vuetify and Vite. The frontend provides a modern and responsive interface to interact with the RAG system through a conversational chatbot.
 
-## ⚡ Início Rápido
+## ⚡ Quick Start
 
 ```bash
-# 1. Instalar dependências
+# 1. Install dependencies
 cd frontend
 npm install
 
-# 2. Configurar variáveis de ambiente
-# Crie um arquivo .env na raiz do diretório frontend (veja seção abaixo)
+# 2. Configure environment variables
+# Create a .env file in the frontend directory root (see section below)
 
-# 3. Iniciar servidor de desenvolvimento
+# 3. Start development server
 npm run dev
 
-# Acesse http://localhost:5173
+# Access http://localhost:5173
 ```
 
-**⚠️ Importante:** Não esqueça de criar o arquivo `.env` com as variáveis necessárias, especialmente `VITE_GOOGLE_CLIENT_ID` se quiser usar o login com Google.
+**⚠️ Important:** Do not forget to create the `.env` file with the required variables, especially `VITE_GOOGLE_CLIENT_ID` if you want to use Google login.
 
-## 🛠️ Tecnologias Utilizadas
+## 🛠️ Technologies Used
 
-- **Vue.js 3** - Framework JavaScript progressivo para construção de interfaces
-- **Vuetify 3** - Framework de componentes Material Design para Vue
-- **Vite** - Build tool e servidor de desenvolvimento rápido
-- **Vue Router** - Roteamento oficial para Vue.js
-- **Pinia** - Store state management para Vue
-- **Axios** - Cliente HTTP para requisições à API
-- **Marked** - Parser de Markdown para renderização de mensagens
-- **Highlight.js** - Destaque de sintaxe para blocos de código
+- **Vue.js 3** - Progressive JavaScript framework for building interfaces
+- **Vuetify 3** - Material Design component framework for Vue
+- **Vite** - Build tool and fast development server
+- **Vue Router** - Official routing for Vue.js
+- **Pinia** - State management store for Vue
+- **Axios** - HTTP client for API requests
+- **Marked** - Markdown parser for message rendering
+- **Highlight.js** - Syntax highlighting for code blocks
 
-## 📋 Pré-requisitos
+## 📋 Prerequisites
 
-- **Node.js** 18+ e npm
-- Serviços backend em execução:
-  - API RAG (padrão: `http://localhost:8081`)
-  - Orion Users Service (padrão: `http://localhost:8080`)
+- **Node.js** 18+ and npm
+- Backend services running:
+  - RAG API (default: `http://localhost:8081`)
+  - Orion Users Service (default: `http://localhost:8080`)
 
-## 🚀 Instalação e Configuração
+## 🚀 Installation and Configuration
 
-### 1. Instalação de Dependências
+### 1. Dependency Installation
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 2. Configuração das Variáveis de Ambiente
+### 2. Environment Variables Configuration
 
-Crie um arquivo `.env` na raiz do diretório `frontend` com as seguintes variáveis:
+Create a `.env` file in the `frontend` directory root with the following variables:
 
 ```bash
-# No diretório frontend/
+# In frontend directory
 touch .env
 ```
 
-Conteúdo mínimo do arquivo `.env`:
+Minimum `.env` file content:
 
 ```env
-# URL base da API RAG
+# RAG API base URL
 VITE_API_BASE_URL=http://localhost:8081
 
-# URL do serviço Orion Users (autenticação)
+# Orion Users service URL (authentication)
 VITE_ORION_USERS_URL=http://localhost:8080
 
-# Google Client ID para autenticação social (obrigatório para login com Google)
-VITE_GOOGLE_CLIENT_ID=seu-google-client-id-aqui
+# Google Client ID for social authentication (required for Google login)
+VITE_GOOGLE_CLIENT_ID=your-google-client-id-here
 ```
 
-**⚠️ Importante:**
-- Todas as variáveis devem começar com `VITE_` para serem expostas ao código frontend pelo Vite
-- As variáveis de ambiente são **embutidas no código durante o build** - elas não são lidas em runtime
-- Após criar ou modificar o arquivo `.env`, você **DEVE**:
-  - Reiniciar o servidor de desenvolvimento (`npm run dev`) se estiver usando o Vite dev server
-  - Fazer um novo build (`npm run build`) se estiver usando o frontend servido pelo Quarkus
-- Não commite o arquivo `.env` no git (ele deve estar no `.gitignore`)
-- Use valores diferentes para desenvolvimento, staging e produção
+**⚠️ Important:**
+- All variables must start with `VITE_` to be exposed to frontend code by Vite
+- Environment variables are **embedded in the code during build** - they are not read at runtime
+- After creating or modifying the `.env` file, you **MUST**:
+  - Restart the development server (`npm run dev`) if using Vite dev server
+  - Do a new build (`npm run build`) if using the frontend served by Quarkus
+- Do not commit the `.env` file to git (it should be in `.gitignore`)
+- Use different values for development, staging and production
 
-### 3. Configuração do Google Client ID
+### 3. Google Client ID Configuration
 
-Para habilitar o login com Google, você precisa:
+To enable Google login, you need to:
 
-1. Acessar o [Google Cloud Console](https://console.cloud.google.com/)
-2. Criar um novo projeto ou selecionar um existente
-3. Ativar a API "Google Identity Services"
-4. Criar credenciais OAuth 2.0:
-   - Tipo: **ID de cliente OAuth 2.0**
-   - Tipo de aplicativo: **Aplicativo da Web**
-   - URIs de redirecionamento autorizados: `http://localhost:5173` (desenvolvimento)
-   - Origens JavaScript autorizadas: `http://localhost:5173`
-5. Copiar o **Client ID** gerado
-6. Adicionar no arquivo `.env`:
+1. Access [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the "Google Identity Services" API
+4. Create OAuth 2.0 credentials:
+   - Type: **OAuth 2.0 Client ID**
+   - Application type: **Web application**
+   - Authorized redirect URIs: `http://localhost:5173` (development)
+   - Authorized JavaScript origins: `http://localhost:5173`
+5. Copy the generated **Client ID**
+6. Add to the `.env` file:
 
 ```env
-VITE_GOOGLE_CLIENT_ID=seu-client-id.apps.googleusercontent.com
+VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 ```
 
-## 🔧 Desenvolvimento
+## 🔧 Development
 
-Para executar o frontend em modo de desenvolvimento:
+To run the frontend in development mode:
 
 ```bash
 cd frontend
@@ -107,304 +107,304 @@ npm install
 npm run dev
 ```
 
-O servidor de desenvolvimento estará disponível em `http://localhost:5173` com hot-reload habilitado.
+The development server will be available at `http://localhost:5173` with hot-reload enabled.
 
-### Comandos Disponíveis
+### Available Commands
 
 ```bash
-# Modo de desenvolvimento
+# Development mode
 npm run dev
 
-# Build para produção
+# Production build
 npm run build
 
-# Preview do build de produção
+# Production build preview
 npm run preview
 ```
 
-## 🏗️ Build de Produção
+## 🏗️ Production Build
 
-O build do frontend é gerado na pasta `../src/main/resources/META-INF/resources/` para ser servido diretamente pelo Quarkus:
+The frontend build is generated in `../src/main/resources/META-INF/resources/` to be served directly by Quarkus:
 
 ```bash
 cd frontend
 npm run build
 ```
 
-Após o build, os arquivos estáticos estarão disponíveis para o Quarkus servir.
+After the build, static files will be available for Quarkus to serve.
 
-**⚠️ Importante sobre Variáveis de Ambiente:**
+**⚠️ Important about Environment Variables:**
 
-As variáveis de ambiente do Vite (como `VITE_GOOGLE_CLIENT_ID`) são **embutidas no código durante o build**. Isso significa que:
+Vite environment variables (such as `VITE_GOOGLE_CLIENT_ID`) are **embedded in the code during build**. This means that:
 
-1. **Você DEVE fazer o build ANTES de executar o Quarkus dev** se quiser usar a interface web servida pelo Quarkus
-2. **As variáveis devem estar configuradas no `frontend/.env` ANTES do build**
-3. **Se você modificar as variáveis de ambiente, será necessário fazer um novo build** para que as mudanças sejam refletidas
-4. **No modo Quarkus dev**, o frontend é servido a partir dos arquivos buildados, não do servidor Vite
+1. **You MUST build BEFORE running Quarkus dev** if you want to use the web interface served by Quarkus
+2. **Variables must be configured in `frontend/.env` BEFORE the build**
+3. **If you modify environment variables, a new build is required** for changes to take effect
+4. **In Quarkus dev mode**, the frontend is served from built files, not the Vite server
 
-**Exemplo de fluxo:**
+**Example flow:**
 
 ```bash
-# 1. Configure as variáveis de ambiente
+# 1. Configure environment variables
 cd frontend
-# Edite ou crie o arquivo .env com VITE_GOOGLE_CLIENT_ID, etc.
+# Edit or create .env file with VITE_GOOGLE_CLIENT_ID, etc.
 
-# 2. Faça o build
+# 2. Build
 npm run build
 
-# 3. Execute o Quarkus (em outro terminal ou após voltar para a raiz)
+# 3. Run Quarkus (in another terminal or after returning to root)
 cd ..
 ./mvnw quarkus:dev
 ```
 
-**Nota:** O diretório de saída é limpo automaticamente antes de cada build (`emptyOutDir: true`).
+**Note:** The output directory is automatically cleaned before each build (`emptyOutDir: true`).
 
-## ⚙️ Variáveis de Ambiente
+## ⚙️ Environment Variables
 
-### Variáveis Disponíveis
+### Available Variables
 
-| Variável | Descrição | Padrão | Obrigatória |
-|----------|-----------|--------|-------------|
-| `VITE_API_BASE_URL` | URL base da API RAG backend | `http://localhost:8081` | Não |
-| `VITE_ORION_USERS_URL` | URL do serviço Orion Users (autenticação) | `http://localhost:8080` | Não |
-| `VITE_GOOGLE_CLIENT_ID` | Client ID do Google para autenticação social | - | Sim (para login Google) |
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `VITE_API_BASE_URL` | RAG backend API base URL | `http://localhost:8081` | No |
+| `VITE_ORION_USERS_URL` | Orion Users service URL (authentication) | `http://localhost:8080` | No |
+| `VITE_GOOGLE_CLIENT_ID` | Google Client ID for social authentication | - | Yes (for Google login) |
 
-### Exemplo Completo de Arquivo `.env`
+### Complete `.env` File Example
 
 ```env
 # ============================================
-# URLs dos Serviços Backend
+# Backend Service URLs
 # ============================================
 
-# URL base da API RAG (serviço principal de chat e processamento)
-# Padrão: http://localhost:8081
+# RAG API base URL (main chat and processing service)
+# Default: http://localhost:8081
 VITE_API_BASE_URL=http://localhost:8081
 
-# URL do serviço Orion Users (autenticação e gerenciamento de usuários)
-# Padrão: http://localhost:8080
+# Orion Users service URL (authentication and user management)
+# Default: http://localhost:8080
 VITE_ORION_USERS_URL=http://localhost:8080
 
 # ============================================
-# Autenticação Social (Google)
+# Social Authentication (Google)
 # ============================================
 
-# Google Client ID para autenticação social
-# OBRIGATÓRIO para habilitar login com Google
-# Formato esperado: xxxxx-xxxxx.apps.googleusercontent.com
+# Google Client ID for social authentication
+# REQUIRED to enable Google login
+# Expected format: xxxxx-xxxxx.apps.googleusercontent.com
 # 
-# Como obter:
-# 1. Acesse https://console.cloud.google.com/
-# 2. Crie um projeto ou selecione um existente
-# 3. Ative a API "Google Identity Services"
-# 4. Crie credenciais OAuth 2.0:
-#    - Tipo: ID de cliente OAuth 2.0
-#    - Tipo de aplicativo: Aplicativo da Web
-#    - URIs de redirecionamento: http://localhost:5173 (dev)
-#    - Origens JavaScript: http://localhost:5173 (dev)
-# 5. Copie o Client ID gerado e cole abaixo
+# How to obtain:
+# 1. Access https://console.cloud.google.com/
+# 2. Create a project or select an existing one
+# 3. Enable "Google Identity Services" API
+# 4. Create OAuth 2.0 credentials:
+#    - Type: OAuth 2.0 Client ID
+#    - Application type: Web application
+#    - Redirect URIs: http://localhost:5173 (dev)
+#    - JavaScript origins: http://localhost:5173 (dev)
+# 5. Copy the generated Client ID and paste below
 #
-# Deixe vazio se não desejar usar login com Google
+# Leave empty if you do not want to use Google login
 VITE_GOOGLE_CLIENT_ID=123456789-abcdefghijklmnop.apps.googleusercontent.com
 ```
 
-**Nota:** Para outros ambientes (staging/produção), ajuste os valores conforme necessário.
+**Note:** For other environments (staging/production), adjust values as needed.
 
-## 📁 Estrutura do Projeto
+## 📁 Project Structure
 
 ```
 frontend/
 ├── src/
-│   ├── components/          # Componentes Vue reutilizáveis
-│   │   ├── ChatInterface.vue       # Interface principal do chat
-│   │   ├── ConversationList.vue    # Lista de conversas
-│   │   ├── ConversationItem.vue    # Item individual de conversa
-│   │   ├── Login.vue               # Tela de login
-│   │   ├── Register.vue            # Tela de registro
-│   │   ├── Settings.vue            # Configurações do usuário
-│   │   ├── TwoFactorAuth.vue       # Autenticação 2FA
-│   │   └── TwoFactorSettings.vue   # Configurações 2FA
-│   ├── services/           # Serviços de API e utilitários
-│   │   ├── api.js                  # Cliente HTTP para API RAG
-│   │   ├── auth.js                 # Gerenciamento de autenticação (localStorage)
-│   │   └── orionUsers.js           # Serviço Orion Users (login, registro, 2FA)
-│   ├── stores/             # Stores Pinia (gerenciamento de estado)
-│   │   └── auth.js                 # Store de autenticação
-│   ├── router/             # Configuração de rotas
-│   │   └── index.js                # Definição de rotas e guards
-│   ├── App.vue             # Componente raiz da aplicação
-│   ├── main.js             # Ponto de entrada da aplicação
-│   └── style.css           # Estilos globais
-├── index.html              # Template HTML principal
-├── vite.config.js          # Configuração do Vite
-├── package.json            # Dependências e scripts
-└── .env                    # Variáveis de ambiente (criar manualmente)
+│   ├── components/          # Reusable Vue components
+│   │   ├── ChatInterface.vue       # Main chat interface
+│   │   ├── ConversationList.vue   # Conversation list
+│   │   ├── ConversationItem.vue   # Individual conversation item
+│   │   ├── Login.vue               # Login screen
+│   │   ├── Register.vue            # Registration screen
+│   │   ├── Settings.vue            # User settings
+│   │   ├── TwoFactorAuth.vue       # 2FA authentication
+│   │   └── TwoFactorSettings.vue   # 2FA settings
+│   ├── services/           # API services and utilities
+│   │   ├── api.js                  # HTTP client for RAG API
+│   │   ├── auth.js                 # Authentication management (localStorage)
+│   │   └── orionUsers.js           # Orion Users service (login, register, 2FA)
+│   ├── stores/             # Pinia stores (state management)
+│   │   └── auth.js                 # Authentication store
+│   ├── router/             # Route configuration
+│   │   └── index.js                # Route definitions and guards
+│   ├── App.vue             # Root application component
+│   ├── main.js             # Application entry point
+│   └── style.css           # Global styles
+├── index.html              # Main HTML template
+├── vite.config.js          # Vite configuration
+├── package.json            # Dependencies and scripts
+└── .env                    # Environment variables (create manually)
 ```
 
-### Componentes Principais
+### Main Components
 
 #### ChatInterface.vue
-Interface principal do chat que gerencia:
-- Envio e recebimento de mensagens
-- Streaming de respostas da API
-- Renderização de markdown e código
-- Gerenciamento de conversas
+Main chat interface that manages:
+- Sending and receiving messages
+- API response streaming
+- Markdown and code rendering
+- Conversation management
 
 #### Login.vue / Register.vue
-Autenticação de usuários com suporte a:
-- Login tradicional (email/senha)
-- Login social com Google (requer `VITE_GOOGLE_CLIENT_ID`)
-- Autenticação de dois fatores (2FA)
+User authentication with support for:
+- Traditional login (email/password)
+- Social login with Google (requires `VITE_GOOGLE_CLIENT_ID`)
+- Two-factor authentication (2FA)
 
 #### ConversationList.vue
-Lista e gerencia conversas:
-- Visualização de conversas anteriores
-- Criação de novas conversas
-- Navegação entre conversas
+Lists and manages conversations:
+- View previous conversations
+- Create new conversations
+- Navigate between conversations
 
-## 🔐 Autenticação
+## 🔐 Authentication
 
-O frontend suporta múltiplos métodos de autenticação:
+The frontend supports multiple authentication methods:
 
-### 1. Login Tradicional
-- Email e senha
-- Validação de senha (mínimo 8 caracteres, maiúscula, número, caractere especial)
-- Suporte a autenticação de dois fatores (2FA)
+### 1. Traditional Login
+- Email and password
+- Password validation (minimum 8 characters, uppercase, number, special character)
+- Two-factor authentication (2FA) support
 
-### 2. Login Social (Google)
-- Autenticação via Google Identity Services
-- Requer configuração do `VITE_GOOGLE_CLIENT_ID`
-- Integração com Google One Tap e botão customizado
+### 2. Social Login (Google)
+- Authentication via Google Identity Services
+- Requires `VITE_GOOGLE_CLIENT_ID` configuration
+- Integration with Google One Tap and custom button
 
-### 3. Autenticação de Dois Fatores (2FA)
-- Configurável por usuário
-- Baseado em TOTP (Google Authenticator, Authy, etc.)
-- Pode ser requerido para login básico e/ou login social
+### 3. Two-Factor Authentication (2FA)
+- Configurable per user
+- Based on TOTP (Google Authenticator, Authy, etc.)
+- Can be required for basic and/or social login
 
-### Fluxo de Autenticação
+### Authentication Flow
 
 ```text
-Usuário acessa /login
+User accesses /login
     ↓
-Escolhe método: Tradicional ou Google
+Chooses method: Traditional or Google
     ↓
-Autentica no backend (Orion Users)
+Authenticates on backend (Orion Users)
     ↓
-Recebe JWT token
+Receives JWT token
     ↓
-Token armazenado (localStorage + Pinia store)
+Token stored (localStorage + Pinia store)
     ↓
-Guards de rota verificam autenticação
+Route guards verify authentication
     ↓
-Acesso liberado para /conversations ou /chat
+Access granted to /conversations or /chat
 ```
 
-## 🌐 Rotas
+## 🌐 Routes
 
-As rotas principais da aplicação:
+Main application routes:
 
-- `/login` - Tela de login (pública)
-- `/register` - Tela de registro (pública)
-- `/conversations` - Lista de conversas (protegida)
-- `/chat` - Interface de chat (protegida)
-- `/settings` - Configurações do usuário (protegida)
+- `/login` - Login screen (public)
+- `/register` - Registration screen (public)
+- `/conversations` - Conversation list (protected)
+- `/chat` - Chat interface (protected)
+- `/settings` - User settings (protected)
 
-**Guards de Autenticação:** Rotas protegidas requerem autenticação válida. Usuários não autenticados são redirecionados para `/login`.
+**Authentication Guards:** Protected routes require valid authentication. Unauthenticated users are redirected to `/login`.
 
-## 🔌 Integração com APIs
+## 🔌 API Integration
 
-### API RAG (`/ai/*`)
-Serviço principal de chat e processamento RAG:
-- `POST /ai/chatbot` - Chat com streaming
-- `GET /ai/memory` - Recuperar histórico
-- `POST /ai/chat` - Enviar mensagem
+### RAG API (`/ai/*`)
+Main chat and RAG processing service:
+- `POST /ai/chatbot` - Chat with streaming
+- `GET /ai/memory` - Retrieve history
+- `POST /ai/chat` - Send message
 
 ### Orion Users (`/users/*`)
-Serviço de autenticação e gerenciamento de usuários:
-- `POST /users/create` - Criar usuário
-- `POST /users/login` - Login tradicional
-- `POST /users/login/google` - Login com Google
-- `POST /users/login/2fa` - Login com 2FA
-- `POST /users/2fa/settings` - Configurar 2FA
+Authentication and user management service:
+- `POST /users/create` - Create user
+- `POST /users/login` - Traditional login
+- `POST /users/login/google` - Google login
+- `POST /users/login/2fa` - 2FA login
+- `POST /users/2fa/settings` - Configure 2FA
 
 ## 🐛 Troubleshooting
 
-### Botão de Login Google Não Aparece
+### Google Login Button Does Not Appear
 
-**Problema:** O botão "Entrar com Google" não está visível ou não funciona.
+**Problem:** The "Sign in with Google" button is not visible or does not work.
 
-**Soluções:**
-1. Verifique se o arquivo `.env` existe na raiz do diretório `frontend`
-2. Confirme que `VITE_GOOGLE_CLIENT_ID` está configurado corretamente (não vazio)
-3. **Se estiver usando o Quarkus dev mode:**
-   - As variáveis de ambiente são embutidas no build
-   - Você DEVE fazer `npm run build` no diretório `frontend` ANTES de executar o Quarkus
-   - Se modificou o `.env`, faça um novo build
-4. **Se estiver usando o Vite dev server (`npm run dev`):**
-   - Reinicie o servidor de desenvolvimento após criar/modificar o `.env`
-5. Verifique o console do navegador para erros de inicialização do Google Identity Services
-6. Confirme que o script do Google está carregado no `index.html`:
+**Solutions:**
+1. Verify the `.env` file exists in the frontend directory root
+2. Confirm `VITE_GOOGLE_CLIENT_ID` is correctly configured (not empty)
+3. **If using Quarkus dev mode:**
+   - Environment variables are embedded in the build
+   - You MUST run `npm run build` in the `frontend` directory BEFORE running Quarkus
+   - If you modified `.env`, do a new build
+4. **If using Vite dev server (`npm run dev`):**
+   - Restart the development server after creating/modifying `.env`
+5. Check the browser console for Google Identity Services initialization errors
+6. Confirm the Google script is loaded in `index.html`:
    ```html
    <script src="https://accounts.google.com/gsi/client" async defer></script>
    ```
 
-### Erro: "Google Client ID não configurado"
+### Error: "Google Client ID not configured"
 
-**Causa:** A variável `VITE_GOOGLE_CLIENT_ID` não está definida ou é uma string vazia.
+**Cause:** The `VITE_GOOGLE_CLIENT_ID` variable is not defined or is an empty string.
 
-**Solução:** Adicione a variável no arquivo `.env` e reinicie o servidor.
+**Solution:** Add the variable to the `.env` file and restart the server.
 
-### Erro: "Google Identity Services não carregado"
+### Error: "Google Identity Services not loaded"
 
-**Causa:** O script do Google não foi carregado ou há problemas de conexão.
+**Cause:** The Google script was not loaded or there are connection issues.
 
-**Soluções:**
-1. Verifique sua conexão com a internet
-2. Confirme que não há bloqueadores de anúncio bloqueando o script
-3. Verifique o console do navegador para erros de CORS ou carregamento
+**Solutions:**
+1. Check your internet connection
+2. Confirm there are no ad blockers blocking the script
+3. Check the browser console for CORS or loading errors
 
-### Variáveis de Ambiente Não Funcionam
+### Environment Variables Do Not Work
 
-**Causa:** Variáveis não começam com `VITE_` ou o servidor não foi reiniciado.
+**Cause:** Variables do not start with `VITE_` or the server was not restarted.
 
-**Soluções:**
-1. Certifique-se que todas as variáveis começam com `VITE_`
-2. Reinicie o servidor de desenvolvimento (`Ctrl+C` e `npm run dev`)
-3. Limpe o cache do navegador se necessário
+**Solutions:**
+1. Ensure all variables start with `VITE_`
+2. Restart the development server (`Ctrl+C` and `npm run dev`)
+3. Clear browser cache if necessary
 
-### Erro de CORS
+### CORS Error
 
-**Causa:** O backend não está configurado para aceitar requisições do frontend.
+**Cause:** The backend is not configured to accept requests from the frontend.
 
-**Solução:** Configure o CORS no backend para aceitar requisições de `http://localhost:5173`.
+**Solution:** Configure CORS in the backend to accept requests from `http://localhost:5173`.
 
-### Build Não Gera Arquivos
+### Build Does Not Generate Files
 
-**Causa:** Erros de compilação ou problemas de permissão.
+**Cause:** Compilation errors or permission issues.
 
-**Soluções:**
-1. Verifique erros no terminal durante o build
-2. Execute `npm install` novamente para garantir dependências corretas
-3. Verifique permissões de escrita no diretório de saída
+**Solutions:**
+1. Check for errors in the terminal during build
+2. Run `npm install` again to ensure correct dependencies
+3. Check write permissions on the output directory
 
-## 📚 Recursos Adicionais
+## 📚 Additional Resources
 
-- [Documentação Vue.js](https://vuejs.org/)
-- [Documentação Vuetify](https://vuetifyjs.com/)
-- [Documentação Vite](https://vitejs.dev/)
+- [Vue.js Documentation](https://vuejs.org/)
+- [Vuetify Documentation](https://vuetifyjs.com/)
+- [Vite Documentation](https://vitejs.dev/)
 - [Google Identity Services](https://developers.google.com/identity/gsi/web)
 
-## 🤝 Contribuindo
+## 🤝 Contributing
 
-1. Faça um fork do projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
-3. Commit suas mudanças (`git commit -m 'Adiciona nova feature'`)
-4. Push para a branch (`git push origin feature/nova-feature`)
-5. Abra um Pull Request
+1. Fork the project
+2. Create a branch for your feature (`git checkout -b feature/new-feature`)
+3. Commit your changes (`git commit -m 'Add new feature'`)
+4. Push to the branch (`git push origin feature/new-feature`)
+5. Open a Pull Request
 
-## 📄 Licença
+## 📄 License
 
-Este projeto contém informações confidenciais e proprietárias.
-Cópia, distribuição ou uso não autorizado deste arquivo ou seu conteúdo é estritamente proibido.
+This project contains confidential and proprietary information.
+Unauthorized copying, distribution, or use of this file or its contents is strictly prohibited.
 
-© 2025 Rodrigo Prestes Machado. Todos os direitos reservados.
+© 2025 Rodrigo Prestes Machado. All rights reserved.
 

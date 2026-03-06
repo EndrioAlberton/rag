@@ -1,35 +1,35 @@
-# RAG Test - Sistema RAG com IA Generativa
+# RAG Test - RAG System with Generative AI
 
-Este projeto implementa um sistema RAG (Retrieval-Augmented Generation)
-utilizando Quarkus, LangChain4j e Ollama para criar um chatbot inteligente que
-pode responder perguntas baseadas em documentos ingeridos.
+This project implements a RAG (Retrieval-Augmented Generation) system
+using Quarkus, LangChain4j and Ollama to create an intelligent chatbot that
+can answer questions based on ingested documents.
 
-## Diretório do RAG
+## RAG Directory
 
-O diretório `src/main/resources/rag` contém documentos de exemplo para
-ingestão e teste do sistema. Você pode adicionar seus próprios documentos neste
-diretório para expandir o conhecimento do chatbot.
+The `src/main/resources/rag` directory contains sample documents for
+ingestion and system testing. You can add your own documents to this
+directory to expand the chatbot's knowledge.
 
-## 🛠️ Tecnologias Utilizadas
+## 🛠️ Technologies Used
 
-- **Java 21** - Linguagem de programação
-- **Quarkus 3.26.2** - Framework para aplicações Java na nuvem
-- **LangChain4j** - Framework para integração com IA
-- **Ollama** - Plataforma para executar modelos de IA localmente
-- **Chroma** - Banco de dados vetorial para embeddings
-- **Redis** - Cache e gerenciamento de memória
-- **Maven** - Gerenciamento de dependências
+- **Java 21** - Programming language
+- **Quarkus 3.26.2** - Framework for cloud-native Java applications
+- **LangChain4j** - Framework for AI integration
+- **Ollama** - Platform to run AI models locally
+- **Chroma** - Vector database for embeddings
+- **Redis** - Cache and memory management
+- **Maven** - Dependency management
 
-## 📋 Pré-requisitos
+## 📋 Prerequisites
 
-- Java 21 ou superior
+- Java 21 or higher
 - Maven 3.8+
-- Ollama instalado e configurado
-- Docker e Docker Compose
+- Ollama installed and configured
+- Docker and Docker Compose
 
-## 🚀 Instalação e Configuração
+## 🚀 Installation and Configuration
 
-### 1. Instalação do Ollama
+### 1. Ollama Installation
 
 ```bash
 # macOS
@@ -39,128 +39,123 @@ brew install ollama
 curl -fsSL https://ollama.com/install.sh | sh
 
 # Windows
-# Baixe o instalador em https://ollama.com/download/windows
+# Download the installer from https://ollama.com/download/windows
 ```
 
-### 2. Download dos Modelos de IA no Ollama
+### 2. Download AI Models in Ollama
 
 ```bash
-# Modelo para chat
+# Chat model
 ollama pull gemma3:1b
 
-# Modelo para embeddings
+# Embeddings model
 ollama pull all-minilm:33m
 ```
 
-### 3. Inicialização dos Serviços
+### 3. Service Initialization
 
 ```bash
-# Inicie o Ollama
+# Start Ollama
 ollama serve
 
-# Clone o repositório
+# Clone the repository
 git clone https://github.com/rodrigoprestesmachado/rag.git
 cd rag
 ```
 
-## 🔧 Execução Local
+## 🔧 Local Execution
 
-### Modo de Desenvolvimento
+### Development Mode
 
-**⚠️ Importante:** Antes de executar o Quarkus em modo dev, você precisa fazer o build do frontend se quiser usar a interface web servida pelo Quarkus. As variáveis de ambiente do frontend (como `VITE_GOOGLE_CLIENT_ID`) são embutidas no código durante o build.
+**⚠️ Important:** Before running Quarkus in dev mode, you need to build the frontend if you want to use the web interface served by Quarkus. Frontend environment variables (such as `VITE_GOOGLE_CLIENT_ID`) are embedded in the code during the build.
 
-#### 1. Build do Frontend (Obrigatório para interface web)
+#### 1. Frontend Build (Required for web interface)
 
 ```bash
-# Navegue até o diretório do frontend
+# Navigate to the frontend directory
 cd frontend
 
-# Configure as variáveis de ambiente (crie o arquivo .env se não existir)
-# Veja frontend/README.md para mais detalhes sobre as variáveis necessárias
+# Configure environment variables (create .env file if it doesn't exist)
+# See frontend/README.md for details on required variables
 
-# Instale as dependências (se ainda não fez)
+# Install dependencies (if you haven't already)
 npm install
 
-# Faça o build do frontend
+# Build the frontend
 npm run build
 ```
 
-**Nota:** O build gera os arquivos estáticos em `src/main/resources/META-INF/resources/` que serão servidos pelo Quarkus. Se você modificar as variáveis de ambiente no `frontend/.env`, será necessário fazer um novo build para que as mudanças sejam refletidas.
+**Note:** The build generates static files in `src/main/resources/META-INF/resources/` that will be served by Quarkus. If you modify environment variables in `frontend/.env`, you will need to do a new build for changes to take effect.
 
-#### 2. Executar Quarkus em Modo Dev
+#### 2. Run Quarkus in Dev Mode
 
 ```bash
-# Volte para a raiz do projeto
+# Return to project root
 cd ..
 
-# Execute a aplicação em modo de desenvolvimento
+# Run the application in development mode
 ./mvnw quarkus:dev
 ```
 
-***Nota:*** o Chroma e o Redis serão iniciados automaticamente via Dev Services do
-Quarkus. O Dev Services é uma funcionalidade do Quarkus que facilita o
-desenvolvimento local, iniciando automaticamente serviços como bancos de dados,
-filas de mensagens, caches, entre outros, sem a necessidade de configuração.
-Porém, é necessário ter o Docker instalado para que o Quarkus possa criar e
-gerenciar esses containers.
+***Note:*** Chroma and Redis will be started automatically via Quarkus Dev Services. Dev Services is a Quarkus feature that facilitates local development by automatically starting services such as databases, message queues, caches, and more, without configuration. However, Docker must be installed for Quarkus to create and manage these containers.
 
-### Interface com o Usuário
+### User Interface
 
-Se você quiser testar a interface do chat, basta pressionar a tecla `w` no
-terminal quando a aplicação estiver em execução que o Quarkus irá abrir a
-interface web no endereço e porta: <http://localhost:8080/>.
+If you want to test the chat interface, simply press the `w` key in the
+terminal when the application is running and Quarkus will open the
+web interface at: <http://localhost:8080/>.
 
-### Modo de Produção
+### Production Mode
 
-Empacote e execute a aplicação:
+Package and run the application:
 
 ```bash
-# Compilar
+# Compile
 ./mvnw package
 
-# Executar JAR
+# Run JAR
 java -jar target/quarkus-app/quarkus-run.jar
 
-# Ou criar e executar uber-jar
+# Or create and run uber-jar
 ./mvnw package -Dquarkus.package.jar.type=uber-jar
 java -jar target/*-runner.jar
 ```
 
-## 🐳 Execução com Docker
+## 🐳 Docker Execution
 
-### Opção 1: Executável JVM
+### Option 1: JVM Executable
 
 ```bash
-# Build da aplicação
+# Build the application
 ./mvnw package
 
-# Build da imagem Docker
+# Build Docker image
 docker build -f src/main/docker/Dockerfile.jvm -t rag:jvm .
 
-# Executar container
+# Run container
 docker run -i --rm -p 8080:8080 \
   -e QUARKUS_LANGCHAIN4J_OLLAMA_BASE_URL=http://host.docker.internal:11434/ \
   rag:jvm
 ```
 
-### Opção 2: Executável Nativo
+### Option 2: Native Executable
 
 ```bash
-# Build nativo
+# Native build
 ./mvnw package -Dnative -Dquarkus.native.container-build=true
 
-# Build da imagem Docker
+# Build Docker image
 docker build -f src/main/docker/Dockerfile.native -t rag:native .
 
-# Executar container
+# Run container
 docker run -i --rm -p 8080:8080 \
   -e QUARKUS_LANGCHAIN4J_OLLAMA_BASE_URL=http://host.docker.internal:11434/ \
   rag:native
 ```
 
-### Opção 3: Docker Compose (Recomendado)
+### Option 3: Docker Compose (Recommended)
 
-Crie um arquivo `docker-compose.yml`:
+Create a `docker-compose.yml` file:
 
 ```yaml
 version: '3.8'
@@ -188,96 +183,94 @@ services:
       - "8000:8000"
 ```
 
-Execute com:
+Run with:
 
 ```bash
 docker-compose up -d
 ```
 
-## 🏗️ Arquitetura
+## 🏗️ Architecture
 
-O projeto segue os princípios da **Arquitetura Hexagonal (Clean Architecture)**,
-organizando o código em camadas bem definidas:
+The project follows **Hexagonal Architecture (Clean Architecture)** principles,
+organizing the code in well-defined layers:
 
-### Estrutura do Projeto
+### Project Structure
 
 ```text
 src/main/java/dev/rpmhub/
-├── domain/                 # Núcleo da aplicação
-│   ├── model/             # Entidades de domínio
-│   ├── port/              # Interfaces/Contratos
-│   └── usecase/           # Casos de uso/Regras de negócio
-├── application/           # Camada de aplicação
-│   ├── adapter/           # Adaptadores de aplicação
-│   └── rest/              # Controladores REST
-└── infrastructure/        # Camada de infraestrutura
-    ├── adapter/           # Adaptadores externos
-    ├── config/            # Configurações
-    ├── repository/        # Implementações de repositório
-    └── service/           # Serviços de infraestrutura
+├── domain/                 # Application core
+│   ├── model/             # Domain entities
+│   ├── port/              # Interfaces/Contracts
+│   └── usecase/           # Use cases/Business rules
+├── application/           # Application layer
+│   ├── adapter/           # Application adapters
+│   └── rest/              # REST controllers
+└── infrastructure/        # Infrastructure layer
+    ├── adapter/           # External adapters
+    ├── config/            # Configuration
+    ├── repository/        # Repository implementations
+    └── service/           # Infrastructure services
 ```
 
-### Princípios da Arquitetura Hexagonal
+### Hexagonal Architecture Principles
 
-A **Arquitetura Hexagonal** (também conhecida como **Ports and Adapters**) é um
-padrão arquitetural que promove a separação de responsabilidades e o baixo
-acoplamento entre as camadas da aplicação. Este projeto implementa os seguintes
-conceitos:
+**Hexagonal Architecture** (also known as **Ports and Adapters**) is an
+architectural pattern that promotes separation of concerns and loose
+coupling between application layers. This project implements the following
+concepts:
 
-#### 🔹 **Camada de Domínio (Core)**
+#### 🔹 **Domain Layer (Core)**
 
-O núcleo da aplicação, contendo a lógica de negócio pura e independente de frameworks externos:
+The application core, containing pure business logic independent of external frameworks:
 
-- **Entidades de Domínio**: Classes como `ChatMessage`, `RagQuery`, `RagResponse`, `ConversationMemory`
-- **Casos de Uso**: Orquestram a lógica de negócio (`ChatbotUseCase`, `AskQuestionUseCase`)
-- **Portas (Interfaces)**: Contratos que definem como o domínio se comunica com o mundo externo
+- **Domain Entities**: Classes such as `ChatMessage`, `RagQuery`, `RagResponse`, `ConversationMemory`
+- **Use Cases**: Orchestrate business logic (`ChatbotUseCase`, `AskQuestionUseCase`)
+- **Ports (Interfaces)**: Contracts that define how the domain communicates with the external world
 
 ```text
 domain/
 ├── model/
-│   ├── AIRequest.java          # Requisição para IA
-│   ├── ChatMessage.java        # Mensagem de chat
-│   ├── ConversationMemory.java # Memória da conversa
-│   ├── RagQuery.java          # Query RAG
-│   └── RagResponse.java       # Resposta RAG
+│   ├── AIRequest.java          # AI request
+│   ├── ChatMessage.java        # Chat message
+│   ├── ConversationMemory.java # Conversation memory
+│   ├── RagQuery.java           # RAG query
+│   └── RagResponse.java        # RAG response
 ├── port/
-│   ├── AIService.java         # Interface para serviços de IA
-│   ├── EmbeddingRepository.java # Interface para repositório de embeddings
-│   └── MemoryService.java     # Interface para serviços de memória
+│   ├── AIService.java          # Interface for AI services
+│   ├── EmbeddingRepository.java # Interface for embedding repository
+│   └── MemoryService.java      # Interface for memory services
 └── usecase/
-    ├── AskQuestionUseCase.java     # Caso de uso: perguntas
-    ├── ChatbotUseCase.java         # Caso de uso: chatbot
-    └── IngestDocumentsUseCase.java # Caso de uso: ingestão
+    ├── AskQuestionUseCase.java     # Use case: questions
+    ├── ChatbotUseCase.java         # Use case: chatbot
+    └── IngestDocumentsUseCase.java # Use case: ingestion
 ```
 
-#### 🔹 **Camada de Aplicação**
+#### 🔹 **Application Layer**
 
-Coordena a interação entre o domínio e o mundo externo:
+Coordinates interaction between the domain and the external world:
 
-- **Controladores REST**: Criam os endpoints da API (`RagController`)
+- **REST Controllers**: Create API endpoints (`RagController`)
 
-#### 🔹 **Camada de Infraestrutura**
+#### 🔹 **Infrastructure Layer**
 
-Implementa os detalhes técnicos e integrações externas:
+Implements technical details and external integrations:
 
-- **Adaptadores**: Implementações concretas das portas
+- **Adapters**: Concrete implementations of ports
 (`AIServiceAdapter`, `LangChainAIService`)
-- **Repositórios**: Implementa a persistência de dados. Nesta aplicação, os
-repositórios são responsáveis por armazenar e recuperar informações de
-embeddings e também o histórico de uma conversa (`EmbeddingRepositoryImpl`,
-`MemoryServiceImpl`)
-- **Serviços**: Implementação de serviços externo da aplicação. O sistema
-necessita do Apache PDFBox (`PDFExtractorService`) para fazer a extração
-correta de PDFs.
+- **Repositories**: Implements data persistence. In this application, repositories
+are responsible for storing and retrieving embedding information and
+conversation history (`EmbeddingRepositoryImpl`, `MemoryServiceImpl`)
+- **Services**: Implementation of external application services. The system
+requires Apache PDFBox (`PDFExtractorService`) for proper PDF extraction.
 
-#### 🔹 **Vantagens da Arquitetura Hexagonal neste Projeto**
+#### 🔹 **Hexagonal Architecture Benefits in This Project**
 
-1. **Testabilidade**: O domínio pode ser testado isoladamente através de mocks das portas
-2. **Flexibilidade**: Fácil troca de provedores de IA (Ollama → OpenAI → Azure)
-3. **Manutenibilidade**: Alterações em frameworks não afetam a lógica de negócio
-4. **Independência**: O core da aplicação não depende de bibliotecas externas
+1. **Testability**: The domain can be tested in isolation through port mocks
+2. **Flexibility**: Easy switching of AI providers (Ollama → OpenAI → Azure)
+3. **Maintainability**: Framework changes do not affect business logic
+4. **Independence**: The application core does not depend on external libraries
 
-#### 🔹 **Fluxo de Dados**
+#### 🔹 **Data Flow**
 
 ```text
 HTTP Request → REST Controller → Use Case → Domain Logic → Port Interface → Adapter → External Service
@@ -285,74 +278,74 @@ HTTP Request → REST Controller → Use Case → Domain Logic → Port Interfac
 HTTP Response ← REST Controller ← Use Case ← Domain Logic ← Port Interface ← Adapter ← External Service
 ```
 
-#### 🔹 **Benefícios Específicos para Sistemas RAG**
+#### 🔹 **Specific Benefits for RAG Systems**
 
-A arquitetura hexagonal é especialmente valiosa em sistemas RAG devido à natureza evolutiva e experimental da IA:
+Hexagonal architecture is especially valuable in RAG systems due to the evolutionary and experimental nature of AI:
 
-1. **Experimentação com Modelos**: Facilita testes com diferentes LLMs (Ollama, OpenAI, Claude) sem alterar a lógica de negócio
-2. **Múltiplas Estratégias de Embedding**: Permite comparar diferentes algoritmos de vetorização (sentence-transformers, OpenAI embeddings, etc.)
-3. **Bancos Vetoriais Intercambiáveis**: Suporte fácil para Chroma, Pinecone, Weaviate ou Qdrant
-4. **Estratégias de Chunking**: Implementação de diferentes abordagens para divisão de documentos
-5. **Memória Adaptável**: Alternância entre Redis, banco relacional ou memória em processo
-6. **Processamento de Documentos**: Extensibilidade para PDF, Word, HTML, etc.
+1. **Model Experimentation**: Facilitates testing with different LLMs (Ollama, OpenAI, Claude) without changing business logic
+2. **Multiple Embedding Strategies**: Allows comparing different vectorization algorithms (sentence-transformers, OpenAI embeddings, etc.)
+3. **Interchangeable Vector Databases**: Easy support for Chroma, Pinecone, Weaviate or Qdrant
+4. **Chunking Strategies**: Implementation of different approaches for document splitting
+5. **Adaptable Memory**: Switching between Redis, relational database or in-process memory
+6. **Document Processing**: Extensibility for PDF, Word, HTML, etc.
 
 ```text
-Sistema RAG Hexagonal:
+Hexagonal RAG System:
 
 ┌─────────────────────────┐
-│    REST Controllers     │ ← Camada de Interface
+│    REST Controllers     │ ← Interface Layer
 ├─────────────────────────┤
-│      Use Cases          │ ← Orquestração RAG
+│      Use Cases          │ ← RAG Orchestration
 │  • ChatbotUseCase       │
 │  • AskQuestionUseCase   │
 │  • IngestUseCase        │
 ├─────────────────────────┤
-│       Ports             │ ← Contratos
+│       Ports             │ ← Contracts
 │  • AIService            │
 │  • EmbeddingRepository  │
 │  • MemoryService        │
 ├─────────────────────────┤
-│      Adapters           │ ← Implementações
+│      Adapters           │ ← Implementations
 │  • OllamaAdapter        │
 │  • ChromaAdapter        │
 │  • RedisAdapter         │
 └─────────────────────────┘
 ```
 
-### Casos de Uso Principais
+### Main Use Cases
 
-- **ChatbotUseCase**: Implementa conversas com memória de contexto
-- **AskQuestionUseCase**: Responde perguntas baseadas em documentos
-- **IngestDocumentsUseCase**: Processa e indexa documentos
+- **ChatbotUseCase**: Implements conversations with context memory
+- **AskQuestionUseCase**: Answers questions based on documents
+- **IngestDocumentsUseCase**: Processes and indexes documents
 
-### 🔍 **Exemplos Práticos da Arquitetura**
+### 🔍 **Architecture Practical Examples**
 
-#### Cenário 1: Troca de Provedor de IA
+#### Scenario 1: AI Provider Switching
 
 ```java
-// Domínio define o contrato (Port)
+// Domain defines the contract (Port)
 public interface AIService {
     Multi<String> generateResponse(String prompt, List<ChatMessage> context);
 }
 
-// Infraestrutura implementa diferentes adaptadores
+// Infrastructure implements different adapters
 @ApplicationScoped
 public class OllamaAdapter implements AIService { ... }
 
 @ApplicationScoped  
 public class OpenAIAdapter implements AIService { ... }
 
-// Caso de uso permanece inalterado
+// Use case remains unchanged
 @ApplicationScoped
 public class ChatbotUseCase {
-    @Inject AIService aiService; // Injeção por interface
+    @Inject AIService aiService; // Injection by interface
 }
 ```
 
-#### Cenário 2: Testabilidade do Domínio
+#### Scenario 2: Domain Testability
 
 ```java
-// Teste unitário usando mock da porta
+// Unit test using port mock
 @Test
 void shouldGenerateResponseWithMemory() {
     // Given
@@ -360,55 +353,55 @@ void shouldGenerateResponseWithMemory() {
     MemoryService mockMemory = Mockito.mock(MemoryService.class);
     ChatbotUseCase useCase = new ChatbotUseCase(null, mockAI, mockMemory);
     
-    // When & Then - testa apenas lógica de negócio
-    // sem dependências externas
+    // When & Then - test only business logic
+    // without external dependencies
 }
 ```
 
-#### Cenário 3: Evolução do Sistema RAG
+#### Scenario 3: RAG System Evolution
 
 ```java
-// Nova funcionalidade: adicionar suporte a múltiplos embeddings
+// New feature: add support for multiple embeddings
 public interface EmbeddingRepository {
-    // Método existente
+    // Existing method
     List<Document> findSimilar(String query, int limit);
     
-    // Novo método - não quebra implementações existentes
+    // New method - does not break existing implementations
     List<Document> findSimilarWithMetadata(String query, int limit, Map<String, Object> filters);
 }
 ```
 
-## 📚 Uso da API
+## 📚 API Usage
 
-### Endpoints Disponíveis
+### Available Endpoints
 
-#### 1. Chatbot com Memória
+#### 1. Chatbot with Memory
 
 ```bash
-# Conversa com contexto mantido por sessão
-curl "http://localhost:8080/ai/chatbot?session=user123&prompt=Olá, como você pode me ajudar?"
+# Conversation with context maintained per session
+curl "http://localhost:8080/ai/chatbot?session=user123&prompt=Hello, how can you help me?"
 ```
 
-#### 2. Perguntas sobre Documentos
+#### 2. Questions about Documents
 
 ```bash
-# Consulta baseada em documentos ingeridos
-curl "http://localhost:8080/ai/ask?session=user123&prompt=O que é Vue.js?"
+# Query based on ingested documents
+curl "http://localhost:8080/ai/ask?session=user123&prompt=What is Vue.js?"
 ```
 
-#### 3. Gerenciamento de Memória
+#### 3. Memory Management
 
 ```bash
-# Obter histórico da conversa
+# Get conversation history
 curl "http://localhost:8080/ai/memory?session=user123"
 ```
 
-### Exemplos de Uso
+### Usage Examples
 
 ```javascript
 // JavaScript/Frontend
 const response = await fetch(
-  'http://localhost:8080/ai/chatbot?session=user123&prompt=Explique IA generativa'
+  'http://localhost:8080/ai/chatbot?session=user123&prompt=Explain generative AI'
 );
 
 const reader = response.body.getReader();
@@ -419,71 +412,71 @@ while (true) {
   if (done) break;
   
   const chunk = decoder.decode(value);
-  console.log(chunk); // Resposta em streaming
+  console.log(chunk); // Streaming response
 }
 ```
 
-## ⚙️ Configuração
+## ⚙️ Configuration
 
-### Principais Configurações (`application.properties`)
+### Main Configuration (`application.properties`)
 
 ```properties
-# Porta da aplicação
+# Application port
 quarkus.http.port=8080
 
-# Configuração do Ollama
+# Ollama configuration
 quarkus.langchain4j.ollama.base-url=http://localhost:11434/
 quarkus.langchain4j.ollama.chat-model.model-id=gemma3:1b
 quarkus.langchain4j.ollama.embedding-model.model-id=all-minilm:33m
 quarkus.langchain4j.ollama.devservices.enabled=false
 
-# Configuração RAG
+# RAG configuration
 rag.location=src/main/resources/rag
 rag.context=Vue.js
 quarkus.langchain4j.embedding-model.provider=ollama
 
-# Chroma (Banco Vetorial)
+# Chroma (Vector Database)
 quarkus.langchain4j.chroma.collection-name=chatbot
 quarkus.langchain4j.chroma.timeout=30000
 
-# Redis (Cache/Memória)
+# Redis (Cache/Memory)
 quarkus.redis.devservices.enabled=true
 
-# Gerenciamento de Memória
+# Memory Management
 memory.default.max-messages=100
 memory.ttl.hours=48
 ```
 
-## 🧪 Testes
+## 🧪 Tests
 
 ```bash
-# Executar todos os testes
+# Run all tests
 ./mvnw test
 
-# Testes de integração
+# Integration tests
 ./mvnw verify -Dskip.integration.tests=false
 
-# Testes com perfil nativo
+# Tests with native profile
 ./mvnw verify -Dnative
 ```
 
-## 📖 Documentação Adicional
+## 📖 Additional Documentation
 
-- [Guia do Quarkus](https://quarkus.io/guides/)
+- [Quarkus Guide](https://quarkus.io/guides/)
 - [LangChain4j Documentation](https://docs.langchain4j.dev/)
 - [Ollama Documentation](https://ollama.com/docs/)
 
-## 🤝 Contribuindo
+## 🤝 Contributing
 
-1. Faça um fork do projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
-3. Commit suas mudanças (`git commit -m 'Adiciona nova feature'`)
-4. Push para a branch (`git push origin feature/nova-feature`)
-5. Abra um Pull Request
+1. Fork the project
+2. Create a branch for your feature (`git checkout -b feature/new-feature`)
+3. Commit your changes (`git commit -m 'Add new feature'`)
+4. Push to the branch (`git push origin feature/new-feature`)
+5. Open a Pull Request
 
-## 📄 Licença
+## 📄 License
 
-Este projeto contém informações confidenciais e proprietárias.
-Cópia, distribuição ou uso não autorizado deste arquivo ou seu conteúdo é estritamente proibido.
+This project contains confidential and proprietary information.
+Unauthorized copying, distribution, or use of this file or its contents is strictly prohibited.
 
-© 2025 Rodrigo Prestes Machado. Todos os direitos reservados.
+© 2025 Rodrigo Prestes Machado. All rights reserved.

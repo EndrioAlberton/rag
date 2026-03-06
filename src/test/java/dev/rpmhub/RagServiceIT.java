@@ -25,7 +25,7 @@ import io.restassured.http.ContentType;
 class RagServiceIT {
 
     @Test
-    @DisplayName("Teste do endpoint /ai/chatbot - cenário positivo com session e prompt")
+    @DisplayName("Test /ai/chatbot endpoint - positive scenario with session and prompt")
     void testChatbotEndpointWithValidParameters() {
         given()
             .when()
@@ -38,19 +38,19 @@ class RagServiceIT {
     }
 
     @Test
-    @DisplayName("Teste do endpoint /ai/chatbot - cenário sem prompt (deve falhar)")
+    @DisplayName("Test /ai/chatbot endpoint - scenario without prompt (should fail)")
     void testChatbotEndpointWithoutPrompt() {
         given()
             .when()
                 .queryParam("session", "test-session-no-prompt")
                 .get("/ai/chatbot")
             .then()
-                // Espera erro por prompt em branco: Bad Request
+                // Expect error for blank prompt: Bad Request
                 .statusCode(400);
     }
 
     @Test
-    @DisplayName("Teste do endpoint /ai/chatbot - cenário com prompt específico sobre Vue")
+    @DisplayName("Test /ai/chatbot endpoint - scenario with Vue-specific prompt")
     void testChatbotEndpointWithVuePrompt() {
         given()
             .when()
@@ -63,7 +63,7 @@ class RagServiceIT {
     }
 
     @Test
-    @DisplayName("Teste do endpoint /ai/ask - cenário positivo")
+    @DisplayName("Test /ai/ask endpoint - positive scenario")
     void testAskModelEndpointWithValidParameters() {
         given()
             .when()
@@ -76,19 +76,19 @@ class RagServiceIT {
     }
 
     @Test
-    @DisplayName("Teste do endpoint /ai/ask - cenário sem prompt (deve falhar)")
+    @DisplayName("Test /ai/ask endpoint - scenario without prompt (should fail)")
     void testAskModelEndpointWithoutPrompt() {
         given()
             .when()
                 .queryParam("session", "ask-session-no-prompt")
                 .get("/ai/ask")
             .then()
-                // Espera erro por prompt em branco: Bad Request
+                // Expect error for blank prompt: Bad Request
                 .statusCode(400);
     }
 
     @Test
-    @DisplayName("Teste do endpoint /ai/ask - pergunta específica sobre Vue.js")
+    @DisplayName("Test /ai/ask endpoint - Vue.js specific question")
     void testAskModelEndpointWithVueQuestion() {
         given()
             .when()
@@ -101,11 +101,11 @@ class RagServiceIT {
     }
 
     @Test
-    @DisplayName("Teste do endpoint /ai/memory - recuperar memória da conversa")
+    @DisplayName("Test /ai/memory endpoint - retrieve conversation memory")
     void testGetMemoryEndpoint() {
         String sessionId = "memory-test-session-" + System.currentTimeMillis();
 
-        // Primeiro, fazer uma pergunta para criar memória
+        // First, ask a question to create memory
         given()
             .when()
                 .queryParam("session", sessionId)
@@ -114,7 +114,7 @@ class RagServiceIT {
             .then()
                 .statusCode(200);
 
-        // Então recuperar a memória
+        // Then retrieve the memory
         given()
             .when()
                 .queryParam("session", sessionId)
@@ -129,32 +129,32 @@ class RagServiceIT {
     }
 
     @Test
-    @DisplayName("Teste do endpoint /ai/memory - sessão inexistente")
+    @DisplayName("Test /ai/memory endpoint - non-existent session")
     void testGetMemoryEndpointWithNonExistentSession() {
         given()
             .when()
                 .queryParam("session", "non-existent-session")
                 .get("/ai/memory")
             .then()
-                .statusCode(204); // No Content para sessão não existente
+                .statusCode(204); // No Content for non-existent session
     }
 
     @Test
-    @DisplayName("Teste do endpoint /ai/memory - sem parâmetro de sessão")
+    @DisplayName("Test /ai/memory endpoint - without session parameter")
     void testGetMemoryEndpointWithoutSession() {
         given()
             .when()
                 .get("/ai/memory")
             .then()
-                .statusCode(204); // No Content quando não há sessão
+                .statusCode(204); // No Content when there is no session
     }
 
     @Test
-    @DisplayName("Teste de integração Vue.js - simulação de fluxo frontend")
+    @DisplayName("Vue.js integration test - frontend flow simulation")
     void testVueIntegrationFlow() {
         String session = "vue-integration-test-" + System.currentTimeMillis();
         
-        // Simula uma pergunta típica de um usuário através de uma interface Vue
+        // Simulates a typical user question through a Vue interface
         given()
             .when()
                 .queryParam("session", session)
@@ -164,7 +164,7 @@ class RagServiceIT {
                 .statusCode(200)
                 .contentType("text/event-stream");
 
-        // Verificar se a memória foi criada corretamente
+        // Verify memory was created correctly
         given()
             .when()
                 .queryParam("session", session)
@@ -175,7 +175,7 @@ class RagServiceIT {
                 .body("session", equalTo(session))
                 .body("messages", notNullValue());
 
-        // Fazer uma pergunta de follow-up
+        // Ask a follow-up question
         given()
             .when()
                 .queryParam("session", session)
@@ -209,12 +209,12 @@ class RagServiceIT {
             }).start();
         }
 
-        // Aguardar todas as requisições completarem (máximo 60 segundos)
+        // Wait for all requests to complete (max 60 seconds)
         latch.await(60, TimeUnit.SECONDS);
     }
 
     @Test
-    @DisplayName("Teste com caracteres especiais no prompt")
+    @DisplayName("Test with special characters in prompt")
     void testSpecialCharactersInPrompt() {
         given()
             .when()
@@ -227,7 +227,7 @@ class RagServiceIT {
     }
 
     @Test
-    @DisplayName("Teste com prompt longo - verificando apenas status")
+    @DisplayName("Test with long prompt - status verification only")
     void testLongPrompt() {
         String longPrompt = "Este é um prompt muito longo para testar como o sistema lida com textos extensos. ".repeat(5) + 
                            "A pergunta principal é sobre Vue.js e como ele pode ser usado em aplicações complexas.";
@@ -243,7 +243,7 @@ class RagServiceIT {
     }
 
     @Test
-    @DisplayName("Teste com session vazia")
+    @DisplayName("Test with empty session")
     void testEmptySession() {
         given()
             .when()
@@ -256,7 +256,7 @@ class RagServiceIT {
     }
 
     @Test
-    @DisplayName("Teste de URL encoding - caracteres especiais na URL")
+    @DisplayName("URL encoding test - special characters in URL")
     void testUrlEncodingSpecialCharacters() {
         given()
             .when()
@@ -269,11 +269,11 @@ class RagServiceIT {
     }
 
     @Test
-    @DisplayName("Teste de caso de uso real Vue.js - tutorial interativo")
+    @DisplayName("Real Vue.js use case test - interactive tutorial")
     void testVueJsTutorialUseCase() {
         String tutorialSession = "vue-tutorial-" + System.currentTimeMillis();
         
-        // Primeira pergunta - conceitos básicos
+        // First question - basic concepts
         given()
             .when()
                 .queryParam("session", tutorialSession)
@@ -283,7 +283,7 @@ class RagServiceIT {
                 .statusCode(200)
                 .contentType("text/event-stream");
 
-        // Segunda pergunta - componentes
+        // Second question - components
         given()
             .when()
                 .queryParam("session", tutorialSession)
@@ -293,7 +293,7 @@ class RagServiceIT {
                 .statusCode(200)
                 .contentType("text/event-stream");
 
-        // Verificar memória do tutorial
+        // Verify tutorial memory
         given()
             .when()
                 .queryParam("session", tutorialSession)

@@ -1,13 +1,13 @@
 <template>
   <v-card class="mt-4">
     <v-card-title class="text-h6">
-      Autenticação em Dois Fatores
+      Two-Factor Authentication
     </v-card-title>
     <v-card-text>
-      <p>Por favor, insira o código de 6 dígitos do seu aplicativo autenticador.</p>
+      <p>Please enter the 6-digit code from your authenticator app.</p>
       <v-text-field
         v-model="code"
-        label="Código 2FA"
+        label="2FA Code"
         required
         prepend-inner-icon="mdi-shield-lock"
         maxlength="6"
@@ -26,7 +26,7 @@
         class="mt-4"
         @click="validate"
       >
-        Validar
+        Validate
       </v-btn>
       <v-btn
         text
@@ -34,7 +34,7 @@
         class="mt-2"
         @click="$emit('cancel')"
       >
-        Cancelar
+        Cancel
       </v-btn>
     </v-card-text>
   </v-card>
@@ -62,7 +62,7 @@ export default {
   methods: {
     async validate() {
       if (this.code.length !== 6) {
-        this.error = 'O código deve ter 6 dígitos';
+        this.error = 'The code must have 6 digits';
         return;
       }
 
@@ -73,15 +73,15 @@ export default {
         const response = await orionUsersService.loginWith2FA(this.email, this.code);
 
         if (response.authentication && response.authentication.token) {
-          // Usuário está dentro de authentication, não em response.user
+          // User is inside authentication, not in response.user
           const user = response.authentication.user;
           this.$emit('authenticated', response.authentication.token, user);
         } else {
-          this.error = 'Código inválido. Tente novamente.';
+          this.error = 'Invalid code. Please try again.';
         }
       } catch (error) {
         console.error('Erro ao validar 2FA:', error);
-        this.error = error.response?.data?.message || 'Código inválido. Tente novamente.';
+        this.error = error.response?.data?.message || 'Invalid code. Please try again.';
       } finally {
         this.loading = false;
       }

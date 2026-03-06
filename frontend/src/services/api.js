@@ -123,7 +123,7 @@ export const apiService = {
         const errorData = await response.json();
         errorMessage = errorData.message || errorMessage;
       } catch (e) {
-        // Se não conseguir parsear JSON, usar mensagem padrão
+        // If unable to parse JSON, use default message
         const text = await response.text();
         if (text) {
           errorMessage = text;

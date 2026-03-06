@@ -27,7 +27,7 @@ public class ChatMessage {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
     
-    // Campos para compatibilidade com código existente
+    // Fields for compatibility with existing code
     @Column(name = "session_id")
     private String sessionId;
     

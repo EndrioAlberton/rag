@@ -37,10 +37,10 @@ public class User {
     
     @JsonIgnore
     @Column(name = "password_hash")
-    private String passwordHash; // Para autenticação futura
+    private String passwordHash; // For future authentication
     
     @Column(name = "orion_user_hash", unique = true)
-    private String orionUserHash; // Hash do usuário no Orion Users para mapeamento
+    private String orionUserHash; // User hash in Orion Users for mapping
     
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -48,7 +48,7 @@ public class User {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
     
-    // Relacionamento one-to-many: conversas criadas pelo usuário
+    // One-to-many relationship: conversations created by the user
     @JsonIgnore
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<Conversation> ownedConversations = new HashSet<>();
