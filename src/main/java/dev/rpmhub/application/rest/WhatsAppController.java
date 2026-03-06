@@ -131,7 +131,7 @@ public class WhatsAppController {
     }
 
     private void processAndReplyAsync(String sessionId, String to, String phoneNumberIdFromWebhook, String prompt) {
-        chatbotUseCase.execute(sessionId, prompt)
+        chatbotUseCase.executeWithPhone(sessionId, prompt, to)
                 .collect().asList()
                 .onItem().transform(list -> String.join("", list))
                 .onItem().invoke(response -> {
