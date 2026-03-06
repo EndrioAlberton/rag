@@ -13,9 +13,12 @@ import dev.rpmhub.domain.model.AIRequest;
 import dev.rpmhub.domain.model.RagQuery;
 import dev.rpmhub.domain.port.AIService;
 import dev.rpmhub.domain.port.EmbeddingRepository;
+import dev.rpmhub.domain.port.RequestLogService;
 import io.smallrye.mutiny.Multi;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+
+import java.time.Instant;
 
 /**
  * Use case for asking a question and getting a response using RAG
@@ -26,15 +29,18 @@ public class AskQuestionUseCase {
 
     private final EmbeddingRepository embeddingRepository;
     private final AIService aiService;
+    private final RequestLogService requestLogService;
 
     @ConfigProperty(name = "rag.context", defaultValue = "")
     private static final String DEFAULT_CONTEXT = "";
 
     @Inject
     public AskQuestionUseCase(EmbeddingRepository embeddingRepository,
-            AIService aiService) {
+            AIService aiService,
+            RequestLogService requestLogService) {
         this.embeddingRepository = embeddingRepository;
         this.aiService = aiService;
+        this.requestLogService = requestLogService;
     }
 
     /**
@@ -45,18 +51,38 @@ public class AskQuestionUseCase {
      * @return a Multi emitting the response
      */
     public Multi<String> execute(String session, String prompt) {
+        return execute(session, prompt, null);
+    }
+
+    /**
+     * Executes the use case to ask a question and get a response.
+     *
+     * @param session     the session ID
+     * @param prompt      the question prompt
+     * @param phoneNumber phone number (WhatsApp) or null for REST
+     * @return a Multi emitting the response
+     */
+    public Multi<String> execute(String session, String prompt, String phoneNumber) {
+        Instant messageTimestamp = Instant.now();
         RagQuery query = new RagQuery(prompt, 1, 0.7);
+        long ragStart = System.currentTimeMillis();
 
         return embeddingRepository.searchChunks(query)
                 .flatMap(ragResponse -> {
-                    String context = ragResponse.getContexts().isEmpty()
+                    long ragLatencyMs = System.currentTimeMillis() - ragStart;
+                    String ragResult = ragResponse.getContexts().isEmpty()
                             ? DEFAULT_CONTEXT
                             : ragResponse.getFirstContext();
 
-                    AIRequest aiRequest = new AIRequest(session, prompt, context);
-                    return aiService.generateResponse(aiRequest);
-                })
-                .group().intoLists().of(20)
-                .onItem().transform(list -> String.join("", list));
+                    AIRequest aiRequest = new AIRequest(session, prompt, ragResult);
+                    long llmStart = System.currentTimeMillis();
+                    return aiService.generateResponse(aiRequest)
+                            .group().intoLists().of(20)
+                            .onItem().transform(list -> String.join("", list))
+                            .onItem().call(response -> requestLogService.log(
+                                    phoneNumber, session, prompt,
+                                    messageTimestamp, ragResult, ragLatencyMs,
+                                    response, System.currentTimeMillis() - llmStart));
+                });
     }
 }

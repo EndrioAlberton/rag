@@ -13,6 +13,7 @@ import dev.rpmhub.domain.model.User;
 import dev.rpmhub.domain.port.AuthService;
 import dev.rpmhub.domain.port.ConversationService;
 import dev.rpmhub.domain.port.MemoryService;
+import dev.rpmhub.domain.port.RequestLogService;
 import dev.rpmhub.domain.port.UserService;
 import dev.rpmhub.domain.usecase.AskQuestionUseCase;
 import dev.rpmhub.domain.usecase.ChatbotUseCase;
@@ -41,6 +42,7 @@ public class RagController {
     private final UserService userService;
     private final ConversationService conversationService;
     private final AuthService authService;
+    private final RequestLogService requestLogService;
 
     @Context
     ContainerRequestContext requestContext;
@@ -51,7 +53,8 @@ public class RagController {
             MemoryService memoryService,
             UserService userService,
             ConversationService conversationService,
-            AuthService authService) {
+            AuthService authService,
+            RequestLogService requestLogService) {
 
         this.chatbotUseCase = chatbotUseCase;
         this.askQuestionUseCase = askQuestionUseCase;
@@ -59,6 +62,7 @@ public class RagController {
         this.userService = userService;
         this.conversationService = conversationService;
         this.authService = authService;
+        this.requestLogService = requestLogService;
     }
     
     /**
@@ -213,6 +217,23 @@ public class RagController {
         } else {
             return Uni.createFrom().nullItem();
         }
+    }
+
+    /**
+     * Exports request logs to CSV format for analysis and auditing.
+     *
+     * @return CSV content with all logged requests
+     */
+    @GET
+    @Path("/logs/export")
+    @Produces("text/csv")
+    @WithSession
+    @RolesAllowed("user")
+    public Uni<Response> exportLogsToCsv() {
+        return requestLogService.exportToCsv()
+                .map(csv -> Response.ok(csv)
+                        .header("Content-Disposition", "attachment; filename=\"request_logs.csv\"")
+                        .build());
     }
     
     // ========== Endpoints de Usuário ==========
