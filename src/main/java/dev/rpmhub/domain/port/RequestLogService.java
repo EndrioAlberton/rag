@@ -19,19 +19,20 @@ public interface RequestLogService {
     /**
      * Persists a request log entry.
      *
-     * @param phoneNumber    phone number (WhatsApp) or null for REST
-     * @param userId        unique user identifier (hash or session)
-     * @param userMessage   message sent by the user
+     * @param phoneNumber     phone number (WhatsApp) or null for REST
+     * @param userId         unique user identifier (hash or session)
+     * @param userMessage    message sent by the user
      * @param messageTimestamp when the message was received
-     * @param ragResult     content retrieved from RAG
-     * @param ragLatencyMs  RAG retrieval time in milliseconds
-     * @param llmResponse   complete LLM response (after streaming finishes)
-     * @param llmLatencyMs  time to receive complete LLM response in milliseconds
+     * @param ragResult      content retrieved from RAG
+     * @param ragLatencyMs   RAG retrieval time in milliseconds
+     * @param llmResponse    complete LLM response (after streaming finishes)
+     * @param llmLatencyMs   time to receive complete LLM response in milliseconds
+     * @param conversationId unique conversation identifier (UUID) or null for legacy session-based flows
      * @return Uni that completes when the log is persisted
      */
     Uni<Void> log(String phoneNumber, String userId, String userMessage,
             java.time.Instant messageTimestamp, String ragResult, long ragLatencyMs,
-            String llmResponse, long llmLatencyMs);
+            String llmResponse, long llmLatencyMs, String conversationId);
 
     /**
      * Exports all request logs to CSV format.

@@ -76,13 +76,15 @@ public class AskQuestionUseCase {
 
                     AIRequest aiRequest = new AIRequest(session, prompt, ragResult);
                     long llmStart = System.currentTimeMillis();
+                    StringBuilder accumulator = new StringBuilder();
                     return aiService.generateResponse(aiRequest)
                             .group().intoLists().of(20)
                             .onItem().transform(list -> String.join("", list))
-                            .onItem().call(response -> requestLogService.log(
+                            .onItem().invoke(chunk -> accumulator.append(chunk))
+                            .onCompletion().call(() -> requestLogService.log(
                                     phoneNumber, session, prompt,
                                     messageTimestamp, ragResult, ragLatencyMs,
-                                    response, System.currentTimeMillis() - llmStart));
+                                    accumulator.toString(), System.currentTimeMillis() - llmStart, null));
                 });
     }
 }

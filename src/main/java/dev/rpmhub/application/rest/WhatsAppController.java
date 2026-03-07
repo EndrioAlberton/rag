@@ -87,14 +87,17 @@ public class WhatsAppController {
                 for (WhatsAppWebhookPayload.WebhookMessage msg : change.value.messages) {
                     String from = msg.from;
                     String sessionId = "whatsapp:" + from;
+                    String messageId = msg.id;
 
                     if ("text".equals(msg.type) && msg.text != null && msg.text.body != null && !msg.text.body.isBlank()) {
                         String prompt = msg.text.body.trim();
                         Log.info("WhatsApp message from " + from + ": " + prompt);
-                        processAndReplyAsync(sessionId, from, phoneNumberId, prompt);
+                        whatsAppMessageSender.sendTypingIndicator(from, messageId, phoneNumberId);
+                        processAndReplyAsync(sessionId, from, phoneNumberId, prompt, messageId);
                     } else if ("audio".equals(msg.type) && msg.audio != null && msg.audio.id != null) {
                         Log.info("WhatsApp audio from " + from + " (media id: " + msg.audio.id + ")");
-                        processAudioAndReplyAsync(msg.audio.id, msg.audio.mimeType, from, phoneNumberId);
+                        whatsAppMessageSender.sendTypingIndicator(from, messageId, phoneNumberId);
+                        processAudioAndReplyAsync(msg.audio.id, msg.audio.mimeType, from, phoneNumberId, messageId);
                     }
                 }
             }
@@ -103,23 +106,25 @@ public class WhatsAppController {
         return Response.ok().build();
     }
 
-    private void processAudioAndReplyAsync(String mediaId, String mimeType, String from, String phoneNumberIdFromWebhook) {
+    private void processAudioAndReplyAsync(String mediaId, String mimeType, String from, String phoneNumberIdFromWebhook, String messageId) {
         BlockingToReactive.wrap(() -> {
             Optional<byte[]> audioData = whatsAppMediaDownloader.downloadMedia(mediaId);
             return audioData.flatMap(data -> speechToTextService.transcribe(data, mimeType));
         })
                 .onItem().invoke(transcribedOpt -> {
                     if (transcribedOpt.isEmpty()) {
+                        whatsAppMessageSender.sendReaction(from, messageId, "", phoneNumberIdFromWebhook);
                         whatsAppMessageSender.sendTextMessage(from,
                                 "Could not transcribe the audio. Please verify OpenAI is configured and try sending a text message.",
                                 phoneNumberIdFromWebhook);
                     } else {
                         String sessionId = "whatsapp:" + from;
-                        processAndReplyAsync(sessionId, from, phoneNumberIdFromWebhook, transcribedOpt.get());
+                        processAndReplyAsync(sessionId, from, phoneNumberIdFromWebhook, transcribedOpt.get(), messageId);
                     }
                 })
                 .onFailure().invoke(e -> {
                     Log.error("Error processing WhatsApp audio from " + from, e);
+                    whatsAppMessageSender.sendReaction(from, messageId, "", phoneNumberIdFromWebhook);
                     whatsAppMessageSender.sendTextMessage(from,
                             "Sorry, an error occurred while processing your audio. Please try again or send a text message.",
                             phoneNumberIdFromWebhook);
@@ -130,11 +135,13 @@ public class WhatsAppController {
                 );
     }
 
-    private void processAndReplyAsync(String sessionId, String to, String phoneNumberIdFromWebhook, String prompt) {
+    private void processAndReplyAsync(String sessionId, String to, String phoneNumberIdFromWebhook, String prompt, String messageId) {
         chatbotUseCase.executeWithPhone(sessionId, prompt, to)
                 .collect().asList()
                 .onItem().transform(list -> String.join("", list))
                 .onItem().invoke(response -> {
+                    // Clear the ⏳ reaction before sending the reply
+                    whatsAppMessageSender.sendReaction(to, messageId, "", phoneNumberIdFromWebhook);
                     boolean sent = whatsAppMessageSender.sendTextMessage(to, response, phoneNumberIdFromWebhook);
                     if (!sent) {
                         Log.warn("Failed to send WhatsApp response to " + to + " - check whatsapp.phone-number-id and whatsapp.access-token");
@@ -142,8 +149,8 @@ public class WhatsAppController {
                 })
                 .onFailure().invoke(e -> {
                     Log.error("Error processing WhatsApp message from " + to, e);
-                    String errorMsg = "Sorry, an error occurred while processing your message. Please try again.";
-                    whatsAppMessageSender.sendTextMessage(to, errorMsg, phoneNumberIdFromWebhook);
+                    whatsAppMessageSender.sendReaction(to, messageId, "", phoneNumberIdFromWebhook);
+                    whatsAppMessageSender.sendTextMessage(to, "Sorry, an error occurred while processing your message. Please try again.", phoneNumberIdFromWebhook);
                 })
                 .subscribe().with(
                         r -> Log.debug("WhatsApp response sent to " + to),

@@ -37,10 +37,11 @@ public class RequestLogServiceImpl implements RequestLogService {
     @WithTransaction
     public Uni<Void> log(String phoneNumber, String userId, String userMessage,
             Instant messageTimestamp, String ragResult, long ragLatencyMs,
-            String llmResponse, long llmLatencyMs) {
+            String llmResponse, long llmLatencyMs, String conversationId) {
         RequestLog log = new RequestLog();
         log.setPhoneNumber(phoneNumber != null && !phoneNumber.isBlank() ? phoneNumber : null);
         log.setUserId(userId);
+        log.setConversationId(conversationId != null && !conversationId.isBlank() ? conversationId : null);
         log.setUserMessage(userMessage);
         log.setMessageTimestamp(LocalDateTime.ofInstant(messageTimestamp, ZoneOffset.UTC));
         log.setRagResult(ragResult);
@@ -69,10 +70,11 @@ public class RequestLogServiceImpl implements RequestLogService {
 
     private static String toCsv(List<RequestLog> logs) {
         StringBuilder sb = new StringBuilder();
-        sb.append("phone_number,user_id,user_message,message_timestamp,rag_result,rag_latency_ms,llm_response,llm_latency_ms\n");
+        sb.append("phone_number,user_id,conversation_id,user_message,message_timestamp,rag_result,rag_latency_ms,llm_response,llm_latency_ms\n");
         for (RequestLog log : logs) {
             sb.append(escapeCsvField(log.getPhoneNumber())).append(",");
             sb.append(escapeCsvField(log.getUserId())).append(",");
+            sb.append(escapeCsvField(log.getConversationId())).append(",");
             sb.append(escapeCsvField(log.getUserMessage())).append(",");
             sb.append(escapeCsvField(log.getMessageTimestamp() != null ? log.getMessageTimestamp().toString() : "")).append(",");
             sb.append(escapeCsvField(log.getRagResult())).append(",");

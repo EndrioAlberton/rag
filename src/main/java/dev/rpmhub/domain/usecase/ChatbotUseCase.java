@@ -101,25 +101,27 @@ public class ChatbotUseCase {
                                 String ragResult = ragResponse.getContexts().isEmpty()
                                         ? DEFAULT_CONTEXT
                                         : ragResponse.getFirstContext();
-                                Log.info("Context: " + ragResult);
 
                                 return memoryService.getHistory(session)
                                         .onItem().transformToMulti(history -> {
                                             AIRequest aiRequest = new AIRequest(session, prompt, ragResult, history);
                                             long llmStart = System.currentTimeMillis();
+                                            StringBuilder accumulator = new StringBuilder();
                                             return aiService.generateContextualResponse(aiRequest)
                                                     .group().intoLists().of(20)
                                                     .onItem().transform(list -> String.join("", list))
-                                                    .onItem().call(response -> {
+                                                    .onItem().invoke(chunk -> accumulator.append(chunk))
+                                                    .onCompletion().call(() -> {
                                                         long llmLatencyMs = System.currentTimeMillis() - llmStart;
+                                                        String fullResponse = accumulator.toString();
                                                         ChatMessage assistantMessage = new ChatMessage(session,
-                                                                response,
+                                                                fullResponse,
                                                                 ChatMessage.MessageType.ASSISTANT);
                                                         return memoryService.saveMessage(assistantMessage)
                                                                 .chain(() -> requestLogService.log(
                                                                         phoneNumber, session, prompt,
                                                                         messageTimestamp, ragResult, ragLatencyMs,
-                                                                        response, llmLatencyMs));
+                                                                        fullResponse, llmLatencyMs, null));
                                                     });
                                         });
                             });
@@ -164,30 +166,30 @@ public class ChatbotUseCase {
                                 String ragResult = ragResponse.getContexts().isEmpty()
                                         ? DEFAULT_CONTEXT
                                         : ragResponse.getFirstContext();
-                                Log.info("Context: " + ragResult);
 
                                 return memoryService.getHistory(userId, conversationId)
                                         .onItem().transformToMulti(history -> {
                                             AIRequest aiRequest = new AIRequest(conversationId, prompt, ragResult, history);
                                             long llmStart = System.currentTimeMillis();
+                                            StringBuilder accumulator = new StringBuilder();
                                             return aiService.generateContextualResponse(aiRequest)
                                                     .group().intoLists().of(20)
                                                     .onItem().transform(list -> String.join("", list))
-                                                    .onItem().call(response -> {
-                                                        // Save assistant response to memory
-                                                        // ASSISTANT messages should not have userId
+                                                    .onItem().invoke(chunk -> accumulator.append(chunk))
+                                                    .onCompletion().call(() -> {
                                                         long llmLatencyMs = System.currentTimeMillis() - llmStart;
+                                                        String fullResponse = accumulator.toString();
                                                         ChatMessage assistantMessage = new ChatMessage();
                                                         assistantMessage.setConversationId(conversationId);
-                                                        assistantMessage.setSessionId(conversationId); // For compatibility
-                                                        assistantMessage.setContent(response);
+                                                        assistantMessage.setSessionId(conversationId);
+                                                        assistantMessage.setContent(fullResponse);
                                                         assistantMessage.setType(ChatMessage.MessageType.ASSISTANT);
-                                                        assistantMessage.setUserId(null); // Assistant messages do not have userId
+                                                        assistantMessage.setUserId(null);
                                                         return memoryService.saveMessage(assistantMessage)
                                                                 .chain(() -> requestLogService.log(
                                                                         phoneNumber, userId, prompt,
                                                                         messageTimestamp, ragResult, ragLatencyMs,
-                                                                        response, llmLatencyMs));
+                                                                        fullResponse, llmLatencyMs, conversationId));
                                                     });
                                         });
                             });

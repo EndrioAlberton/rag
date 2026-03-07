@@ -42,6 +42,12 @@ public class RequestLog {
     private String userId;
 
     /**
+     * Unique conversation identifier (UUID). Null for legacy session-based flows.
+     */
+    @Column(name = "conversation_id", length = 255)
+    private String conversationId;
+
+    /**
      * The message sent by the user.
      */
     @Column(name = "user_message", nullable = false, columnDefinition = "TEXT")
