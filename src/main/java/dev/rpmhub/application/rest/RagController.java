@@ -104,6 +104,8 @@ public class RagController {
             return syncUserFromRequest()
                 .onItem().transformToMulti(syncedUser -> {
                     String syncedUserId = syncedUser.getId();
+                    String syncedUserName = syncedUser.getUsername();
+                    String syncedEmail = syncedUser.getEmail();
                     // Verificar acesso antes de processar (usando o ID do usuário)
                     return conversationService.userHasAccess(syncedUserId, request.conversationId)
                         .onItem().transformToMulti(hasAccess -> {
@@ -111,8 +113,8 @@ public class RagController {
                                 Log.warn("Access denied for user " + syncedUserId + " to conversation " + request.conversationId);
                                 return Multi.createFrom().failure(new SecurityException("Acesso negado"));
                             }
-                            // Passar o ID do usuário sincronizado, não o hash
-                            return chatbotUseCase.execute(syncedUserId, request.conversationId, request.prompt);
+                            return chatbotUseCase.executeWithPhone(syncedUserId, request.conversationId,
+                                    request.prompt, null, syncedUserName, syncedEmail);
                         })
                         .onFailure().recoverWithMulti(e -> {
                             // Tratar falhas convertendo em mensagem SSE válida
@@ -152,6 +154,8 @@ public class RagController {
             return syncUserFromRequest()
                 .onItem().transformToMulti(syncedUser -> {
                     String syncedUserId = syncedUser.getId();
+                    String syncedUserName = syncedUser.getUsername();
+                    String syncedEmail = syncedUser.getEmail();
                     // Verificar acesso antes de processar (usando o ID do usuário)
                     return conversationService.userHasAccess(syncedUserId, conversationId)
                         .onItem().transformToMulti(hasAccess -> {
@@ -159,8 +163,8 @@ public class RagController {
                                 Log.warn("Access denied for user " + syncedUserId + " to conversation " + conversationId);
                                 return Multi.createFrom().failure(new SecurityException("Acesso negado"));
                             }
-                            // Passar o ID do usuário sincronizado, não o hash
-                            return chatbotUseCase.execute(syncedUserId, conversationId, prompt);
+                            return chatbotUseCase.executeWithPhone(syncedUserId, conversationId,
+                                    prompt, null, syncedUserName, syncedEmail);
                         })
                         .onFailure().recoverWithMulti(e -> {
                             // Tratar falhas convertendo em mensagem SSE válida

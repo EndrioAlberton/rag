@@ -190,6 +190,16 @@ Run with:
 docker-compose up -d
 ```
 
+## Deploy no Fly.io
+
+Para publicar a aplicação no [Fly.io](https://fly.io), use o `Dockerfile` (build JVM) e o `fly.toml` na raiz do projeto. O guia completo (secrets, Postgres, Redis, health check) está em **[docs/DEPLOY-FLY.md](docs/DEPLOY-FLY.md)**.
+
+```bash
+fly launch
+fly secrets set OPENAI_API_KEY=... QUARKUS_DATASOURCE_JDBC_URL=... # ver DEPLOY-FLY.md
+fly deploy
+```
+
 ## 🏗️ Architecture
 
 The project follows **Hexagonal Architecture (Clean Architecture)** principles,

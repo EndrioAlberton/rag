@@ -15,6 +15,7 @@
         <quarkus.platform.version>3.31.4</quarkus.platform.version>
         <quarkus.mcp-server.version>1.10.0</quarkus.mcp-server.version>
         <skipITs>false</skipITs>
+        <skipFrontend>false</skipFrontend>
         <surefire-plugin.version>3.5.3</surefire-plugin.version>
     </properties>
 
@@ -144,6 +145,7 @@
                 <version>1.15.0</version>
                 <configuration>
                     <workingDirectory>frontend</workingDirectory>
+                    <skip>${skipFrontend}</skip>
                 </configuration>
                 <executions>
                     <execution>
@@ -154,6 +156,7 @@
                         <configuration>
                             <nodeVersion>v20.11.0</nodeVersion>
                             <npmVersion>10.2.4</npmVersion>
+                            <skip>${skipFrontend}</skip>
                         </configuration>
                     </execution>
                     <execution>
@@ -163,6 +166,7 @@
                         </goals>
                         <configuration>
                             <arguments>install</arguments>
+                            <skip>${skipFrontend}</skip>
                         </configuration>
                     </execution>
                     <execution>
@@ -172,6 +176,7 @@
                         </goals>
                         <configuration>
                             <arguments>run build</arguments>
+                            <skip>${skipFrontend}</skip>
                         </configuration>
                     </execution>
                 </executions>

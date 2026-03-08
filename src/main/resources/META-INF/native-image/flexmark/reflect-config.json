@@ -1,0 +1,50 @@
+[
+  {
+    "name": "com.vladsch.flexmark.util.sequence.builder.ISegmentBuilder$Options",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "[Lcom.vladsch.flexmark.util.sequence.builder.ISegmentBuilder$Options;",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.vladsch.flexmark.util.ast.TextContainer$Flags",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "[Lcom.vladsch.flexmark.util.ast.TextContainer$Flags;",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.vladsch.flexmark.util.format.TrackedOffset$Flags",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "[Lcom.vladsch.flexmark.util.format.TrackedOffset$Flags;",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.vladsch.flexmark.util.sequence.LineInfo$Flags",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "[Lcom.vladsch.flexmark.util.sequence.LineInfo$Flags;",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true,
+    "allDeclaredConstructors": true
+  }
+]

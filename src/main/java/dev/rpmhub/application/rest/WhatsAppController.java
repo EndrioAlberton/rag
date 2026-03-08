@@ -88,16 +88,17 @@ public class WhatsAppController {
                     String from = msg.from;
                     String sessionId = "whatsapp:" + from;
                     String messageId = msg.id;
+                    String senderName = resolveProfileName(change.value.contacts, from);
 
                     if ("text".equals(msg.type) && msg.text != null && msg.text.body != null && !msg.text.body.isBlank()) {
                         String prompt = msg.text.body.trim();
                         Log.info("WhatsApp message from " + from + ": " + prompt);
                         whatsAppMessageSender.sendTypingIndicator(from, messageId, phoneNumberId);
-                        processAndReplyAsync(sessionId, from, phoneNumberId, prompt, messageId);
+                        processAndReplyAsync(sessionId, from, phoneNumberId, prompt, messageId, senderName);
                     } else if ("audio".equals(msg.type) && msg.audio != null && msg.audio.id != null) {
                         Log.info("WhatsApp audio from " + from + " (media id: " + msg.audio.id + ")");
                         whatsAppMessageSender.sendTypingIndicator(from, messageId, phoneNumberId);
-                        processAudioAndReplyAsync(msg.audio.id, msg.audio.mimeType, from, phoneNumberId, messageId);
+                        processAudioAndReplyAsync(msg.audio.id, msg.audio.mimeType, from, phoneNumberId, messageId, senderName);
                     }
                 }
             }
@@ -106,7 +107,8 @@ public class WhatsAppController {
         return Response.ok().build();
     }
 
-    private void processAudioAndReplyAsync(String mediaId, String mimeType, String from, String phoneNumberIdFromWebhook, String messageId) {
+    private void processAudioAndReplyAsync(String mediaId, String mimeType, String from,
+            String phoneNumberIdFromWebhook, String messageId, String senderName) {
         BlockingToReactive.wrap(() -> {
             Optional<byte[]> audioData = whatsAppMediaDownloader.downloadMedia(mediaId);
             return audioData.flatMap(data -> speechToTextService.transcribe(data, mimeType));
@@ -119,7 +121,7 @@ public class WhatsAppController {
                                 phoneNumberIdFromWebhook);
                     } else {
                         String sessionId = "whatsapp:" + from;
-                        processAndReplyAsync(sessionId, from, phoneNumberIdFromWebhook, transcribedOpt.get(), messageId);
+                        processAndReplyAsync(sessionId, from, phoneNumberIdFromWebhook, transcribedOpt.get(), messageId, senderName);
                     }
                 })
                 .onFailure().invoke(e -> {
@@ -135,8 +137,9 @@ public class WhatsAppController {
                 );
     }
 
-    private void processAndReplyAsync(String sessionId, String to, String phoneNumberIdFromWebhook, String prompt, String messageId) {
-        chatbotUseCase.executeWithPhone(sessionId, prompt, to)
+    private void processAndReplyAsync(String sessionId, String to, String phoneNumberIdFromWebhook,
+            String prompt, String messageId, String senderName) {
+        chatbotUseCase.executeWithPhone(sessionId, prompt, to, senderName, null)
                 .collect().asList()
                 .onItem().transform(list -> String.join("", list))
                 .onItem().invoke(response -> {
@@ -156,5 +159,16 @@ public class WhatsAppController {
                         r -> Log.debug("WhatsApp response sent to " + to),
                         e -> Log.error("WhatsApp processing failure", e)
                 );
+    }
+
+    private String resolveProfileName(
+            java.util.List<WhatsAppWebhookPayload.WebhookContact> contacts, String waId) {
+        if (contacts == null) return null;
+        return contacts.stream()
+                .filter(c -> waId.equals(c.waId) && c.profile != null && c.profile.name != null
+                        && !c.profile.name.isBlank())
+                .map(c -> c.profile.name)
+                .findFirst()
+                .orElse(null);
     }
 }

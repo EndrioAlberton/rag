@@ -1,5 +1,18 @@
-*
-!target/*-runner
-!target/*-runner.jar
-!target/lib/*
-!target/quarkus-app/*
+# Ignore version control and IDE
+.git
+.gitignore
+.idea
+.cursor
+*.iml
+
+# Host build artifacts (we build inside the image)
+target
+
+# Frontend: do not copy host node_modules — use npm ci in container
+frontend/node_modules
+
+# Optional: reduce context size
+*.log
+.env
+.env.*
+!frontend/.env.example

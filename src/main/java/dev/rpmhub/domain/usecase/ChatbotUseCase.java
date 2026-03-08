@@ -73,7 +73,7 @@ public class ChatbotUseCase {
      * @return a Multi emitting the chatbot response
      */
     public Multi<String> execute(String session, String prompt) {
-        return executeWithPhone(session, prompt, null);
+        return executeWithPhone(session, prompt, null, null, null);
     }
 
     /**
@@ -85,6 +85,21 @@ public class ChatbotUseCase {
      * @return a Multi emitting the chatbot response
      */
     public Multi<String> executeWithPhone(String session, String prompt, String phoneNumber) {
+        return executeWithPhone(session, prompt, phoneNumber, null, null);
+    }
+
+    /**
+     * Executes the use case to interact with the chatbot (e.g. from WhatsApp).
+     *
+     * @param session     the session ID
+     * @param prompt      the user prompt
+     * @param phoneNumber phone number (WhatsApp) or null for REST
+     * @param userName    display name of the user (WhatsApp profile name, or null)
+     * @param email       email of the user (null for WhatsApp and legacy sessions)
+     * @return a Multi emitting the chatbot response
+     */
+    public Multi<String> executeWithPhone(String session, String prompt, String phoneNumber,
+            String userName, String email) {
         Log.info("Executing ChatbotUseCase for session: " + session + " with prompt: " + prompt);
         Instant messageTimestamp = Instant.now();
         ChatMessage userMessage = new ChatMessage(session, prompt, ChatMessage.MessageType.USER);
@@ -119,7 +134,7 @@ public class ChatbotUseCase {
                                                                 ChatMessage.MessageType.ASSISTANT);
                                                         return memoryService.saveMessage(assistantMessage)
                                                                 .chain(() -> requestLogService.log(
-                                                                        phoneNumber, session, prompt,
+                                                                        phoneNumber, session, userName, email, prompt,
                                                                         messageTimestamp, ragResult, ragLatencyMs,
                                                                         fullResponse, llmLatencyMs, null));
                                                     });
@@ -137,7 +152,7 @@ public class ChatbotUseCase {
      * @return a Multi emitting the chatbot response
      */
     public Multi<String> execute(String userId, String conversationId, String prompt) {
-        return executeWithPhone(userId, conversationId, prompt, null);
+        return executeWithPhone(userId, conversationId, prompt, null, null, null);
     }
 
     /**
@@ -147,9 +162,12 @@ public class ChatbotUseCase {
      * @param conversationId the conversation ID
      * @param prompt         the user prompt
      * @param phoneNumber    phone number (WhatsApp) or null for REST
+     * @param userName       display name of the user (username for REST, profile name for WhatsApp)
+     * @param email          email of the user (from JWT for REST, null for WhatsApp)
      * @return a Multi emitting the chatbot response
      */
-    public Multi<String> executeWithPhone(String userId, String conversationId, String prompt, String phoneNumber) {
+    public Multi<String> executeWithPhone(String userId, String conversationId, String prompt,
+            String phoneNumber, String userName, String email) {
         Log.info("Executing ChatbotUseCase for user: " + userId + ", conversation: " + conversationId + " with prompt: " + prompt);
         Instant messageTimestamp = Instant.now();
         ChatMessage userMessage = new ChatMessage(userId, conversationId, prompt, ChatMessage.MessageType.USER);
@@ -187,7 +205,7 @@ public class ChatbotUseCase {
                                                         assistantMessage.setUserId(null);
                                                         return memoryService.saveMessage(assistantMessage)
                                                                 .chain(() -> requestLogService.log(
-                                                                        phoneNumber, userId, prompt,
+                                                                        phoneNumber, userId, userName, email, prompt,
                                                                         messageTimestamp, ragResult, ragLatencyMs,
                                                                         fullResponse, llmLatencyMs, conversationId));
                                                     });

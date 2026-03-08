@@ -42,6 +42,18 @@ public class RequestLog {
     private String userId;
 
     /**
+     * Display name of the user. For REST: username from Orion Users. For WhatsApp: profile name. Null for MCP.
+     */
+    @Column(name = "user_name", length = 255)
+    private String userName;
+
+    /**
+     * Email of the user. Available for REST (from JWT). Null for WhatsApp and MCP.
+     */
+    @Column(name = "email", length = 255)
+    private String email;
+
+    /**
      * Unique conversation identifier (UUID). Null for legacy session-based flows.
      */
     @Column(name = "conversation_id", length = 255)
