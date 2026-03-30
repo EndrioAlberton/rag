@@ -1,0 +1,98 @@
+<?xml version="1.0"?>
+<!DOCTYPE import-control PUBLIC
+        "-//Checkstyle//DTD ImportControl Configuration 1.4//EN"
+        "https://checkstyle.org/dtds/import_control_1_4.dtd">
+
+<!--
+    Hexagonal Architecture — Import Control Rules
+
+    Enforces the Dependency Rule: all arrows point inward.
+      ┌─────────────────────────────────────────────┐
+      │  infrastructure  (outermost — unrestricted)  │
+      │  ┌─────────────────────────────────────────┐ │
+      │  │  application  (adapters in — no infra)  │ │
+      │  │  ┌─────────────────────────────────────┐│ │
+      │  │  │  domain  (core — pure Java + ports) ││ │
+      │  │  └─────────────────────────────────────┘│ │
+      │  └─────────────────────────────────────────┘ │
+      └─────────────────────────────────────────────┘
+
+    Violations produce compilation-blocking errors.
+-->
+<import-control pkg="dev.orion.rag" strategyOnMismatch="allowed">
+
+    <!-- ================================================================ -->
+    <!--  DOMAIN LAYER — the innermost ring                                -->
+    <!-- ================================================================ -->
+
+    <!-- domain.model: Pure Java POJOs — no framework imports at all -->
+    <subpackage name="domain.model">
+        <allow pkg="java"/>
+        <allow pkg="dev.orion.rag.domain.model"/>
+        <disallow pkg=".*" regex="true"/>
+    </subpackage>
+
+    <!-- domain.port.in: Driving ports (use case interfaces) -->
+    <subpackage name="domain.port.in">
+        <allow pkg="java"/>
+        <allow pkg="dev.orion.rag.domain.model"/>
+        <allow pkg="io.smallrye.mutiny"/>
+        <disallow pkg="dev.orion.rag.infrastructure"/>
+        <disallow pkg="dev.orion.rag.application"/>
+        <disallow pkg="jakarta"/>
+        <disallow pkg="lombok"/>
+    </subpackage>
+
+    <!-- domain.port.out: Driven ports (repository/service interfaces) -->
+    <subpackage name="domain.port.out">
+        <allow pkg="java"/>
+        <allow pkg="dev.orion.rag.domain.model"/>
+        <allow pkg="io.smallrye.mutiny"/>
+        <disallow pkg="dev.orion.rag.infrastructure"/>
+        <disallow pkg="dev.orion.rag.application"/>
+        <disallow pkg="jakarta"/>
+        <disallow pkg="lombok"/>
+    </subpackage>
+
+    <!-- domain.usecase: Use case implementations -->
+    <subpackage name="domain.usecase">
+        <allow pkg="java"/>
+        <allow pkg="dev.orion.rag.domain"/>
+        <allow pkg="io.smallrye.mutiny"/>
+        <allow pkg="io.vertx.mutiny"/>
+        <allow pkg="io.quarkus.logging"/>
+        <disallow pkg="dev.orion.rag.infrastructure"/>
+        <disallow pkg="dev.orion.rag.application"/>
+        <disallow pkg="jakarta"/>
+        <disallow pkg="lombok"/>
+    </subpackage>
+
+    <!-- ================================================================ -->
+    <!--  APPLICATION LAYER — driving adapters (REST, MCP, Observers)      -->
+    <!--  Can import domain.* + frameworks, but NEVER infrastructure.*     -->
+    <!--  (except infrastructure.util for reactive utilities)              -->
+    <!-- ================================================================ -->
+
+    <subpackage name="application">
+        <allow pkg="java"/>
+        <allow pkg="dev.orion.rag.domain"/>
+        <allow class="dev.orion.rag.infrastructure.BlockingToReactive"/>
+        <allow pkg="jakarta"/>
+        <allow pkg="io.quarkus"/>
+        <allow pkg="io.smallrye"/>
+        <allow pkg="io.vertx"/>
+        <allow pkg="org.eclipse.microprofile"/>
+        <allow pkg="com.fasterxml.jackson"/>
+        <disallow pkg="dev.orion.rag.infrastructure"/>
+    </subpackage>
+
+    <!-- ================================================================ -->
+    <!--  INFRASTRUCTURE LAYER — driven adapters (outermost ring)          -->
+    <!--  Unrestricted: can import anything                                -->
+    <!-- ================================================================ -->
+
+    <subpackage name="infrastructure">
+        <allow pkg=".*" regex="true"/>
+    </subpackage>
+
+</import-control>

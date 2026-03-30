@@ -208,7 +208,7 @@ organizing the code in well-defined layers:
 ### Project Structure
 
 ```text
-src/main/java/dev/rpmhub/
+src/main/java/dev/orion/rag/
 ├── domain/                 # Application core
 │   ├── model/             # Domain entities
 │   ├── port/              # Interfaces/Contracts
