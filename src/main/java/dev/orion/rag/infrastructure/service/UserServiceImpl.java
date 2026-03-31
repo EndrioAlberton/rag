@@ -22,108 +22,128 @@ import dev.orion.rag.domain.port.out.UserServicePort;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.hibernate.reactive.mutiny.Mutiny;
 
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Implementation of {@link UserServicePort}.
+ * Uses {@link Mutiny.SessionFactory} for programmatic transaction management.
  */
 @ApplicationScoped
 public class UserServiceImpl implements UserServicePort {
-    
-    /** Repository used for all user persistence operations. */
+
+    /** Repository for user entity persistence. */
     private final UserRepository userRepository;
+    /** Hibernate Reactive session factory for programmatic transaction management. */
+    private final Mutiny.SessionFactory sessionFactory;
 
     /**
-     * Creates a UserServiceImpl with the required user repository.
+     * Creates a UserServiceImpl with all required dependencies.
      *
-     * @param userRepository repository for user CRUD operations
+     * @param userRepository repository for user persistence
+     * @param sessionFactory Hibernate Reactive session factory
      */
     @Inject
-    public UserServiceImpl(UserRepository userRepository) {
+    public UserServiceImpl(UserRepository userRepository, Mutiny.SessionFactory sessionFactory) {
         this.userRepository = userRepository;
+        this.sessionFactory = sessionFactory;
     }
-    
+
     @Override
-    public Uni<User> createUser(String username, String email) {
-        // Verificar se username já existe
-        return userRepository.findByUsername(username)
-            .onItem().transformToUni(existingUser -> {
-                if (existingUser != null) {
-                    return Uni.createFrom().failure(new
-                        IllegalArgumentException("Username já existe"));
-                }
-                
-                // Verificar se email já existe
-                return userRepository.findByEmail(email)
-                    .onItem().transformToUni(existingEmail -> {
-                        if (existingEmail != null) {
-                            return Uni.createFrom().failure(new
-                                IllegalArgumentException("Email já existe"));
-                        }
-                        
-                        // Criar novo usuário
-                        User user = new User();
-                        user.setUsername(username);
-                        user.setEmail(email);
-                        return userRepository.persist(user)
-                            .onItem().transformToUni(persisted -> 
-                                userRepository.flush().replaceWith(persisted));
-                    });
-            });
+    public CompletionStage<User> createUser(String username, String email) {
+        return sessionFactory.withTransaction(session ->
+            Uni.createFrom().completionStage(() -> userRepository.findByUsername(username))
+                .onItem().transformToUni(existingUser -> {
+                    if (existingUser != null) {
+                        return Uni.createFrom().failure(
+                                new IllegalArgumentException("Username já existe"));
+                    }
+                    return Uni.createFrom().completionStage(() -> userRepository.findByEmail(email))
+                            .onItem().transformToUni(existingEmail -> {
+                                if (existingEmail != null) {
+                                    return Uni.createFrom().failure(
+                                            new IllegalArgumentException("Email já existe"));
+                                }
+                                User user = new User();
+                                user.setUsername(username);
+                                user.setEmail(email);
+                                return Uni.createFrom()
+                                        .completionStage(() -> userRepository.persist(user))
+                                        .onItem().transformToUni(persisted ->
+                                                Uni.createFrom()
+                                                        .completionStage(() -> userRepository.flush())
+                                                        .replaceWith(persisted));
+                            });
+                })
+        ).subscribeAsCompletionStage();
     }
-    
+
     @Override
-    public Uni<User> getUserById(String userId) {
-        return userRepository.findById(userId)
-            .onItem().ifNull().failWith(() -> new
-                IllegalArgumentException("Usuário não encontrado"));
+    public CompletionStage<User> getUserById(String userId) {
+        return sessionFactory.withSession(session ->
+            Uni.createFrom().completionStage(() -> userRepository.findById(userId))
+                    .onItem().ifNull().failWith(
+                            () -> new IllegalArgumentException("Usuário não encontrado"))
+        ).subscribeAsCompletionStage();
     }
-    
+
     @Override
-    public Uni<User> getUserByUsername(String username) {
-        return userRepository.findByUsername(username)
-            .onItem().ifNull().failWith(() -> new
-                IllegalArgumentException("Usuário não encontrado"));
+    public CompletionStage<User> getUserByUsername(String username) {
+        return sessionFactory.withSession(session ->
+            Uni.createFrom().completionStage(() -> userRepository.findByUsername(username))
+                    .onItem().ifNull().failWith(
+                            () -> new IllegalArgumentException("Usuário não encontrado"))
+        ).subscribeAsCompletionStage();
     }
-    
+
     @Override
-    public Uni<User> getUserByEmail(String email) {
-        return userRepository.findByEmail(email)
-            .onItem().ifNull().failWith(() -> new
-                IllegalArgumentException("Usuário não encontrado"));
+    public CompletionStage<User> getUserByEmail(String email) {
+        return sessionFactory.withSession(session ->
+            Uni.createFrom().completionStage(() -> userRepository.findByEmail(email))
+                    .onItem().ifNull().failWith(
+                            () -> new IllegalArgumentException("Usuário não encontrado"))
+        ).subscribeAsCompletionStage();
     }
-    
+
     @Override
-    public Uni<Void> updateUser(User user) {
-        return userRepository.findById(user.getId())
-            .onItem().ifNull().failWith(() -> new
-                IllegalArgumentException("Usuário não encontrado"))
-            .onItem().transformToUni(existingUser -> {
-                return userRepository.persist(user)
-                    .onItem().transformToUni(u -> userRepository.flush());
-            });
+    public CompletionStage<Void> updateUser(User user) {
+        return sessionFactory.withTransaction(session ->
+            Uni.createFrom().completionStage(() -> userRepository.findById(user.getId()))
+                .onItem().ifNull().failWith(
+                        () -> new IllegalArgumentException("Usuário não encontrado"))
+                .onItem().transformToUni(existing ->
+                        Uni.createFrom().completionStage(() -> userRepository.persist(user))
+                                .onItem().transformToUni(u ->
+                                        Uni.createFrom()
+                                                .completionStage(() -> userRepository.flush())))
+        ).subscribeAsCompletionStage();
     }
-    
+
     @Override
-    public Uni<Void> deleteUser(String userId) {
-        return userRepository.findById(userId)
-            .onItem().ifNull().failWith(() -> new
-                IllegalArgumentException("Usuário não encontrado"))
-            .onItem().transformToUni(existingUser -> 
-                userRepository.deleteById(userId)
-                    .onItem().transformToUni(deleted -> {
-                        if (!deleted) {
-                            return Uni.createFrom().failure(new
-                                IllegalArgumentException("Usuário não encontrado"));
-                        }
-                        return userRepository.flush();
-                    }));
+    public CompletionStage<Void> deleteUser(String userId) {
+        return sessionFactory.withTransaction(session ->
+            Uni.createFrom().completionStage(() -> userRepository.findById(userId))
+                .onItem().ifNull().failWith(
+                        () -> new IllegalArgumentException("Usuário não encontrado"))
+                .onItem().transformToUni(existing ->
+                        Uni.createFrom().completionStage(() -> userRepository.deleteById(userId))
+                                .onItem().transformToUni(deleted -> {
+                                    if (!deleted) {
+                                        return Uni.createFrom().failure(
+                                                new IllegalArgumentException("Usuário não encontrado"));
+                                    }
+                                    return Uni.createFrom()
+                                            .completionStage(() -> userRepository.flush());
+                                }))
+        ).subscribeAsCompletionStage();
     }
-    
+
     @Override
-    public Uni<List<User>> listUsers() {
-        return userRepository.listAll();
+    public CompletionStage<List<User>> listUsers() {
+        return sessionFactory.withSession(session ->
+            Uni.createFrom().completionStage(() -> userRepository.listAll())
+        ).subscribeAsCompletionStage();
     }
 }
-

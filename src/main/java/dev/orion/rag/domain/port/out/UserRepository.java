@@ -17,9 +17,9 @@
 package dev.orion.rag.domain.port.out;
 
 import dev.orion.rag.domain.model.User;
-import io.smallrye.mutiny.Uni;
 
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Driven port (out) — repository contract for {@link User} persistence.
@@ -30,61 +30,61 @@ public interface UserRepository {
      * Finds a user by their unique identifier.
      *
      * @param id user identifier
-     * @return a Uni emitting the user, or {@code null} if not found
+     * @return a CompletionStage emitting the user, or {@code null} if not found
      */
-    Uni<User> findById(String id);
+    CompletionStage<User> findById(String id);
 
     /**
      * Finds a user by their login username.
      *
      * @param username login username
-     * @return a Uni emitting the user, or {@code null} if not found
+     * @return a CompletionStage emitting the user, or {@code null} if not found
      */
-    Uni<User> findByUsername(String username);
+    CompletionStage<User> findByUsername(String username);
 
     /**
      * Finds a user by their e-mail address.
      *
      * @param email e-mail address
-     * @return a Uni emitting the user, or {@code null} if not found
+     * @return a CompletionStage emitting the user, or {@code null} if not found
      */
-    Uni<User> findByEmail(String email);
+    CompletionStage<User> findByEmail(String email);
 
     /**
      * Finds a user by the Orion federated user hash.
      *
      * @param orionUserHash hash of the Orion user record
-     * @return a Uni emitting the user, or {@code null} if not found
+     * @return a CompletionStage emitting the user, or {@code null} if not found
      */
-    Uni<User> findByOrionUserHash(String orionUserHash);
+    CompletionStage<User> findByOrionUserHash(String orionUserHash);
 
     /**
      * Persists a new or updated user.
      *
      * @param user the user to persist
-     * @return a Uni emitting the persisted user (with any generated fields populated)
+     * @return a CompletionStage emitting the persisted user (with any generated fields populated)
      */
-    Uni<User> persist(User user);
+    CompletionStage<User> persist(User user);
 
     /**
      * Flushes any pending changes to the underlying persistence store.
      *
-     * @return a Uni that completes when the flush is done
+     * @return a CompletionStage that completes when the flush is done
      */
-    Uni<Void> flush();
+    CompletionStage<Void> flush();
 
     /**
      * Deletes the user with the given identifier.
      *
      * @param id user identifier
-     * @return a Uni emitting {@code true} if deleted, {@code false} if not found
+     * @return a CompletionStage emitting {@code true} if deleted, {@code false} if not found
      */
-    Uni<Boolean> deleteById(String id);
+    CompletionStage<Boolean> deleteById(String id);
 
     /**
      * Returns all users in the system.
      *
-     * @return a Uni emitting the complete list of users (may be empty)
+     * @return a CompletionStage emitting the complete list of users (may be empty)
      */
-    Uni<List<User>> listAll();
+    CompletionStage<List<User>> listAll();
 }

@@ -16,7 +16,8 @@
 
 package dev.orion.rag.domain.port.out;
 
-import io.smallrye.mutiny.Uni;
+import java.time.Instant;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Driven port (out) for persisting and exporting request logs.
@@ -39,17 +40,17 @@ public interface RequestLogPort {
      * @param llmResponse      complete LLM response (after streaming finishes)
      * @param llmLatencyMs     time to receive complete LLM response in milliseconds
      * @param conversationId   unique conversation identifier (UUID) or null for legacy session-based flows
-     * @return Uni that completes when the log is persisted
+     * @return CompletionStage that completes when the log is persisted
      */
-    Uni<Void> log(String phoneNumber, String userId, String userName, String email,
-            String userMessage, java.time.Instant messageTimestamp,
+    CompletionStage<Void> log(String phoneNumber, String userId, String userName, String email,
+            String userMessage, Instant messageTimestamp,
             String ragResult, long ragLatencyMs,
             String llmResponse, long llmLatencyMs, String conversationId);
 
     /**
      * Exports all request logs to CSV format.
      *
-     * @return Uni emitting the CSV content as a string
+     * @return CompletionStage emitting the CSV content as a string
      */
-    Uni<String> exportToCsv();
+    CompletionStage<String> exportToCsv();
 }

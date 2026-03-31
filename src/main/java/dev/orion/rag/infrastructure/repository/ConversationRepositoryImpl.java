@@ -18,87 +18,95 @@ package dev.orion.rag.infrastructure.repository;
 
 import dev.orion.rag.domain.model.Conversation;
 import dev.orion.rag.domain.port.out.ConversationRepository;
-import dev.orion.rag.infrastructure.persistence.EntityMapper;
 import dev.orion.rag.infrastructure.persistence.ConversationEntity;
+import dev.orion.rag.infrastructure.persistence.EntityMapper;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Implementation of ConversationRepository using Hibernate Reactive Panache.
- * Delegates to ConversationPanacheRepository for JPA operations and converts
- * between ConversationEntity (JPA) and Conversation (domain) via EntityMapper.
+ * Converts Mutiny {@code Uni<T>} to {@link CompletionStage} at the boundary.
  */
 @ApplicationScoped
 public class ConversationRepositoryImpl implements ConversationRepository {
 
-    /** Panache repository used for all JPA queries and persistence operations. */
+    /** Panache repository used for all JPA queries and persistence operations on conversations. */
     @Inject
     ConversationPanacheRepository panache;
 
     @Override
-    public Uni<Conversation> findById(String id) {
+    public CompletionStage<Conversation> findById(String id) {
         return panache.find("id", id).<ConversationEntity>firstResult()
-                .map(EntityMapper::toDomain);
+                .map(EntityMapper::toDomain)
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<Conversation> findByIdWithMessages(String id) {
+    public CompletionStage<Conversation> findByIdWithMessages(String id) {
         return panache.find(
                 "SELECT c FROM ConversationEntity c LEFT JOIN FETCH c.messages "
                         + "WHERE c.id = ?1",
                 id)
                 .<ConversationEntity>firstResult()
-                .map(EntityMapper::toDomain);
+                .map(EntityMapper::toDomain)
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<List<Conversation>> findByIds(List<String> ids) {
+    public CompletionStage<List<Conversation>> findByIds(List<String> ids) {
         if (ids == null || ids.isEmpty()) {
-            return Uni.createFrom().item(List.of());
+            return Uni.createFrom().<List<Conversation>>item(List.of())
+                    .subscribeAsCompletionStage();
         }
         return panache.find("id IN (?1)", ids).<ConversationEntity>list()
                 .map(entities -> entities.stream()
                         .map(EntityMapper::toDomain)
-                        .toList());
+                        .toList())
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<List<Conversation>> findOwnedByUserId(String userId) {
+    public CompletionStage<List<Conversation>> findOwnedByUserId(String userId) {
         return panache.list("owner.id", userId)
                 .map(entities -> entities.stream()
                         .map(EntityMapper::toDomain)
-                        .toList());
+                        .toList())
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<List<Conversation>> findByUserId(String userId) {
+    public CompletionStage<List<Conversation>> findByUserId(String userId) {
         return findOwnedByUserId(userId);
     }
 
     @Override
-    public Uni<Boolean> userHasAccess(String userId, String conversationId) {
-        return panache.count("id = ?1 and owner.id = ?2", conversationId,
-            userId)
-                .map(count -> count > 0);
+    public CompletionStage<Boolean> userHasAccess(String userId, String conversationId) {
+        return panache.count("id = ?1 and owner.id = ?2", conversationId, userId)
+                .map(count -> count > 0)
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<Conversation> persist(Conversation conversation) {
+    public CompletionStage<Conversation> persist(Conversation conversation) {
         ConversationEntity entity = EntityMapper.toEntity(conversation);
         return panache.persist(entity)
-                .map(EntityMapper::toDomain);
+                .map(EntityMapper::toDomain)
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<Void> flush() {
-        return panache.flush();
+    public CompletionStage<Void> flush() {
+        return panache.flush().subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<Boolean> deleteById(String id) {
-        return panache.delete("id", id).map(count -> count > 0);
+    public CompletionStage<Boolean> deleteById(String id) {
+        return panache.delete("id", id)
+                .map(count -> count > 0)
+                .subscribeAsCompletionStage();
     }
 }

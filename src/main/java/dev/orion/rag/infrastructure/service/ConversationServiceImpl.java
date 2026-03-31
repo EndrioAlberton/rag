@@ -20,68 +20,53 @@ import dev.orion.rag.domain.model.Conversation;
 import dev.orion.rag.domain.port.out.ConversationRepository;
 import dev.orion.rag.domain.port.out.ConversationServicePort;
 import dev.orion.rag.domain.port.out.UserRepository;
-import io.quarkus.hibernate.reactive.panache.common.WithSession;
-import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.hibernate.reactive.mutiny.Mutiny;
 
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 /**
- * Implementação reactiva de {@link ConversationService} usando Hibernate
- * Reactive Panache.
- *
- * <p>Resolve o identificador do utilizador tanto pelo ID interno como pelo
- * hash do Orion Users (enviado pelo frontend no JWT), garantindo
- * compatibilidade com ambos os formatos.
+ * Reactive implementation of {@link ConversationServicePort}.
+ * Uses {@link Mutiny.SessionFactory} for programmatic transaction/session management
+ * and converts to {@link CompletionStage} at the domain boundary.
  */
 @ApplicationScoped
 public class ConversationServiceImpl implements ConversationServicePort {
 
-    /**
-     * Repositório de conversas — persiste e consulta {@link Conversation}.
-     */
+    /** Repository for conversation entity persistence. */
     private final ConversationRepository conversationRepository;
-
-    /**
-     * Repositório de utilizadores — usado para resolver o userId ou hash
-     * antes de operar sobre conversas.
-     */
+    /** Repository for user entity lookups. */
     private final UserRepository userRepository;
+    /** Hibernate Reactive session factory for programmatic transaction management. */
+    private final Mutiny.SessionFactory sessionFactory;
 
     /**
-     * Constrói a implementação injetando os repositórios necessários.
+     * Creates a ConversationServiceImpl with all required dependencies.
      *
-     * @param conversationRepository repositório de conversas
-     * @param userRepository         repositório de utilizadores
+     * @param conversationRepository repository for conversation persistence
+     * @param userRepository         repository for user lookups
+     * @param sessionFactory         Hibernate Reactive session factory
      */
     @Inject
     public ConversationServiceImpl(
             ConversationRepository conversationRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            Mutiny.SessionFactory sessionFactory) {
         this.conversationRepository = conversationRepository;
         this.userRepository = userRepository;
+        this.sessionFactory = sessionFactory;
     }
 
-    /**
-     * Cria uma nova conversa para o utilizador identificado por {@code userId}.
-     *
-     * <p>O {@code userId} pode ser o hash do Orion Users (enviado pelo
-     * frontend) ou o UUID interno; ambos são tentados em sequência.
-     * Lança {@link IllegalArgumentException} se o utilizador não for
-     * encontrado.
-     *
-     * @param userId identificador ou hash do utilizador proprietário
-     * @param title  título da conversa
-     * @return {@link Uni} que emite a conversa persistida
-     */
     @Override
-    @WithTransaction
-    public Uni<Conversation> createConversation(String userId, String title) {
-        return userRepository.findByOrionUserHash(userId)
-                .onItem().ifNull().switchTo(() -> userRepository.findById(userId))
+    public CompletionStage<Conversation> createConversation(String userId, String title) {
+        return sessionFactory.withTransaction(session ->
+            Uni.createFrom().completionStage(() -> userRepository.findByOrionUserHash(userId))
+                .onItem().ifNull().switchTo(
+                        () -> Uni.createFrom().completionStage(() -> userRepository.findById(userId)))
                 .onItem().ifNull().failWith(() -> new IllegalArgumentException(
                         "Usuário não encontrado. Certifique-se de que o usuário "
                                 + "foi sincronizado do JWT token."))
@@ -89,122 +74,91 @@ public class ConversationServiceImpl implements ConversationServicePort {
                     Conversation conversation = new Conversation();
                     conversation.setTitle(title);
                     conversation.setOwner(user);
-                    return conversationRepository.persist(conversation)
+                    return Uni.createFrom()
+                            .completionStage(() -> conversationRepository.persist(conversation))
                             .onItem().transformToUni(persisted ->
-                                    conversationRepository.flush()
+                                    Uni.createFrom()
+                                            .completionStage(() -> conversationRepository.flush())
                                             .replaceWith(persisted));
-                });
+                })
+        ).subscribeAsCompletionStage();
     }
 
-    /**
-     * Devolve a conversa com o identificador fornecido.
-     *
-     * <p>Lança {@link IllegalArgumentException} se a conversa não existir.
-     *
-     * @param conversationId UUID da conversa
-     * @return {@link Uni} que emite a {@link Conversation} encontrada
-     */
     @Override
-    @WithSession
-    public Uni<Conversation> getConversation(String conversationId) {
-        return conversationRepository.findById(conversationId)
-                .onItem().ifNull().failWith(() -> new IllegalArgumentException(
-                        "Conversa não encontrada"));
+    public CompletionStage<Conversation> getConversation(String conversationId) {
+        return sessionFactory.withSession(session ->
+            Uni.createFrom().completionStage(() -> conversationRepository.findById(conversationId))
+                    .onItem().ifNull().failWith(
+                            () -> new IllegalArgumentException("Conversa não encontrada"))
+        ).subscribeAsCompletionStage();
     }
 
-    /**
-     * Lista todas as conversas pertencentes ao utilizador.
-     *
-     * <p>Se o utilizador não for encontrado, devolve uma lista vazia em vez
-     * de propagar um erro, pois o utilizador pode ainda estar a ser criado
-     * assincronamente. Falhas de persistência são registadas e suprimidas,
-     * devolvendo também lista vazia.
-     *
-     * @param userId identificador ou hash do utilizador
-     * @return {@link Uni} que emite a lista de conversas (pode ser vazia)
-     */
     @Override
-    @WithSession
-    public Uni<List<Conversation>> getUserConversations(String userId) {
-        return userRepository.findByOrionUserHash(userId)
-                .onItem().ifNull().switchTo(() -> userRepository.findById(userId))
+    public CompletionStage<List<Conversation>> getUserConversations(String userId) {
+        return sessionFactory.withSession(session ->
+            Uni.createFrom().completionStage(() -> userRepository.findByOrionUserHash(userId))
+                .onItem().ifNull().switchTo(
+                        () -> Uni.createFrom().completionStage(() -> userRepository.findById(userId)))
                 .onItem().transformToUni(user -> {
                     if (user == null) {
                         Log.debug("User not found (ID or hash: " + userId
                                 + "), returning empty list.");
                         return Uni.createFrom().item(List.<Conversation>of());
                     }
-                    Log.debug("User found, fetching conversations for ID: "
-                            + user.getId());
-                    return conversationRepository.findOwnedByUserId(user.getId());
+                    Log.debug("User found, fetching conversations for ID: " + user.getId());
+                    return Uni.createFrom()
+                            .completionStage(() -> conversationRepository.findOwnedByUserId(user.getId()));
                 })
                 .onFailure().recoverWithItem(e -> {
-                    Log.error("Error fetching conversations for user " + userId
-                            + ": " + e.getMessage(), e);
+                    Log.error("Error fetching conversations for user " + userId + ": "
+                            + e.getMessage(), e);
                     return List.<Conversation>of();
-                });
+                })
+        ).subscribeAsCompletionStage();
     }
 
-    /**
-     * Verifica se o utilizador tem acesso de leitura/escrita à conversa.
-     *
-     * <p>Devolve {@code false} se o utilizador não for encontrado ou se
-     * ocorrer qualquer erro durante a verificação, sem propagar exceção.
-     *
-     * @param userId         identificador ou hash do utilizador
-     * @param conversationId UUID da conversa a verificar
-     * @return {@link Uni} que emite {@code true} se o acesso for permitido,
-     *         {@code false} caso contrário
-     */
     @Override
-    @WithSession
-    public Uni<Boolean> userHasAccess(String userId, String conversationId) {
-        return userRepository.findByOrionUserHash(userId)
-                .onItem().ifNull().switchTo(() -> userRepository.findById(userId))
+    public CompletionStage<Boolean> userHasAccess(String userId, String conversationId) {
+        return sessionFactory.withSession(session ->
+            Uni.createFrom().completionStage(() -> userRepository.findByOrionUserHash(userId))
+                .onItem().ifNull().switchTo(
+                        () -> Uni.createFrom().completionStage(() -> userRepository.findById(userId)))
                 .onItem().transformToUni(user -> {
                     if (user == null) {
                         return Uni.createFrom().item(false);
                     }
-                    return conversationRepository.userHasAccess(user.getId(),
-                            conversationId);
+                    return Uni.createFrom().completionStage(
+                            () -> conversationRepository.userHasAccess(user.getId(), conversationId));
                 })
                 .onFailure().recoverWithItem(e -> {
                     Log.error("Error verifying user " + userId
                             + " access to conversation " + conversationId, e);
                     return false;
-                });
+                })
+        ).subscribeAsCompletionStage();
     }
 
-    /**
-     * Elimina a conversa indicada, desde que o utilizador seja o seu dono.
-     *
-     * <p>Lança {@link SecurityException} se o utilizador não for o
-     * proprietário, e {@link IllegalArgumentException} se a conversa não
-     * existir.
-     *
-     * @param conversationId UUID da conversa a eliminar
-     * @param userId         identificador ou hash do utilizador que solicita
-     *                       a eliminação
-     * @return {@link Uni} que completa em {@code Void} após a eliminação
-     */
     @Override
-    @WithTransaction
-    public Uni<Void> deleteConversation(String conversationId, String userId) {
-        return conversationRepository.userHasAccess(userId, conversationId)
+    public CompletionStage<Void> deleteConversation(String conversationId, String userId) {
+        return sessionFactory.withTransaction(session ->
+            Uni.createFrom()
+                .completionStage(() -> conversationRepository.userHasAccess(userId, conversationId))
                 .onItem().transformToUni(hasAccess -> {
                     if (!hasAccess) {
-                        return Uni.createFrom().failure(new SecurityException(
-                                "Apenas o dono pode deletar a conversa"));
+                        return Uni.createFrom().failure(
+                                new SecurityException("Apenas o dono pode deletar a conversa"));
                     }
-                    return conversationRepository.deleteById(conversationId)
+                    return Uni.createFrom()
+                            .completionStage(() -> conversationRepository.deleteById(conversationId))
                             .onItem().transformToUni(deleted -> {
                                 if (!deleted) {
                                     return Uni.createFrom().failure(
-                                            new IllegalArgumentException(
-                                                    "Conversa não encontrada"));
+                                            new IllegalArgumentException("Conversa não encontrada"));
                                 }
-                                return conversationRepository.flush();
+                                return Uni.createFrom()
+                                        .completionStage(() -> conversationRepository.flush());
                             });
-                });
+                })
+        ).subscribeAsCompletionStage();
     }
 }

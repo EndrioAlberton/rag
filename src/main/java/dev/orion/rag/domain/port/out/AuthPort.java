@@ -17,7 +17,8 @@
 package dev.orion.rag.domain.port.out;
 
 import dev.orion.rag.domain.model.User;
-import io.smallrye.mutiny.Uni;
+
+import java.util.concurrent.CompletionStage;
 
 /**
  * Driven port (out) for authentication and JWT handling.
@@ -30,7 +31,7 @@ public interface AuthPort {
      * @param jwtToken The JWT token from Orion Users
      * @return The synchronized local user
      */
-    Uni<User> syncUserFromJwt(String jwtToken);
+    CompletionStage<User> syncUserFromJwt(String jwtToken);
 
     /**
      * Extracts user hash from JWT token.

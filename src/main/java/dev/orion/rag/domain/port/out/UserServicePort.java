@@ -17,9 +17,9 @@
 package dev.orion.rag.domain.port.out;
 
 import dev.orion.rag.domain.model.User;
-import io.smallrye.mutiny.Uni;
 
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Driven port (out) — service contract for managing {@link User} entities.
@@ -31,54 +31,54 @@ public interface UserServicePort {
      *
      * @param username desired login username
      * @param email    user's e-mail address
-     * @return a Uni emitting the newly created user
+     * @return a CompletionStage emitting the newly created user
      */
-    Uni<User> createUser(String username, String email);
+    CompletionStage<User> createUser(String username, String email);
 
     /**
      * Retrieves a user by their unique identifier.
      *
      * @param userId user identifier
-     * @return a Uni emitting the user, or an error if not found
+     * @return a CompletionStage emitting the user, or an error if not found
      */
-    Uni<User> getUserById(String userId);
+    CompletionStage<User> getUserById(String userId);
 
     /**
      * Retrieves a user by their login username.
      *
      * @param username login username
-     * @return a Uni emitting the user, or an error if not found
+     * @return a CompletionStage emitting the user, or an error if not found
      */
-    Uni<User> getUserByUsername(String username);
+    CompletionStage<User> getUserByUsername(String username);
 
     /**
      * Retrieves a user by their e-mail address.
      *
      * @param email e-mail address
-     * @return a Uni emitting the user, or an error if not found
+     * @return a CompletionStage emitting the user, or an error if not found
      */
-    Uni<User> getUserByEmail(String email);
+    CompletionStage<User> getUserByEmail(String email);
 
     /**
      * Persists updated fields for the given user.
      *
      * @param user the user object with the updated fields
-     * @return a Uni that completes when the update is flushed
+     * @return a CompletionStage that completes when the update is flushed
      */
-    Uni<Void> updateUser(User user);
+    CompletionStage<Void> updateUser(User user);
 
     /**
      * Deletes the user identified by the given ID.
      *
      * @param userId user identifier
-     * @return a Uni that completes when the user is deleted
+     * @return a CompletionStage that completes when the user is deleted
      */
-    Uni<Void> deleteUser(String userId);
+    CompletionStage<Void> deleteUser(String userId);
 
     /**
      * Returns all users in the system.
      *
-     * @return a Uni emitting the complete list of users (may be empty)
+     * @return a CompletionStage emitting the complete list of users (may be empty)
      */
-    Uni<List<User>> listUsers();
+    CompletionStage<List<User>> listUsers();
 }

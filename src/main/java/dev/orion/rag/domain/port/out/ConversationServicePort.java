@@ -17,9 +17,9 @@
 package dev.orion.rag.domain.port.out;
 
 import dev.orion.rag.domain.model.Conversation;
-import io.smallrye.mutiny.Uni;
 
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Driven port (out) — service contract for managing {@link Conversation} entities.
@@ -31,41 +31,41 @@ public interface ConversationServicePort {
      *
      * @param userId user identifier of the owner
      * @param title  human-readable title for the conversation
-     * @return a Uni emitting the newly created conversation
+     * @return a CompletionStage emitting the newly created conversation
      */
-    Uni<Conversation> createConversation(String userId, String title);
+    CompletionStage<Conversation> createConversation(String userId, String title);
 
     /**
      * Retrieves a conversation by its identifier.
      *
      * @param conversationId conversation identifier
-     * @return a Uni emitting the conversation, or an error if not found
+     * @return a CompletionStage emitting the conversation, or an error if not found
      */
-    Uni<Conversation> getConversation(String conversationId);
+    CompletionStage<Conversation> getConversation(String conversationId);
 
     /**
      * Lists all conversations belonging to the specified user.
      *
      * @param userId user identifier
-     * @return a Uni emitting the list of conversations (may be empty)
+     * @return a CompletionStage emitting the list of conversations (may be empty)
      */
-    Uni<List<Conversation>> getUserConversations(String userId);
+    CompletionStage<List<Conversation>> getUserConversations(String userId);
 
     /**
      * Checks whether the given user has access to the specified conversation.
      *
      * @param userId         user identifier
      * @param conversationId conversation identifier
-     * @return a Uni emitting {@code true} if access is granted, {@code false} otherwise
+     * @return a CompletionStage emitting {@code true} if access is granted, {@code false} otherwise
      */
-    Uni<Boolean> userHasAccess(String userId, String conversationId);
+    CompletionStage<Boolean> userHasAccess(String userId, String conversationId);
 
     /**
      * Deletes the conversation identified by the given ID, enforcing ownership.
      *
      * @param conversationId conversation identifier
      * @param userId         identifier of the user requesting the deletion
-     * @return a Uni that completes when the conversation is deleted
+     * @return a CompletionStage that completes when the conversation is deleted
      */
-    Uni<Void> deleteConversation(String conversationId, String userId);
+    CompletionStage<Void> deleteConversation(String conversationId, String userId);
 }

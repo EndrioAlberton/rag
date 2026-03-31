@@ -33,17 +33,18 @@ import java.util.List;
 
 /**
  * MCP tools for course-aware Q&A via RAG.
- * Exposes retrieve_course_context and ask_course_question to LLM platforms
- * (Claude, Cursor).
+ * Exposes retrieve_course_context and ask_course_question to LLM platforms (Claude, Cursor).
+ * Converts domain {@link java.util.concurrent.CompletionStage} to Mutiny {@link Uni}
+ * at the application boundary (MCP framework expects {@link Uni}).
  */
 @ApplicationScoped
 public class RagMcpTools {
 
-    /** Repositório de embeddings. */
+    /** Port for embedding-based retrieval of course context. */
     @Inject
     EmbeddingRepository embeddingRepository;
 
-    /** Porta de pergunta (caso de uso). */
+    /** Use case that answers a one-shot question using RAG. */
     @Inject
     AskQuestionPort askQuestionUseCase;
 
@@ -51,27 +52,17 @@ public class RagMcpTools {
     @Inject
     RequestLogPort requestLogPort;
 
-    /**
-     * Expõe a ferramenta MCP {@code retrieve_course_context} para o modelo
-     * recuperar trechos do curso.
-     */
     @Tool(
             description =
                     "Retrieves semantically relevant course content for a natural "
                             + "language query. Use this to provide course-aware context "
                             + "to the LLM.")
     public Uni<String> retrieveCourseContext(
-            @ToolArg(
-                    description =
-                            "Natural language question or topic to search for")
+            @ToolArg(description = "Natural language question or topic to search for")
                     String query,
-            @ToolArg(
-                    description =
-                            "Session/course identifier (optional, default: default)")
+            @ToolArg(description = "Session/course identifier (optional, default: default)")
                     String session,
-            @ToolArg(
-                    description =
-                            "Maximum number of context chunks 1-20 (optional, default: 5)")
+            @ToolArg(description = "Maximum number of context chunks 1-20 (optional, default: 5)")
                     Integer maxResults) {
         String sessionId = session != null && !session.isBlank() ? session : "default";
         int limit = maxResults != null ? Math.min(Math.max(maxResults, 1), 20) : 5;
@@ -81,51 +72,34 @@ public class RagMcpTools {
 
         Log.info("MCP retrieve_course_context: session=" + sessionId + ", query=" + query);
 
-        return embeddingRepository
-                .searchChunks(ragQuery)
-                .collect()
-                .first()
-                .onItem()
-                .transformToUni(
-                        ragResponse -> {
-                            long ragLatencyMs = System.currentTimeMillis() - ragStart;
-                            String result;
-                            if (ragResponse == null || ragResponse.getContexts().isEmpty()) {
-                                result = "Query: " + query + "\nNo relevant context found.";
-                            } else {
-                                List<String> lines = new ArrayList<>();
-                                lines.add("Query: " + ragResponse.getQuery());
-                                lines.add("Relevance score: " + ragResponse.getScore());
-                                lines.add("");
-                                lines.add("Contexts:");
-                                for (int i = 0; i < ragResponse.getContexts().size(); i++) {
-                                    lines.add(
-                                            "[" + (i + 1) + "] " + ragResponse.getContexts().get(i));
-                                }
-                                result = String.join("\n", lines);
-                            }
-                            String ragResult = result;
-                            return requestLogPort
-                                    .log(
-                                            null,
-                                            sessionId,
-                                            null,
-                                            null,
-                                            query,
-                                            messageTimestamp,
-                                            ragResult,
-                                            ragLatencyMs,
-                                            null,
-                                            0L,
-                                            null)
-                                    .replaceWith(ragResult);
-                        })
-                .onFailure()
-                .recoverWithItem(
-                        e -> {
-                            Log.error("MCP retrieve_course_context failed", e);
-                            return "Error retrieving context: "
-                                    + (e.getMessage() != null ? e.getMessage() : "Unknown error");
-                        });
+        return Uni.createFrom().completionStage(() -> embeddingRepository.searchChunks(ragQuery))
+                .onItem().transformToUni(ragResponse -> {
+                    long ragLatencyMs = System.currentTimeMillis() - ragStart;
+                    String result;
+                    if (ragResponse == null || ragResponse.getContexts().isEmpty()) {
+                        result = "Query: " + query + "\nNo relevant context found.";
+                    } else {
+                        List<String> lines = new ArrayList<>();
+                        lines.add("Query: " + ragResponse.getQuery());
+                        lines.add("Relevance score: " + ragResponse.getScore());
+                        lines.add("");
+                        lines.add("Contexts:");
+                        for (int i = 0; i < ragResponse.getContexts().size(); i++) {
+                            lines.add("[" + (i + 1) + "] " + ragResponse.getContexts().get(i));
+                        }
+                        result = String.join("\n", lines);
+                    }
+                    String ragResult = result;
+                    return Uni.createFrom()
+                            .completionStage(() -> requestLogPort.log(
+                                    null, sessionId, null, null, query, messageTimestamp,
+                                    ragResult, ragLatencyMs, null, 0L, null))
+                            .replaceWith(ragResult);
+                })
+                .onFailure().recoverWithItem(e -> {
+                    Log.error("MCP retrieve_course_context failed", e);
+                    return "Error retrieving context: "
+                            + (e.getMessage() != null ? e.getMessage() : "Unknown error");
+                });
     }
 }

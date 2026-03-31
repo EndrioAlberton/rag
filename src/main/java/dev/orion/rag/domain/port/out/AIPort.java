@@ -17,7 +17,8 @@
 package dev.orion.rag.domain.port.out;
 
 import dev.orion.rag.domain.model.AIRequest;
-import io.smallrye.mutiny.Multi;
+
+import java.util.concurrent.Flow;
 
 /**
  * Driven port (out) for language-model interactions.
@@ -29,15 +30,15 @@ public interface AIPort {
      * Generates a response based on the provided AI request.
      *
      * @param request the AI request
-     * @return a Multi emitting the generated response token by token
+     * @return a Publisher emitting the generated response token by token
      */
-    Multi<String> generateResponse(AIRequest request);
+    Flow.Publisher<String> generateResponse(AIRequest request);
 
     /**
      * Generates a contextual response that takes the conversation history into account.
      *
      * @param request the AI request containing the context and history
-     * @return a Multi emitting the generated contextual response token by token
+     * @return a Publisher emitting the generated contextual response token by token
      */
-    Multi<String> generateContextualResponse(AIRequest request);
+    Flow.Publisher<String> generateContextualResponse(AIRequest request);
 }

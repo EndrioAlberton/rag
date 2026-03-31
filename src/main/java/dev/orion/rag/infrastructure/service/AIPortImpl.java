@@ -18,12 +18,14 @@ package dev.orion.rag.infrastructure.service;
 
 import dev.orion.rag.domain.model.AIRequest;
 import dev.orion.rag.domain.port.out.AIPort;
-import io.smallrye.mutiny.Multi;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import java.util.concurrent.Flow;
+
 /**
  * Implementation of {@link AIPort} that delegates to the LangChain4j AI service.
+ * Converts Mutiny {@code Multi<String>} to {@link Flow.Publisher} at the boundary.
  */
 @ApplicationScoped
 public class AIPortImpl implements AIPort {
@@ -31,26 +33,21 @@ public class AIPortImpl implements AIPort {
     /** LangChain4j AI service registered via {@code @RegisterAiService}. */
     private final LangChainAIService ai;
 
-    /**
-     * Creates an AIPortImpl wrapping the given LangChain4j service.
-     *
-     * @param langChainService the LangChain4j service to delegate to
-     */
     @Inject
     public AIPortImpl(LangChainAIService langChainService) {
         this.ai = langChainService;
     }
 
     @Override
-    public Multi<String> generateResponse(AIRequest request) {
-        return ai.generateResponse(request.getPrompt());
+    public Flow.Publisher<String> generateResponse(AIRequest request) {
+        return ai.generateResponse(request.getPrompt()).convert().toPublisher();
     }
 
     @Override
-    public Multi<String> generateContextualResponse(AIRequest request) {
+    public Flow.Publisher<String> generateContextualResponse(AIRequest request) {
         return ai.generateContextualResponse(
                 request.getHistory(),
                 request.getContext(),
-                request.getPrompt());
+                request.getPrompt()).convert().toPublisher();
     }
 }

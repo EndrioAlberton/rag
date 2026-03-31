@@ -32,37 +32,38 @@ import dev.orion.rag.domain.port.out.EmbeddingRepository;
 import dev.orion.rag.infrastructure.BlockingToReactive;
 import dev.orion.rag.infrastructure.service.PDFExtractorService;
 import io.quarkus.logging.Log;
-import io.smallrye.mutiny.Multi;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-
-import static dev.langchain4j.data.document.splitter.DocumentSplitters.recursive;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletionStage;
+
+import static dev.langchain4j.data.document.splitter.DocumentSplitters.recursive;
 
 /**
  * Implementation of the EmbeddingRepository interface using LangChain4j.
+ * Converts the blocking embedding search to {@link CompletionStage} at the boundary.
  */
 @ApplicationScoped
 public class EmbeddingRepositoryImpl implements EmbeddingRepository {
 
-    /** LangChain4j embedding store backed by PostgreSQL PGVector. */
+    /** LangChain4j store that holds vectorised text segments. */
     private final EmbeddingStore<TextSegment> embeddingStore;
-    /** LangChain4j model used to convert text into dense vector embeddings. */
+    /** Model used to vectorise queries before similarity search. */
     private final EmbeddingModel embeddingModel;
-    /** Service for extracting plain text from PDF files before ingestion. */
+    /** Service used to extract text from PDF documents before ingestion. */
     private final PDFExtractorService pdfService;
 
     /**
-     * Creates an EmbeddingRepositoryImpl with its required collaborators.
+     * Creates an EmbeddingRepositoryImpl with all required collaborators.
      *
-     * @param embeddingStore     vector store for persisting and searching embeddings
-     * @param embeddingModel     model for generating text embeddings
-     * @param pdfExtractorService service for extracting text from PDF documents
+     * @param embeddingStore      LangChain4j store holding vectorised text segments
+     * @param embeddingModel      model used to embed queries before similarity search
+     * @param pdfExtractorService service used to extract text from PDFs before ingestion
      */
     @Inject
     public EmbeddingRepositoryImpl(
@@ -74,16 +75,8 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
         this.pdfService = pdfExtractorService;
     }
 
-    /**
-     * Searches for relevant chunks based on the provided RagQuery.
-     *
-     * @param query the RagQuery containing the search parameters
-     * @return a Multi emitting RagResponse objects with the search results
-     */
     @Override
-    public Multi<RagResponse> searchChunks(RagQuery query) {
-        // Use wrapper: blocking embedding + search on executor, result on
-        // EventLoop.
+    public CompletionStage<RagResponse> searchChunks(RagQuery query) {
         return BlockingToReactive.wrap(() -> {
             EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
                     .queryEmbedding(embeddingModel.embed(query.getQuery()).content())
@@ -99,15 +92,9 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
             double score = matches.isEmpty() ? 0.0 : matches.get(0).score();
 
             return new RagResponse(query.getQuery(), contexts, score);
-        })
-        .toMulti();
+        }).subscribeAsCompletionStage();
     }
 
-    /**
-     * Ingests documents from the specified directory into the embedding store.
-     *
-     * @param directoryPath the path to the directory containing the documents
-     */
     @Override
     public void ingestDocuments(String directoryPath) {
         try {
@@ -150,12 +137,6 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
         }
     }
 
-    /**
-     * Ingests the given documents into the embedding store (same chunking and
-     * embedding pipeline as directory ingest).
-     *
-     * @param documents the list of documents to ingest
-     */
     @Override
     public void ingestDocuments(List<DocumentData> documents) {
         if (documents == null || documents.isEmpty()) {

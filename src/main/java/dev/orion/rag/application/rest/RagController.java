@@ -32,7 +32,6 @@ import dev.orion.rag.domain.port.out.EmbeddingRepository;
 import dev.orion.rag.domain.port.out.MemoryPort;
 import dev.orion.rag.domain.port.out.RequestLogPort;
 import dev.orion.rag.domain.port.out.UserServicePort;
-import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -49,51 +48,53 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.util.List;
 
 /**
  * Main REST controller for RAG-powered chat, context retrieval, conversation management and user operations.
+ * Converts between the domain's {@link java.util.concurrent.CompletionStage}/
+ * {@link java.util.concurrent.Flow.Publisher} and Mutiny types at the application boundary.
  */
 @Path("/ai")
 public class RagController {
 
-    /** Port for multi-turn chatbot interactions backed by conversation memory and RAG. */
+    /** Use case that handles streaming chatbot responses within a session. */
     private final ChatbotPort chatbotUseCase;
-    /** Port for single-turn question answering using RAG without memory. */
+    /** Use case that answers a one-shot question using RAG. */
     private final AskQuestionPort askQuestionUseCase;
-    /** Repository for vector-similarity search against the ingested document corpus. */
+    /** Port for embedding-based retrieval of course context. */
     private final EmbeddingRepository embeddingRepository;
-    /** Port for loading and persisting per-session or per-conversation memory. */
+    /** Port that manages per-session conversation memory. */
     private final MemoryPort memoryPort;
-    /** Port for user CRUD operations. */
+    /** Domain service for user management. */
     private final UserServicePort userServicePort;
-    /** Port for conversation lifecycle management. */
+    /** Domain service for conversation management. */
     private final ConversationServicePort conversationServicePort;
-    /** Port for JWT parsing and Orion user synchronisation. */
+    /** Port for JWT authentication and user resolution. */
     private final AuthPort authPort;
-    /** Port for persisting and exporting request/response audit logs. */
+    /** Port for persisting request/response audit logs. */
     private final RequestLogPort requestLogPort;
 
-    /** JAX-RS context that carries per-request properties such as the JWT token. */
+    /** JAX-RS request context used to access HTTP headers and attributes. */
     @Context
     ContainerRequestContext requestContext;
 
     /**
-     * Constructs the controller with all required collaborators.
+     * Creates a RagController with all required domain ports.
      *
-     * @param chatbotUseCase       chatbot port
-     * @param askQuestionUseCase   ask-question port
-     * @param embeddingRepository  embedding store repository
-     * @param memoryPort           conversation memory port
-     * @param userServicePort      user management port
-     * @param conversationServicePort conversation management port
-     * @param authPort             authentication and JWT port
-     * @param requestLogPort       audit-log persistence port
+     * @param chatbotUseCase           streaming chatbot use case
+     * @param askQuestionUseCase       one-shot RAG question use case
+     * @param embeddingRepository      embedding search repository
+     * @param memoryPort               conversation memory port
+     * @param userServicePort          user management service
+     * @param conversationServicePort  conversation management service
+     * @param authPort                 JWT authentication port
+     * @param requestLogPort           audit log port
      */
     @Inject
     public RagController(ChatbotPort chatbotUseCase,
@@ -104,7 +105,6 @@ public class RagController {
             ConversationServicePort conversationServicePort,
             AuthPort authPort,
             RequestLogPort requestLogPort) {
-
         this.chatbotUseCase = chatbotUseCase;
         this.askQuestionUseCase = askQuestionUseCase;
         this.embeddingRepository = embeddingRepository;
@@ -114,117 +114,88 @@ public class RagController {
         this.authPort = authPort;
         this.requestLogPort = requestLogPort;
     }
-    
+
     /**
-     * Sincroniza o usuário a partir do JWT token automaticamente.
-     * Se o usuário não existir, ele será criado.
-     * @return Uni com o usuário sincronizado, ou falha se o token não estiver presente
+     * Extracts the JWT token from the current request context and synchronises the user
+     * with the domain, returning the resolved {@link User}.
+     *
+     * @return a {@link io.smallrye.mutiny.Uni} emitting the synchronised user
      */
     private Uni<User> syncUserFromRequest() {
         String jwtToken = (String) requestContext.getProperty("jwt.token");
-        
         if (jwtToken == null) {
             Log.warn("JWT token not found in request context");
-            return Uni.createFrom()
-                    .failure(
-                            new IllegalArgumentException(
-                                    "JWT token não encontrado no contexto da "
-                                            + "requisição"));
+            return Uni.createFrom().failure(
+                    new IllegalArgumentException(
+                            "JWT token não encontrado no contexto da requisição"));
         }
-
-        return authPort
-                .syncUserFromJwt(jwtToken)
-                .onFailure()
-                .invoke(e -> Log.error("Failed to synchronize user from JWT token", e));
+        return Uni.createFrom().completionStage(() -> authPort.syncUserFromJwt(jwtToken))
+                .onFailure().invoke(e -> Log.error("Failed to synchronize user from JWT token", e));
     }
 
     /**
-     * Chatbot com corpo JSON (POST); exige JWT e devolve resposta em SSE.
+     * Streams a chatbot response for an authenticated user within a conversation.
+     *
+     * @param request the chatbot request containing the conversation ID and prompt
+     * @return server-sent event stream of response tokens
      */
     @POST
     @Path("/chatbot")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.SERVER_SENT_EVENTS)
     public Multi<String> chatbot(@Valid ChatbotRequest request) {
-        // Extrair userId do token JWT quando disponível
         String jwtToken = (String) requestContext.getProperty("jwt.token");
-        
+
         if (jwtToken != null) {
-            // Novo formato: usar token JWT para extrair userId
             Log.info("Chatbot POST - Conversation: " + request.conversationId);
-            
-            // Sincronizar usuário do JWT token e extrair ID
             return syncUserFromRequest()
                 .onItem().transformToMulti(syncedUser -> {
                     String syncedUserId = syncedUser.getId();
                     String syncedUserName = syncedUser.getUsername();
                     String syncedEmail = syncedUser.getEmail();
-                    // Verificar acesso antes de processar (usando o ID do usuário)
-                    return conversationServicePort
-                            .userHasAccess(syncedUserId, request.conversationId)
-                            .onItem()
-                            .transformToMulti(
-                                    hasAccess -> {
-                                        if (!hasAccess) {
-                                            Log.warn(
-                                                    "Access denied for user "
-                                                            + syncedUserId
-                                                            + " to conversation "
-                                                            + request.conversationId);
-                                            return Multi.createFrom()
-                                                    .failure(
-                                                            new SecurityException(
-                                                                    "Acesso "
-                                                                            + "negado"));
-                                        }
-                                        return Multi.createFrom()
-                                                .publisher(
-                                                        chatbotUseCase
-                                                                .executeWithPhone(
-                                                                        syncedUserId,
-                                                                        request
-                                                                                .conversationId,
-                                                                        request
-                                                                                .prompt,
-                                                                        null,
-                                                                        syncedUserName,
-                                                                        syncedEmail));
-                                    })
-                            .onFailure()
-                            .recoverWithMulti(
-                                    e -> {
-                                        String errorMessage =
-                                                e instanceof SecurityException
-                                                        ? "Erro: Acesso negado à conversa"
-                                                        : "Erro: "
-                                                                + (e.getMessage()
-                                                                                != null
-                                                                        ? e.getMessage()
-                                                                        : "Erro desconhecido");
-                                        return Multi.createFrom()
-                                                .item("data: " + errorMessage + "\n\n");
-                                    });
+                    return Uni.createFrom()
+                            .completionStage(() -> conversationServicePort
+                                    .userHasAccess(syncedUserId, request.conversationId))
+                            .onItem().transformToMulti(hasAccess -> {
+                                if (!hasAccess) {
+                                    Log.warn("Access denied for user " + syncedUserId
+                                            + " to conversation " + request.conversationId);
+                                    return Multi.createFrom().failure(
+                                            new SecurityException("Acesso negado"));
+                                }
+                                return Multi.createFrom().publisher(
+                                        chatbotUseCase.executeWithPhone(
+                                                syncedUserId, request.conversationId,
+                                                request.prompt, null,
+                                                syncedUserName, syncedEmail));
+                            })
+                            .onFailure().recoverWithMulti(e -> {
+                                String msg = e instanceof SecurityException
+                                        ? "Erro: Acesso negado à conversa"
+                                        : "Erro: " + (e.getMessage() != null ? e.getMessage() : "Erro desconhecido");
+                                return Multi.createFrom().item("data: " + msg + "\n\n");
+                            });
                 })
-                .onFailure()
-                .invoke(e -> Log.error("Error processing chatbot request", e))
+                .onFailure().invoke(e -> Log.error("Error processing chatbot request", e))
                 .onFailure().recoverWithMulti(e -> {
-                    // Tratar falhas na sincronização do usuário
-                    String errorMessage = e.getMessage() != null ?
-                        e.getMessage() : "Erro desconhecido";
-                    return Multi.createFrom().item("data: Erro: " + errorMessage
-                        + "\n\n");
+                    String msg = e.getMessage() != null ? e.getMessage() : "Erro desconhecido";
+                    return Multi.createFrom().item("data: Erro: " + msg + "\n\n");
                 });
         } else {
-            // Token não presente - retornar erro
             Log.warn("JWT token not found in POST /chatbot request");
-            return Multi.createFrom()
-                    .item(
-                            "data: Erro: Token de autenticação não encontrado\n\n");
+            return Multi.createFrom().item("data: Erro: Token de autenticação não encontrado\n\n");
         }
     }
 
     /**
-     * Variante legada do chatbot (GET com query params); suporta sessão ou userId+conversationId.
+     * Legacy GET endpoint for streaming chatbot responses, supporting both session-based
+     * and user+conversation-based addressing.
+     *
+     * @param session        anonymous session identifier (optional)
+     * @param userId         authenticated user ID (optional, combined with conversationId)
+     * @param conversationId conversation to resume (optional, combined with userId)
+     * @param prompt         the user's prompt text
+     * @return server-sent event stream of response tokens
      */
     @GET
     @Path("/chatbot")
@@ -234,103 +205,60 @@ public class RagController {
             @QueryParam("userId") String userId,
             @QueryParam("conversationId") String conversationId,
             @QueryParam("prompt") @NotBlank String prompt) {
-        // Formato legado para compatibilidade (GET com query params)
         if (userId != null && conversationId != null) {
-            // Requer autenticação JWT para novo formato
-            Log.info(
-                    "Chatbot GET (legacy) User: "
-                            + userId
-                            + ", Conversation: "
-                            + conversationId);
-
-            // Sincronizar usuário do JWT token
+            Log.info("Chatbot GET (legacy) User: " + userId + ", Conversation: " + conversationId);
             return syncUserFromRequest()
-                    .onItem()
-                    .transformToMulti(
-                            syncedUser -> {
-                                String syncedUserId = syncedUser.getId();
-                                String syncedUserName = syncedUser.getUsername();
-                                String syncedEmail = syncedUser.getEmail();
-                                return conversationServicePort
-                                        .userHasAccess(syncedUserId, conversationId)
-                                        .onItem()
-                                        .transformToMulti(
-                                                hasAccess -> {
-                                                    if (!hasAccess) {
-                                                        Log.warn(
-                                                                "Access denied for user "
-                                                                        + syncedUserId
-                                                                        + " to conversation "
-                                                                        + conversationId);
-                                                        return Multi.createFrom()
-                                                                .failure(
-                                                                        new SecurityException(
-                                                                                "Acesso negado"));
-                                                    }
-                                                    return Multi.createFrom()
-                                                            .publisher(
-                                                                    chatbotUseCase
-                                                                            .executeWithPhone(
-                                                                                    syncedUserId,
-                                                                                    conversationId,
-                                                                                    prompt,
-                                                                                    null,
-                                                                                    syncedUserName,
-                                                                                    syncedEmail));
-                                                })
-                                        .onFailure()
-                                        .recoverWithMulti(
-                                                e -> {
-                                                    String errorMessage =
-                                                            e instanceof SecurityException
-                                                                    ? "Erro: Acesso negado à conversa"
-                                                                    : "Erro: "
-                                                                            + (e.getMessage()
-                                                                                            != null
-                                                                                    ? e.getMessage()
-                                                                                    : "Erro desconhecido");
-                                                    return Multi.createFrom()
-                                                            .item(
-                                                                    "data: "
-                                                                            + errorMessage
-                                                                            + "\n\n");
-                                                });
+                .onItem().transformToMulti(syncedUser -> {
+                    String syncedUserId = syncedUser.getId();
+                    String syncedUserName = syncedUser.getUsername();
+                    String syncedEmail = syncedUser.getEmail();
+                    return Uni.createFrom()
+                            .completionStage(() -> conversationServicePort
+                                    .userHasAccess(syncedUserId, conversationId))
+                            .onItem().transformToMulti(hasAccess -> {
+                                if (!hasAccess) {
+                                    Log.warn("Access denied for user " + syncedUserId
+                                            + " to conversation " + conversationId);
+                                    return Multi.createFrom().failure(
+                                            new SecurityException("Acesso negado"));
+                                }
+                                return Multi.createFrom().publisher(
+                                        chatbotUseCase.executeWithPhone(
+                                                syncedUserId, conversationId, prompt,
+                                                null, syncedUserName, syncedEmail));
                             })
-                    .onFailure()
-                    .invoke(e -> Log.error("Error processing chatbot request", e))
-                    .onFailure()
-                    .recoverWithMulti(
-                            e -> {
-                                String errorMessage =
-                                        e.getMessage() != null
-                                                ? e.getMessage()
-                                                : "Erro desconhecido";
-                                return Multi.createFrom()
-                                        .item("data: Erro: " + errorMessage + "\n\n");
+                            .onFailure().recoverWithMulti(e -> {
+                                String msg = e instanceof SecurityException
+                                        ? "Erro: Acesso negado à conversa"
+                                        : "Erro: " + (e.getMessage() != null ? e.getMessage() : "Erro desconhecido");
+                                return Multi.createFrom().item("data: " + msg + "\n\n");
                             });
+                })
+                .onFailure().invoke(e -> Log.error("Error processing chatbot request", e))
+                .onFailure().recoverWithMulti(e -> {
+                    String msg = e.getMessage() != null ? e.getMessage() : "Erro desconhecido";
+                    return Multi.createFrom().item("data: Erro: " + msg + "\n\n");
+                });
         } else if (session != null) {
-            // Formato antigo para compatibilidade (sem autenticação JWT)
             Log.info("Chatbot GET (legacy) Session: " + session);
-            return Multi.createFrom().publisher(chatbotUseCase.execute(session,
-                prompt))
+            return Multi.createFrom().publisher(chatbotUseCase.execute(session, prompt))
                 .onFailure().recoverWithMulti(e -> {
                     Log.error("Error processing chatbot with session", e);
-                    String errorMessage = e.getMessage() != null ?
-                        e.getMessage() : "Erro desconhecido";
-                    return Multi.createFrom().item("data: Erro: " + errorMessage
-                        + "\n\n");
+                    String msg = e.getMessage() != null ? e.getMessage() : "Erro desconhecido";
+                    return Multi.createFrom().item("data: Erro: " + msg + "\n\n");
                 });
         } else {
-            return Multi.createFrom()
-                    .item(
-                            "data: Erro: Deve fornecer session ou "
-                                    + "userId+conversationId\n\n");
+            return Multi.createFrom().item(
+                    "data: Erro: Deve fornecer session ou userId+conversationId\n\n");
         }
     }
 
     /**
-     * Single-turn RAG question answering endpoint — no conversation memory.
-     * Streams the AI response as Server-Sent Events.
+     * Streams a one-shot RAG-augmented model response for the given session and prompt.
+     *
+     * @param session the session identifier used to scope RAG retrieval
+     * @param prompt  the user's question
+     * @return server-sent event stream of response tokens
      */
     @GET
     @Path("/ask")
@@ -339,95 +267,91 @@ public class RagController {
             @QueryParam("session") @NotBlank String session,
             @QueryParam("prompt") @NotBlank String prompt) {
         Log.info("Ask Model Session: " + session);
-        return Multi.createFrom().publisher(askQuestionUseCase.execute(session,
-            prompt));
+        return Multi.createFrom().publisher(askQuestionUseCase.execute(session, prompt));
     }
 
     /**
-     * Retrieves semantically relevant course content for a natural language query.
-     * Used by MCP tools to provide course-aware context to LLMs.
+     * Returns the most relevant RAG context chunks for a given session and prompt.
      *
-     * @param session    session/course identifier
-     * @param prompt     natural language question
-     * @param maxResults maximum number of context chunks to return (default: 5)
-     * @return JSON with query, contexts, and relevance score
+     * @param session    the session or course identifier
+     * @param prompt     the query text used for similarity search
+     * @param maxResults maximum number of context chunks to return (capped 1–20)
+     * @return the retrieved context response
      */
     @GET
     @Path("/context")
     @Produces(MediaType.APPLICATION_JSON)
-    @WithSession
     public Uni<ContextResponse> getContext(
             @QueryParam("session") @NotBlank String session,
             @QueryParam("prompt") @NotBlank String prompt,
             @QueryParam("maxResults") @DefaultValue("5") int maxResults) {
-        Log.info("Context retrieval Session: " + session + ", prompt: " +
-            prompt);
-        RagQuery query = new RagQuery(prompt, Math.min(Math.max(maxResults, 1),
-            20), 0.5);
-        return embeddingRepository.searchChunks(query)
-                .collect().first()
+        Log.info("Context retrieval Session: " + session + ", prompt: " + prompt);
+        RagQuery query = new RagQuery(prompt, Math.min(Math.max(maxResults, 1), 20), 0.5);
+        return Uni.createFrom().completionStage(() -> embeddingRepository.searchChunks(query))
                 .map(ragResponse -> new ContextResponse(
                         ragResponse.getQuery(),
                         ragResponse.getContexts(),
                         ragResponse.getScore()))
-                .onItem()
-                .ifNull()
-                .continueWith(() -> new ContextResponse(prompt, List.of(), 0.0));
+                .onItem().ifNull().continueWith(
+                        () -> new ContextResponse(prompt, List.of(), 0.0));
     }
 
+    /**
+     * Returns the in-memory conversation state for a given session or user+conversation pair.
+     *
+     * @param session        anonymous session identifier (optional)
+     * @param userId         authenticated user ID (optional, combined with conversationId)
+     * @param conversationId conversation identifier (optional, combined with userId)
+     * @return the current {@link ConversationMemory}, or null if not found
+     */
     @GET
     @Path("/memory")
     @Produces(MediaType.APPLICATION_JSON)
-    @WithSession
     public Uni<ConversationMemory> getMemory(
-        @QueryParam("session") String session,
-        @QueryParam("userId") String userId,
-        @QueryParam("conversationId") String conversationId) {
+            @QueryParam("session") String session,
+            @QueryParam("userId") String userId,
+            @QueryParam("conversationId") String conversationId) {
         if (userId != null && conversationId != null) {
-            Log.info("Memory User: " + userId + ", Conversation: " +
-                conversationId);
-            
-            // Sincronizar usuário do JWT token
+            Log.info("Memory User: " + userId + ", Conversation: " + conversationId);
             return syncUserFromRequest()
-                .onItem().transformToUni(syncedUser -> {
-                    String userHash = syncedUser.getOrionUserHash();
-                    return memoryPort.getConversationMemory(userHash,
-                        conversationId);
-                });
+                .onItem().transformToUni(syncedUser ->
+                        Uni.createFrom().completionStage(() ->
+                                memoryPort.getConversationMemory(
+                                        syncedUser.getOrionUserHash(), conversationId)));
         } else if (session != null) {
             Log.info("Memory Session: " + session);
-            return memoryPort.getConversationMemory(session);
+            return Uni.createFrom().completionStage(() ->
+                    memoryPort.getConversationMemory(session));
         } else {
             return Uni.createFrom().nullItem();
         }
     }
 
     /**
-     * Exports request logs to CSV format for analysis and auditing.
+     * Exports all request logs as a CSV file attachment.
      *
-     * @return CSV content with all logged requests
+     * @return HTTP response with CSV content and attachment header
      */
     @GET
     @Path("/logs/export")
     @Produces("text/csv")
-    @WithSession
     @RolesAllowed("user")
     public Uni<Response> exportLogsToCsv() {
-        return requestLogPort
-                .exportToCsv()
-                .map(
-                        csv ->
-                                Response.ok(csv)
-                                        .header(
-                                                "Content-Disposition",
-                                                "attachment; filename=\"request_logs.csv\"")
-                                        .build());
+        return Uni.createFrom().completionStage(() -> requestLogPort.exportToCsv())
+                .map(csv -> Response.ok(csv)
+                        .header("Content-Disposition", "attachment; filename=\"request_logs.csv\"")
+                        .build());
     }
-    
-    // ========== Endpoints de Usuário ==========
-    
+
+    // =========================================================================
+    // User endpoints
+    // =========================================================================
+
     /**
-     * Creates a new user account from the provided username and e-mail.
+     * Creates a new user account.
+     *
+     * @param request user creation request with username and email
+     * @return the created {@link User}
      */
     @POST
     @Path("/users")
@@ -435,32 +359,47 @@ public class RagController {
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<User> createUser(@Valid UserRequest request) {
         Log.info("Creating user: " + request.username);
-        return userServicePort.createUser(request.username, request.email);
+        return Uni.createFrom().completionStage(
+                () -> userServicePort.createUser(request.username, request.email));
     }
-    
+
+    /**
+     * Retrieves a user by their identifier.
+     *
+     * @param userId the user's unique identifier
+     * @return the matching {@link User}
+     */
     @GET
     @Path("/users/{userId}")
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<User> getUser(@PathParam("userId") String userId) {
         Log.info("Getting user: " + userId);
-        return userServicePort.getUserById(userId);
+        return Uni.createFrom().completionStage(() -> userServicePort.getUserById(userId));
     }
-    
+
     /**
-     * Returns all user accounts in the system.
+     * Returns a list of all users in the system.
+     *
+     * @return list of {@link User} domain objects
      */
     @GET
     @Path("/users")
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<List<User>> listUsers() {
         Log.info("Listing users");
-        return userServicePort.listUsers();
+        return Uni.createFrom().completionStage(() -> userServicePort.listUsers());
     }
-    
-    // ========== Endpoints de Conversa ==========
+
+    // =========================================================================
+    // Conversation endpoints
+    // =========================================================================
 
     /**
-     * Cria uma conversa para o utilizador identificado no path (JWT obrigatório).
+     * Creates a new conversation for the authenticated user.
+     *
+     * @param userId  path variable (ignored; resolved from JWT)
+     * @param request conversation creation request with title
+     * @return the created {@link Conversation}
      */
     @POST
     @Path("/users/{userId}/conversations")
@@ -471,16 +410,19 @@ public class RagController {
             @PathParam("userId") String userId,
             @Valid ConversationRequest request) {
         Log.info("Creating conversation for user: " + userId);
-        
-        // Sincronizar usuário automaticamente do JWT token
         return syncUserFromRequest()
-                .onItem()
-                .transformToUni(
-                        syncedUser ->
+                .onItem().transformToUni(syncedUser ->
+                        Uni.createFrom().completionStage(() ->
                                 conversationServicePort.createConversation(
-                                        syncedUser.getOrionUserHash(), request.title));
+                                        syncedUser.getOrionUserHash(), request.title)));
     }
-    
+
+    /**
+     * Returns all conversations belonging to the authenticated user.
+     *
+     * @param userId path variable (ignored; resolved from JWT)
+     * @return list of {@link Conversation} objects for the user
+     */
     @GET
     @Path("/users/{userId}/conversations")
     @Produces(MediaType.APPLICATION_JSON)
@@ -488,16 +430,19 @@ public class RagController {
     public Uni<List<Conversation>> getUserConversations(
             @PathParam("userId") String userId) {
         Log.info("Getting conversations for user: " + userId);
-        
-        // Sincronizar usuário automaticamente do JWT token
         return syncUserFromRequest()
-                .onItem()
-                .transformToUni(
-                        syncedUser ->
+                .onItem().transformToUni(syncedUser ->
+                        Uni.createFrom().completionStage(() ->
                                 conversationServicePort.getUserConversations(
-                                        syncedUser.getOrionUserHash()));
+                                        syncedUser.getOrionUserHash())));
     }
-    
+
+    /**
+     * Retrieves a conversation by its unique identifier.
+     *
+     * @param conversationId the conversation's unique identifier
+     * @return the matching {@link Conversation}
+     */
     @GET
     @Path("/conversations/{conversationId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -505,11 +450,16 @@ public class RagController {
     public Uni<Conversation> getConversation(
             @PathParam("conversationId") String conversationId) {
         Log.info("Getting conversation: " + conversationId);
-        return conversationServicePort.getConversation(conversationId);
+        return Uni.createFrom().completionStage(
+                () -> conversationServicePort.getConversation(conversationId));
     }
 
     /**
-     * Remove uma conversa após validar o utilizador a partir do JWT.
+     * Deletes a conversation owned by the authenticated user.
+     *
+     * @param conversationId the conversation to delete
+     * @param userId         query param (used for logging; authorisation is JWT-based)
+     * @return HTTP 200 OK on success
      */
     @DELETE
     @Path("/conversations/{conversationId}")
@@ -518,17 +468,12 @@ public class RagController {
     public Uni<Response> deleteConversation(
             @PathParam("conversationId") String conversationId,
             @QueryParam("userId") @NotBlank String userId) {
-        Log.info("Deleting conversation " + conversationId + " by user " +
-            userId);
-        
-        // Sincronizar usuário do JWT token
+        Log.info("Deleting conversation " + conversationId + " by user " + userId);
         return syncUserFromRequest()
-            .onItem().transformToUni(syncedUser -> {
-                // Usar o ID real do usuário sincronizado para deletar
-                return conversationServicePort.deleteConversation(conversationId,
-                    syncedUser.getId())
-                    .replaceWith(Response.ok().build());
-            });
+                .onItem().transformToUni(syncedUser ->
+                        Uni.createFrom().completionStage(() ->
+                                conversationServicePort.deleteConversation(
+                                        conversationId, syncedUser.getId()))
+                                .replaceWith(Response.ok().build()));
     }
-    
 }

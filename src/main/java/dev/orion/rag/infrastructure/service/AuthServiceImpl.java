@@ -23,41 +23,48 @@ import dev.orion.rag.domain.model.User;
 import dev.orion.rag.domain.port.out.AuthPort;
 import dev.orion.rag.domain.port.out.UserRepository;
 import dev.orion.rag.domain.port.out.UserServicePort;
-import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.hibernate.reactive.mutiny.Mutiny;
 
 import java.util.Base64;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Implementation of {@link AuthPort} for JWT handling and user synchronization.
+ * Uses {@link Mutiny.SessionFactory} for programmatic transaction management.
  */
 @ApplicationScoped
 public class AuthServiceImpl implements AuthPort {
 
-    /** Repository used to look up and persist users by hash or e-mail. */
+    /** Repository for user lookups. */
     private final UserRepository userRepository;
-    /** Port used to create new local user accounts discovered via JWT. */
+    /** Domain service used to create or synchronise users on first login. */
     private final UserServicePort userServicePort;
-    /** Jackson mapper for parsing the Base64-decoded JWT payload. */
+    /** Jackson mapper used for JWT payload deserialization. */
     private final ObjectMapper objectMapper;
+    /** Hibernate Reactive session factory for programmatic transaction management. */
+    private final Mutiny.SessionFactory sessionFactory;
 
     /**
-     * Creates an AuthServiceImpl with the required collaborators.
+     * Creates an AuthServiceImpl with all required dependencies.
      *
-     * @param userRepository  repository for user persistence
-     * @param userServicePort port for creating new users
-     * @param objectMapper    JSON mapper for JWT payload parsing
+     * @param userRepository  repository for user lookups
+     * @param userServicePort domain service for user creation/synchronisation
+     * @param objectMapper    Jackson mapper for JWT payload parsing
+     * @param sessionFactory  Hibernate Reactive session factory
      */
     @Inject
     public AuthServiceImpl(
             UserRepository userRepository,
             UserServicePort userServicePort,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            Mutiny.SessionFactory sessionFactory) {
         this.userRepository = userRepository;
         this.userServicePort = userServicePort;
         this.objectMapper = objectMapper;
+        this.sessionFactory = sessionFactory;
     }
 
     @Override
@@ -67,21 +74,15 @@ public class AuthServiceImpl implements AuthPort {
             if (parts.length != 3) {
                 throw new IllegalArgumentException("Invalid JWT token format");
             }
-
             String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
-
             JsonNode jsonNode = objectMapper.readTree(payload);
-
             if (!jsonNode.has("c_hash")) {
                 throw new IllegalArgumentException(
-                        "Hash not found in JWT token. Available claims: "
-                                + jsonNode.fieldNames());
+                        "Hash not found in JWT token. Available claims: " + jsonNode.fieldNames());
             }
-
             return jsonNode.get("c_hash").asText();
         } catch (Exception e) {
-            throw new IllegalArgumentException(
-                    "Failed to extract hash from JWT token", e);
+            throw new IllegalArgumentException("Failed to extract hash from JWT token", e);
         }
     }
 
@@ -92,57 +93,54 @@ public class AuthServiceImpl implements AuthPort {
             if (parts.length != 3) {
                 throw new IllegalArgumentException("Invalid JWT token format");
             }
-
             String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
-
             JsonNode jsonNode = objectMapper.readTree(payload);
-
             if (jsonNode.has("email")) {
                 return jsonNode.get("email").asText();
             }
-
             throw new IllegalArgumentException(
-                    "Email not found in JWT token. Available claims: "
-                            + jsonNode.fieldNames());
+                    "Email not found in JWT token. Available claims: " + jsonNode.fieldNames());
         } catch (Exception e) {
-            throw new IllegalArgumentException(
-                    "Failed to extract email from JWT token", e);
+            throw new IllegalArgumentException("Failed to extract email from JWT token", e);
         }
     }
 
     @Override
-    @WithTransaction
-    public Uni<User> syncUserFromJwt(String jwtToken) {
+    public CompletionStage<User> syncUserFromJwt(String jwtToken) {
         String orionUserHash = extractUserHashFromJwt(jwtToken);
         String email = extractEmailFromJwt(jwtToken);
 
-        return userRepository.findByOrionUserHash(orionUserHash)
+        return sessionFactory.withTransaction(session ->
+            Uni.createFrom().completionStage(() -> userRepository.findByOrionUserHash(orionUserHash))
                 .onItem().transformToUni(user -> {
                     if (user != null) {
                         return Uni.createFrom().item(user);
                     }
-
-                    return userRepository.findByEmail(email)
+                    return Uni.createFrom().completionStage(() -> userRepository.findByEmail(email))
                             .onItem().transformToUni(userByEmail -> {
                                 if (userByEmail != null) {
                                     userByEmail.setOrionUserHash(orionUserHash);
-                                    return userRepository.persist(userByEmail)
+                                    return Uni.createFrom()
+                                            .completionStage(() -> userRepository.persist(userByEmail))
                                             .onItem().transformToUni(u ->
-                                                    userRepository.flush()
+                                                    Uni.createFrom()
+                                                            .completionStage(() -> userRepository.flush())
                                                             .replaceWith(u));
                                 }
-
                                 String username = email.split("@")[0];
-
-                                return userServicePort.createUser(username, email)
+                                return Uni.createFrom()
+                                        .completionStage(() -> userServicePort.createUser(username, email))
                                         .onItem().transformToUni(newUser -> {
                                             newUser.setOrionUserHash(orionUserHash);
-                                            return userRepository.persist(newUser)
+                                            return Uni.createFrom()
+                                                    .completionStage(() -> userRepository.persist(newUser))
                                                     .onItem().transformToUni(u ->
-                                                            userRepository.flush()
+                                                            Uni.createFrom()
+                                                                    .completionStage(() -> userRepository.flush())
                                                                     .replaceWith(u));
                                         });
                             });
-                });
+                })
+        ).subscribeAsCompletionStage();
     }
 }

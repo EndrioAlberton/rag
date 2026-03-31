@@ -29,7 +29,6 @@ import dev.orion.rag.domain.usecase.AskQuestionUseCase;
 import dev.orion.rag.domain.usecase.ChatbotUseCase;
 import dev.orion.rag.domain.usecase.IngestDocumentsUseCase;
 import dev.orion.rag.domain.usecase.IngestFromUrlsUseCase;
-import io.vertx.mutiny.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
@@ -42,72 +41,44 @@ import jakarta.inject.Inject;
 @ApplicationScoped
 public class ApplicationBeans {
 
-    /** Infrastructure implementation of the embedding repository (PGVector). */
+    /** Port for embedding-based retrieval. */
     @Inject
     EmbeddingRepository embeddingRepository;
 
-    /** Infrastructure implementation of the AI port (LangChain4j + OpenAI). */
+    /** Port that streams language-model responses. */
     @Inject
     AIPort aiPort;
 
-    /** Infrastructure implementation of the conversation memory port (PostgreSQL + Redis). */
+    /** Port that manages per-session conversation memory. */
     @Inject
     MemoryPort memoryPort;
 
-    /** Infrastructure implementation of the request-log persistence port. */
+    /** Port for persisting request/response audit logs. */
     @Inject
     RequestLogPort requestLogPort;
 
-    /** Infrastructure implementation of the web-scraper port (HTTP + HTML→Markdown). */
+    /** Port for web content scraping. */
     @Inject
     WebScraperPort webScraperPort;
 
-    /** Vert.x instance injected to provide the event-loop context to use cases. */
-    @Inject
-    Vertx vertx;
-
-    /**
-     * Produces the {@link AskQuestionPort} CDI bean by instantiating the pure-Java use case
-     * with its infrastructure collaborators.
-     *
-     * @return a new {@link AskQuestionUseCase} wired with all required dependencies
-     */
     @Produces
     @ApplicationScoped
     public AskQuestionPort askQuestionPort() {
-        return new AskQuestionUseCase(embeddingRepository, aiPort,
-            requestLogPort, vertx);
+        return new AskQuestionUseCase(embeddingRepository, aiPort, requestLogPort);
     }
 
-    /**
-     * Produces the {@link ChatbotPort} CDI bean by instantiating the pure-Java use case
-     * with its infrastructure collaborators.
-     *
-     * @return a new {@link ChatbotUseCase} wired with all required dependencies
-     */
     @Produces
     @ApplicationScoped
     public ChatbotPort chatbotPort() {
-        return new ChatbotUseCase(embeddingRepository, aiPort, memoryPort,
-            requestLogPort);
+        return new ChatbotUseCase(embeddingRepository, aiPort, memoryPort, requestLogPort);
     }
 
-    /**
-     * Produces the {@link IngestDocumentsPort} CDI bean by instantiating the use case.
-     *
-     * @return a new {@link IngestDocumentsUseCase}
-     */
     @Produces
     @ApplicationScoped
     public IngestDocumentsPort ingestDocumentsPort() {
         return new IngestDocumentsUseCase(embeddingRepository);
     }
 
-    /**
-     * Produces the {@link IngestFromUrlsPort} CDI bean by instantiating the use case.
-     *
-     * @return a new {@link IngestFromUrlsUseCase}
-     */
     @Produces
     @ApplicationScoped
     public IngestFromUrlsPort ingestFromUrlsPort() {

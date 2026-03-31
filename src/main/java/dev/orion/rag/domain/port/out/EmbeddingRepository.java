@@ -19,9 +19,9 @@ package dev.orion.rag.domain.port.out;
 import dev.orion.rag.domain.model.DocumentData;
 import dev.orion.rag.domain.model.RagQuery;
 import dev.orion.rag.domain.model.RagResponse;
-import io.smallrye.mutiny.Multi;
 
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 public interface EmbeddingRepository {
 
@@ -29,9 +29,9 @@ public interface EmbeddingRepository {
      * Searches for relevant chunks based on the provided RAG query.
      *
      * @param query the RAG query containing the search parameters
-     * @return a Multi emitting the found RAG responses
+     * @return a CompletionStage emitting the found RAG response
      */
-    Multi<RagResponse> searchChunks(RagQuery query);
+    CompletionStage<RagResponse> searchChunks(RagQuery query);
 
     /**
      * Ingests documents from the specified directory.

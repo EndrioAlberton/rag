@@ -20,16 +20,15 @@ import dev.orion.rag.domain.model.User;
 import dev.orion.rag.domain.port.out.UserRepository;
 import dev.orion.rag.infrastructure.persistence.EntityMapper;
 import dev.orion.rag.infrastructure.persistence.UserEntity;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Implementation of UserRepository using Hibernate Reactive Panache.
- * Delegates to UserPanacheRepository for JPA operations and converts
- * between UserEntity (JPA) and User (domain) via EntityMapper.
+ * Converts Mutiny {@code Uni<T>} to {@link CompletionStage} at the boundary.
  */
 @ApplicationScoped
 public class UserRepositoryImpl implements UserRepository {
@@ -39,52 +38,59 @@ public class UserRepositoryImpl implements UserRepository {
     UserPanacheRepository panache;
 
     @Override
-    public Uni<User> findById(String id) {
+    public CompletionStage<User> findById(String id) {
         return panache.find("id", id).<UserEntity>firstResult()
-                .map(EntityMapper::toDomain);
+                .map(EntityMapper::toDomain)
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<User> findByUsername(String username) {
+    public CompletionStage<User> findByUsername(String username) {
         return panache.find("username", username).<UserEntity>firstResult()
-                .map(EntityMapper::toDomain);
+                .map(EntityMapper::toDomain)
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<User> findByEmail(String email) {
+    public CompletionStage<User> findByEmail(String email) {
         return panache.find("email", email).<UserEntity>firstResult()
-                .map(EntityMapper::toDomain);
+                .map(EntityMapper::toDomain)
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<User> findByOrionUserHash(String orionUserHash) {
-        return panache.find("orionUserHash",
-            orionUserHash).<UserEntity>firstResult()
-                .map(EntityMapper::toDomain);
+    public CompletionStage<User> findByOrionUserHash(String orionUserHash) {
+        return panache.find("orionUserHash", orionUserHash).<UserEntity>firstResult()
+                .map(EntityMapper::toDomain)
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<User> persist(User user) {
+    public CompletionStage<User> persist(User user) {
         UserEntity entity = EntityMapper.toEntity(user);
         return panache.persist(entity)
-                .map(EntityMapper::toDomain);
+                .map(EntityMapper::toDomain)
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<Void> flush() {
-        return panache.flush();
+    public CompletionStage<Void> flush() {
+        return panache.flush().subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<Boolean> deleteById(String id) {
-        return panache.delete("id", id).map(count -> count > 0);
+    public CompletionStage<Boolean> deleteById(String id) {
+        return panache.delete("id", id)
+                .map(count -> count > 0)
+                .subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<List<User>> listAll() {
+    public CompletionStage<List<User>> listAll() {
         return panache.listAll()
                 .map(entities -> entities.stream()
                         .map(EntityMapper::toDomain)
-                        .toList());
+                        .toList())
+                .subscribeAsCompletionStage();
     }
 }

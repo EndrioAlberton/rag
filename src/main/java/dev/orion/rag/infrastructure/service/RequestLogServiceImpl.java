@@ -21,94 +21,99 @@ import dev.orion.rag.domain.port.out.RequestLogPort;
 import dev.orion.rag.infrastructure.persistence.EntityMapper;
 import dev.orion.rag.infrastructure.persistence.RequestLogEntity;
 import dev.orion.rag.infrastructure.repository.RequestLogPanacheRepository;
-import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.hibernate.reactive.mutiny.Mutiny;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Implementation of {@link RequestLogPort} for persisting and exporting request logs.
+ * Uses {@link Mutiny.SessionFactory} for programmatic transaction management and converts
+ * to {@link CompletionStage} at the domain boundary.
  */
 @ApplicationScoped
 public class RequestLogServiceImpl implements RequestLogPort {
 
-    /** Panache repository used to persist and query request log entries. */
+    /** Panache repository for request log entity persistence. */
     private final RequestLogPanacheRepository requestLogPanacheRepository;
+    /** Hibernate Reactive session factory for programmatic transaction management. */
+    private final Mutiny.SessionFactory sessionFactory;
 
     /**
-     * Creates a RequestLogServiceImpl with the required repository.
+     * Creates a RequestLogServiceImpl with all required dependencies.
      *
-     * @param requestLogPanacheRepository Panache repository for request log persistence
+     * @param requestLogPanacheRepository Panache repository for log persistence
+     * @param sessionFactory              Hibernate Reactive session factory
      */
     @Inject
-    public RequestLogServiceImpl(RequestLogPanacheRepository requestLogPanacheRepository) {
+    public RequestLogServiceImpl(
+            RequestLogPanacheRepository requestLogPanacheRepository,
+            Mutiny.SessionFactory sessionFactory) {
         this.requestLogPanacheRepository = requestLogPanacheRepository;
+        this.sessionFactory = sessionFactory;
     }
 
     @Override
-    @WithTransaction
-    public Uni<Void> log(String phoneNumber, String userId, String userName,
-        String email, String userMessage,
+    public CompletionStage<Void> log(String phoneNumber, String userId, String userName,
+            String email, String userMessage,
             Instant messageTimestamp, String ragResult, long ragLatencyMs,
             String llmResponse, long llmLatencyMs, String conversationId) {
-        RequestLogEntity entity = new RequestLogEntity();
-        entity.setPhoneNumber(phoneNumber != null && !phoneNumber.isBlank() ?
-            phoneNumber : null);
-        entity.setUserId(userId);
-        entity.setUserName(userName != null && !userName.isBlank() ? userName :
-            null);
-        entity.setEmail(email != null && !email.isBlank() ? email : null);
-        entity.setConversationId(conversationId != null &&
-            !conversationId.isBlank() ? conversationId : null);
-        entity.setUserMessage(userMessage);
-        entity.setMessageTimestamp(LocalDateTime.ofInstant(messageTimestamp,
-            ZoneOffset.UTC));
-        entity.setRagResult(ragResult);
-        entity.setRagLatencyMs(ragLatencyMs);
-        entity.setLlmResponse(llmResponse);
-        entity.setLlmLatencyMs(llmLatencyMs);
-        entity.setCreatedAt(LocalDateTime.now());
-        return requestLogPanacheRepository.persist(entity).replaceWithVoid();
+        return sessionFactory.withTransaction(session -> {
+            RequestLogEntity entity = new RequestLogEntity();
+            entity.setPhoneNumber(phoneNumber != null && !phoneNumber.isBlank() ? phoneNumber : null);
+            entity.setUserId(userId);
+            entity.setUserName(userName != null && !userName.isBlank() ? userName : null);
+            entity.setEmail(email != null && !email.isBlank() ? email : null);
+            entity.setConversationId(conversationId != null && !conversationId.isBlank() ? conversationId : null);
+            entity.setUserMessage(userMessage);
+            entity.setMessageTimestamp(LocalDateTime.ofInstant(messageTimestamp, ZoneOffset.UTC));
+            entity.setRagResult(ragResult);
+            entity.setRagLatencyMs(ragLatencyMs);
+            entity.setLlmResponse(llmResponse);
+            entity.setLlmLatencyMs(llmLatencyMs);
+            entity.setCreatedAt(LocalDateTime.now());
+            return requestLogPanacheRepository.persist(entity).replaceWithVoid();
+        }).subscribeAsCompletionStage();
     }
 
     @Override
-    public Uni<String> exportToCsv() {
-        return requestLogPanacheRepository.findAllOrderedByTimestamp()
-                .map(entities -> entities.stream()
-                        .map(EntityMapper::toDomain)
-                        .toList())
-                .map(logs -> toCsv(logs));
+    public CompletionStage<String> exportToCsv() {
+        return sessionFactory.withSession(session ->
+                requestLogPanacheRepository.findAllOrderedByTimestamp()
+                        .map(entities -> entities.stream()
+                                .map(EntityMapper::toDomain)
+                                .toList())
+                        .map(RequestLogServiceImpl::toCsv)
+        ).subscribeAsCompletionStage();
     }
 
     /**
-     * Escapes a single value for inclusion in a CSV file.
-     * Wraps the value in double quotes if it contains commas, newlines or double quotes.
+     * Escapes a CSV field value by wrapping it in double quotes if necessary.
      *
-     * @param value the raw field value (may be null)
-     * @return the escaped CSV field string
+     * @param value the raw field value
+     * @return CSV-safe string
      */
     private static String escapeCsvField(String value) {
         if (value == null) {
             return "";
         }
         String s = value.replace("\"", "\"\"");
-        if (s.contains(",") || s.contains("\n") || s.contains("\r") ||
-            s.contains("\"")) {
+        if (s.contains(",") || s.contains("\n") || s.contains("\r") || s.contains("\"")) {
             return "\"" + s + "\"";
         }
         return s;
     }
 
     /**
-     * Serialises a list of request log entries into a CSV string with a header row.
+     * Converts a list of {@link RequestLog} domain objects to a CSV string.
      *
-     * @param logs list of domain log entries to serialise
-     * @return the full CSV content as a string
+     * @param logs the list of log entries
+     * @return CSV-formatted string including header row
      */
     private static String toCsv(List<RequestLog> logs) {
         StringBuilder sb = new StringBuilder();
@@ -122,14 +127,12 @@ public class RequestLogServiceImpl implements RequestLogPort {
             sb.append(escapeCsvField(log.getEmail())).append(",");
             sb.append(escapeCsvField(log.getConversationId())).append(",");
             sb.append(escapeCsvField(log.getUserMessage())).append(",");
-            sb.append(escapeCsvField(log.getMessageTimestamp() != null ?
-                log.getMessageTimestamp().toString() : "")).append(",");
+            sb.append(escapeCsvField(log.getMessageTimestamp() != null
+                    ? log.getMessageTimestamp().toString() : "")).append(",");
             sb.append(escapeCsvField(log.getRagResult())).append(",");
-            sb.append(log.getRagLatencyMs() != null ? log.getRagLatencyMs() :
-                "").append(",");
+            sb.append(log.getRagLatencyMs() != null ? log.getRagLatencyMs() : "").append(",");
             sb.append(escapeCsvField(log.getLlmResponse())).append(",");
-            sb.append(log.getLlmLatencyMs() != null ? log.getLlmLatencyMs() :
-                "").append("\n");
+            sb.append(log.getLlmLatencyMs() != null ? log.getLlmLatencyMs() : "").append("\n");
         }
         return sb.toString();
     }
