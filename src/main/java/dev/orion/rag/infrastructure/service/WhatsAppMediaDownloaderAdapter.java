@@ -32,11 +32,11 @@ import java.time.Duration;
 import java.util.Optional;
 
 /**
- * Serviço para baixar mídia (áudio, etc.) da WhatsApp Cloud API.
+ * Implementation of {@link MediaDownloaderPort} using the WhatsApp Cloud API (Meta).
  * https://developers.facebook.com/docs/whatsapp/cloud-api/reference/media
  */
 @ApplicationScoped
-public class WhatsAppMediaDownloader implements MediaDownloaderPort {
+public class WhatsAppMediaDownloaderAdapter implements MediaDownloaderPort {
 
     /** Base URL of the WhatsApp Graph API. */
     private static final String WHATSAPP_API_BASE = "https://graph.facebook.com/v21.0";
@@ -51,11 +51,11 @@ public class WhatsAppMediaDownloader implements MediaDownloaderPort {
     String accessToken;
 
     /**
-     * Creates a WhatsAppMediaDownloader; initialises the HTTP client with a 10-second connect timeout.
+     * Creates a WhatsAppMediaDownloaderAdapter; initialises the HTTP client with a 10-second connect timeout.
      *
      * @param objectMapper Jackson mapper for JSON parsing
      */
-    public WhatsAppMediaDownloader(ObjectMapper objectMapper) {
+    public WhatsAppMediaDownloaderAdapter(ObjectMapper objectMapper) {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
@@ -68,6 +68,7 @@ public class WhatsAppMediaDownloader implements MediaDownloaderPort {
      * @param mediaId ID da mídia (ex: do webhook audio.id)
      * @return Optional com os bytes do arquivo, ou empty se falhar
      */
+    @Override
     public Optional<byte[]> downloadMedia(String mediaId) {
         if (accessToken == null || accessToken.isBlank()) {
             Log.warn("WhatsApp access-token ausente - não é possível baixar mídia");
@@ -78,7 +79,6 @@ public class WhatsAppMediaDownloader implements MediaDownloaderPort {
         }
 
         try {
-            // 1. Obter URL da mídia
             HttpRequest metaRequest = HttpRequest.newBuilder()
                     .uri(URI.create(WHATSAPP_API_BASE + "/" + mediaId))
                     .timeout(Duration.ofSeconds(10))
@@ -101,7 +101,6 @@ public class WhatsAppMediaDownloader implements MediaDownloaderPort {
                 return Optional.empty();
             }
 
-            // 2. Baixar o arquivo
             HttpRequest downloadRequest = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(Duration.ofSeconds(30))

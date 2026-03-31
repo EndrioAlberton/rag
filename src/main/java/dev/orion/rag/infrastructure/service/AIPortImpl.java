@@ -17,28 +17,27 @@
 package dev.orion.rag.infrastructure.service;
 
 import dev.orion.rag.domain.model.AIRequest;
-import dev.orion.rag.domain.port.out.AIService;
+import dev.orion.rag.domain.port.out.AIPort;
 import io.smallrye.mutiny.Multi;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 /**
- * Adapter for the AIService interface, using a personalized AI service
- * implementation.
+ * Implementation of {@link AIPort} that delegates to the LangChain4j AI service.
  */
 @ApplicationScoped
-public class AIServiceAdapter implements AIService {
+public class AIPortImpl implements AIPort {
 
     /** LangChain4j AI service registered via {@code @RegisterAiService}. */
     private final LangChainAIService ai;
 
     /**
-     * Creates an AIServiceAdapter wrapping the given LangChain4j service.
+     * Creates an AIPortImpl wrapping the given LangChain4j service.
      *
      * @param langChainService the LangChain4j service to delegate to
      */
     @Inject
-    public AIServiceAdapter(LangChainAIService langChainService) {
+    public AIPortImpl(LangChainAIService langChainService) {
         this.ai = langChainService;
     }
 

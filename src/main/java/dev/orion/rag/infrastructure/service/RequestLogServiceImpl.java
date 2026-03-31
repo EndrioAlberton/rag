@@ -17,10 +17,10 @@
 package dev.orion.rag.infrastructure.service;
 
 import dev.orion.rag.domain.model.RequestLog;
-import dev.orion.rag.domain.port.out.RequestLogService;
+import dev.orion.rag.domain.port.out.RequestLogPort;
 import dev.orion.rag.infrastructure.persistence.EntityMapper;
 import dev.orion.rag.infrastructure.persistence.RequestLogEntity;
-import dev.orion.rag.infrastructure.repository.RequestLogRepository;
+import dev.orion.rag.infrastructure.repository.RequestLogPanacheRepository;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -32,22 +32,22 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 /**
- * Implementation of RequestLogService for persisting and exporting request logs.
+ * Implementation of {@link RequestLogPort} for persisting and exporting request logs.
  */
 @ApplicationScoped
-public class RequestLogServiceImpl implements RequestLogService {
+public class RequestLogServiceImpl implements RequestLogPort {
 
     /** Panache repository used to persist and query request log entries. */
-    private final RequestLogRepository requestLogRepository;
+    private final RequestLogPanacheRepository requestLogPanacheRepository;
 
     /**
      * Creates a RequestLogServiceImpl with the required repository.
      *
-     * @param requestLogRepository repository for request log persistence
+     * @param requestLogPanacheRepository Panache repository for request log persistence
      */
     @Inject
-    public RequestLogServiceImpl(RequestLogRepository requestLogRepository) {
-        this.requestLogRepository = requestLogRepository;
+    public RequestLogServiceImpl(RequestLogPanacheRepository requestLogPanacheRepository) {
+        this.requestLogPanacheRepository = requestLogPanacheRepository;
     }
 
     @Override
@@ -73,12 +73,12 @@ public class RequestLogServiceImpl implements RequestLogService {
         entity.setLlmResponse(llmResponse);
         entity.setLlmLatencyMs(llmLatencyMs);
         entity.setCreatedAt(LocalDateTime.now());
-        return requestLogRepository.persist(entity).replaceWithVoid();
+        return requestLogPanacheRepository.persist(entity).replaceWithVoid();
     }
 
     @Override
     public Uni<String> exportToCsv() {
-        return requestLogRepository.findAllOrderedByTimestamp()
+        return requestLogPanacheRepository.findAllOrderedByTimestamp()
                 .map(entities -> entities.stream()
                         .map(EntityMapper::toDomain)
                         .toList())

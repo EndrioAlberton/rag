@@ -31,11 +31,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 /**
- * Serviço para enviar mensagens via WhatsApp Cloud API (Meta).
+ * Implementation of {@link MessageSenderPort} using the WhatsApp Cloud API (Meta).
  * https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
  */
 @ApplicationScoped
-public class WhatsAppMessageSender implements MessageSenderPort {
+public class WhatsAppMessageSenderAdapter implements MessageSenderPort {
 
     /** Base URL of the WhatsApp Graph API. */
     private static final String WHATSAPP_API_BASE = "https://graph.facebook.com/v21.0";
@@ -54,11 +54,11 @@ public class WhatsAppMessageSender implements MessageSenderPort {
     String accessToken;
 
     /**
-     * Creates a WhatsAppMessageSender; initialises the HTTP client with a 10-second connect timeout.
+     * Creates a WhatsAppMessageSenderAdapter; initialises the HTTP client with a 10-second connect timeout.
      *
      * @param objectMapper Jackson mapper for JSON serialisation
      */
-    public WhatsAppMessageSender(ObjectMapper objectMapper) {
+    public WhatsAppMessageSenderAdapter(ObjectMapper objectMapper) {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
@@ -79,8 +79,8 @@ public class WhatsAppMessageSender implements MessageSenderPort {
     /**
      * Envia uma mensagem de texto para um número WhatsApp.
      *
-     * @param to            Número no formato internacional sem + (ex: 5511999999999)
-     * @param text          Conteúdo da mensagem
+     * @param to              Número no formato internacional sem + (ex: 5511999999999)
+     * @param text            Conteúdo da mensagem
      * @param overridePhoneId ID do número de negócio (do webhook). Se null, usa o configurado.
      * @return true se enviado com sucesso, false caso contrário
      */
@@ -140,8 +140,8 @@ public class WhatsAppMessageSender implements MessageSenderPort {
      * Sends a read receipt and typing indicator to a WhatsApp user.
      * The read receipt shows double blue checkmarks; the typing indicator shows the "..." animation.
      *
-     * @param to            Recipient phone number (international format without +)
-     * @param messageId     The WAMID of the received message to mark as read
+     * @param to              Recipient phone number (international format without +)
+     * @param messageId       The WAMID of the received message to mark as read
      * @param overridePhoneId Business phone number ID from the webhook (or null to use configured)
      * @return true if at least the read receipt was sent successfully
      */
@@ -162,10 +162,7 @@ public class WhatsAppMessageSender implements MessageSenderPort {
 
         String normalizedTo = normalizeBrazilianMobile(to != null ? to.replaceAll("[^0-9]", "") : "");
 
-        // Mark message as read (shows double blue checkmarks to the user)
         boolean readReceiptSent = sendReadReceipt(effectivePhoneId, messageId);
-
-        // Send typing indicator (animated "..." dots) — requires "to" field, different from status update
         boolean typingSent = sendTypingAction(effectivePhoneId, normalizedTo, messageId);
 
         Log.info("WhatsApp feedback enviado para " + to + " — read receipt: "
@@ -218,9 +215,9 @@ public class WhatsAppMessageSender implements MessageSenderPort {
      * The Cloud API does not support a native typing indicator ("..."), so a reaction emoji
      * is the closest equivalent — it appears instantly and can be cleared after the reply is sent.
      *
-     * @param to      Recipient phone number (normalized, no +)
-     * @param messageId The WAMID to react to
-     * @param emoji   The emoji to send (e.g. "⏳"). Pass "" to clear the reaction.
+     * @param to              Recipient phone number (normalized, no +)
+     * @param messageId       The WAMID to react to
+     * @param emoji           The emoji to send (e.g. "⏳"). Pass "" to clear the reaction.
      * @param overridePhoneId Business phone number ID (or null to use configured)
      * @return true if the reaction was sent successfully
      */

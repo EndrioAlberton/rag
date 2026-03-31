@@ -33,11 +33,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Serviço de transcrição de áudio para texto usando OpenAI Whisper API.
+ * Implementation of {@link SpeechToTextPort} using OpenAI Whisper API.
  * https://platform.openai.com/docs/api-reference/audio/createTranscription
  */
 @ApplicationScoped
-public class SpeechToTextService implements SpeechToTextPort {
+public class SpeechToTextPortImpl implements SpeechToTextPort {
 
     /** Base URL of the OpenAI REST API. */
     private static final String OPENAI_API_BASE = "https://api.openai.com/v1";
@@ -52,11 +52,11 @@ public class SpeechToTextService implements SpeechToTextPort {
     String apiKey;
 
     /**
-     * Creates a SpeechToTextService; initialises the HTTP client with a 10-second connect timeout.
+     * Creates a SpeechToTextPortImpl; initialises the HTTP client with a 10-second connect timeout.
      *
      * @param objectMapper Jackson mapper for JSON response parsing
      */
-    public SpeechToTextService(ObjectMapper objectMapper) {
+    public SpeechToTextPortImpl(ObjectMapper objectMapper) {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
@@ -66,10 +66,11 @@ public class SpeechToTextService implements SpeechToTextPort {
     /**
      * Transcreve áudio para texto usando OpenAI Whisper.
      *
-     * @param audioData   Bytes do arquivo de áudio (ogg, mp3, wav, etc.)
-     * @param mimeType    MIME type do áudio (ex: audio/ogg)
+     * @param audioData Bytes do arquivo de áudio (ogg, mp3, wav, etc.)
+     * @param mimeType  MIME type do áudio (ex: audio/ogg)
      * @return Optional com o texto transcrito, ou empty se falhar
      */
+    @Override
     public Optional<String> transcribe(byte[] audioData, String mimeType) {
         if (apiKey == null || apiKey.isBlank() || "change-me".equals(apiKey)) {
             Log.warn("OpenAI API key não configurada - transcrição de áudio indisponível");
@@ -155,7 +156,6 @@ public class SpeechToTextService implements SpeechToTextPort {
      * @return the encoded multipart body as a byte array
      */
     private byte[] buildMultipartBody(String boundary, byte[] audioData, String filename, String mimeType) {
-        // Usar apenas o tipo base (ex: audio/ogg) - codecs=opus pode causar problemas no header
         String contentType = "audio/ogg";
         if (mimeType != null && !mimeType.isBlank()) {
             int semicolon = mimeType.indexOf(';');

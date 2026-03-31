@@ -20,29 +20,31 @@ import dev.orion.rag.domain.model.User;
 import io.smallrye.mutiny.Uni;
 
 /**
- * Service interface for authentication and JWT handling.
+ * Driven port (out) for authentication and JWT handling.
  */
-public interface AuthService {
-    
+public interface AuthPort {
+
     /**
      * Extracts user hash from JWT token and synchronizes/creates local user.
+     *
      * @param jwtToken The JWT token from Orion Users
      * @return The synchronized local user
      */
     Uni<User> syncUserFromJwt(String jwtToken);
-    
+
     /**
      * Extracts user hash from JWT token.
+     *
      * @param jwtToken The JWT token from Orion Users
      * @return The user hash (orionUserHash)
      */
     String extractUserHashFromJwt(String jwtToken);
-    
+
     /**
      * Extracts email from JWT token.
+     *
      * @param jwtToken The JWT token from Orion Users
      * @return The user email
      */
     String extractEmailFromJwt(String jwtToken);
 }
-

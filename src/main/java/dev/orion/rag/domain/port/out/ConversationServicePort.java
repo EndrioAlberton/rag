@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * Driven port (out) — service contract for managing {@link Conversation} entities.
  */
-public interface ConversationService {
+public interface ConversationServicePort {
 
     /**
      * Creates a new conversation owned by the specified user.

@@ -20,10 +20,10 @@ import dev.orion.rag.domain.port.in.AskQuestionPort;
 import dev.orion.rag.domain.port.in.ChatbotPort;
 import dev.orion.rag.domain.port.in.IngestDocumentsPort;
 import dev.orion.rag.domain.port.in.IngestFromUrlsPort;
-import dev.orion.rag.domain.port.out.AIService;
+import dev.orion.rag.domain.port.out.AIPort;
 import dev.orion.rag.domain.port.out.EmbeddingRepository;
-import dev.orion.rag.domain.port.out.MemoryService;
-import dev.orion.rag.domain.port.out.RequestLogService;
+import dev.orion.rag.domain.port.out.MemoryPort;
+import dev.orion.rag.domain.port.out.RequestLogPort;
 import dev.orion.rag.domain.port.out.WebScraperPort;
 import dev.orion.rag.domain.usecase.AskQuestionUseCase;
 import dev.orion.rag.domain.usecase.ChatbotUseCase;
@@ -46,17 +46,17 @@ public class ApplicationBeans {
     @Inject
     EmbeddingRepository embeddingRepository;
 
-    /** Infrastructure implementation of the AI service (LangChain4j + OpenAI). */
+    /** Infrastructure implementation of the AI port (LangChain4j + OpenAI). */
     @Inject
-    AIService aiService;
+    AIPort aiPort;
 
-    /** Infrastructure implementation of the conversation memory service (PostgreSQL + Redis). */
+    /** Infrastructure implementation of the conversation memory port (PostgreSQL + Redis). */
     @Inject
-    MemoryService memoryService;
+    MemoryPort memoryPort;
 
-    /** Infrastructure implementation of the request-log persistence service. */
+    /** Infrastructure implementation of the request-log persistence port. */
     @Inject
-    RequestLogService requestLogService;
+    RequestLogPort requestLogPort;
 
     /** Infrastructure implementation of the web-scraper port (HTTP + HTML→Markdown). */
     @Inject
@@ -75,8 +75,8 @@ public class ApplicationBeans {
     @Produces
     @ApplicationScoped
     public AskQuestionPort askQuestionPort() {
-        return new AskQuestionUseCase(embeddingRepository, aiService,
-            requestLogService, vertx);
+        return new AskQuestionUseCase(embeddingRepository, aiPort,
+            requestLogPort, vertx);
     }
 
     /**
@@ -88,8 +88,8 @@ public class ApplicationBeans {
     @Produces
     @ApplicationScoped
     public ChatbotPort chatbotPort() {
-        return new ChatbotUseCase(embeddingRepository, aiService, memoryService,
-            requestLogService);
+        return new ChatbotUseCase(embeddingRepository, aiPort, memoryPort,
+            requestLogPort);
     }
 
     /**

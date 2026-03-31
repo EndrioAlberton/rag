@@ -16,18 +16,22 @@
 
 package dev.orion.rag.application.rest;
 
+import dev.orion.rag.application.rest.dto.ChatbotRequest;
+import dev.orion.rag.application.rest.dto.ContextResponse;
+import dev.orion.rag.application.rest.dto.ConversationRequest;
+import dev.orion.rag.application.rest.dto.UserRequest;
 import dev.orion.rag.domain.model.Conversation;
 import dev.orion.rag.domain.model.ConversationMemory;
-import dev.orion.rag.domain.model.User;
-import dev.orion.rag.domain.port.out.AuthService;
-import dev.orion.rag.domain.port.out.ConversationService;
-import dev.orion.rag.domain.port.out.MemoryService;
-import dev.orion.rag.domain.port.out.RequestLogService;
-import dev.orion.rag.domain.port.out.UserService;
 import dev.orion.rag.domain.model.RagQuery;
-import dev.orion.rag.domain.port.out.EmbeddingRepository;
+import dev.orion.rag.domain.model.User;
 import dev.orion.rag.domain.port.in.AskQuestionPort;
 import dev.orion.rag.domain.port.in.ChatbotPort;
+import dev.orion.rag.domain.port.out.AuthPort;
+import dev.orion.rag.domain.port.out.ConversationServicePort;
+import dev.orion.rag.domain.port.out.EmbeddingRepository;
+import dev.orion.rag.domain.port.out.MemoryPort;
+import dev.orion.rag.domain.port.out.RequestLogPort;
+import dev.orion.rag.domain.port.out.UserServicePort;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
@@ -64,16 +68,16 @@ public class RagController {
     private final AskQuestionPort askQuestionUseCase;
     /** Repository for vector-similarity search against the ingested document corpus. */
     private final EmbeddingRepository embeddingRepository;
-    /** Service for loading and persisting per-session or per-conversation memory. */
-    private final MemoryService memoryService;
-    /** Service for user CRUD operations. */
-    private final UserService userService;
-    /** Service for conversation lifecycle management. */
-    private final ConversationService conversationService;
-    /** Service for JWT parsing and Orion user synchronisation. */
-    private final AuthService authService;
-    /** Service for persisting and exporting request/response audit logs. */
-    private final RequestLogService requestLogService;
+    /** Port for loading and persisting per-session or per-conversation memory. */
+    private final MemoryPort memoryPort;
+    /** Port for user CRUD operations. */
+    private final UserServicePort userServicePort;
+    /** Port for conversation lifecycle management. */
+    private final ConversationServicePort conversationServicePort;
+    /** Port for JWT parsing and Orion user synchronisation. */
+    private final AuthPort authPort;
+    /** Port for persisting and exporting request/response audit logs. */
+    private final RequestLogPort requestLogPort;
 
     /** JAX-RS context that carries per-request properties such as the JWT token. */
     @Context
@@ -85,30 +89,30 @@ public class RagController {
      * @param chatbotUseCase       chatbot port
      * @param askQuestionUseCase   ask-question port
      * @param embeddingRepository  embedding store repository
-     * @param memoryService        conversation memory service
-     * @param userService          user management service
-     * @param conversationService  conversation management service
-     * @param authService          authentication and JWT service
-     * @param requestLogService    audit-log persistence service
+     * @param memoryPort           conversation memory port
+     * @param userServicePort      user management port
+     * @param conversationServicePort conversation management port
+     * @param authPort             authentication and JWT port
+     * @param requestLogPort       audit-log persistence port
      */
     @Inject
     public RagController(ChatbotPort chatbotUseCase,
             AskQuestionPort askQuestionUseCase,
             EmbeddingRepository embeddingRepository,
-            MemoryService memoryService,
-            UserService userService,
-            ConversationService conversationService,
-            AuthService authService,
-            RequestLogService requestLogService) {
+            MemoryPort memoryPort,
+            UserServicePort userServicePort,
+            ConversationServicePort conversationServicePort,
+            AuthPort authPort,
+            RequestLogPort requestLogPort) {
 
         this.chatbotUseCase = chatbotUseCase;
         this.askQuestionUseCase = askQuestionUseCase;
         this.embeddingRepository = embeddingRepository;
-        this.memoryService = memoryService;
-        this.userService = userService;
-        this.conversationService = conversationService;
-        this.authService = authService;
-        this.requestLogService = requestLogService;
+        this.memoryPort = memoryPort;
+        this.userServicePort = userServicePort;
+        this.conversationServicePort = conversationServicePort;
+        this.authPort = authPort;
+        this.requestLogPort = requestLogPort;
     }
     
     /**
@@ -128,7 +132,7 @@ public class RagController {
                                             + "requisição"));
         }
 
-        return authService
+        return authPort
                 .syncUserFromJwt(jwtToken)
                 .onFailure()
                 .invoke(e -> Log.error("Failed to synchronize user from JWT token", e));
@@ -156,7 +160,7 @@ public class RagController {
                     String syncedUserName = syncedUser.getUsername();
                     String syncedEmail = syncedUser.getEmail();
                     // Verificar acesso antes de processar (usando o ID do usuário)
-                    return conversationService
+                    return conversationServicePort
                             .userHasAccess(syncedUserId, request.conversationId)
                             .onItem()
                             .transformToMulti(
@@ -247,7 +251,7 @@ public class RagController {
                                 String syncedUserId = syncedUser.getId();
                                 String syncedUserName = syncedUser.getUsername();
                                 String syncedEmail = syncedUser.getEmail();
-                                return conversationService
+                                return conversationServicePort
                                         .userHasAccess(syncedUserId, conversationId)
                                         .onItem()
                                         .transformToMulti(
@@ -387,12 +391,12 @@ public class RagController {
             return syncUserFromRequest()
                 .onItem().transformToUni(syncedUser -> {
                     String userHash = syncedUser.getOrionUserHash();
-                    return memoryService.getConversationMemory(userHash,
+                    return memoryPort.getConversationMemory(userHash,
                         conversationId);
                 });
         } else if (session != null) {
             Log.info("Memory Session: " + session);
-            return memoryService.getConversationMemory(session);
+            return memoryPort.getConversationMemory(session);
         } else {
             return Uni.createFrom().nullItem();
         }
@@ -409,7 +413,7 @@ public class RagController {
     @WithSession
     @RolesAllowed("user")
     public Uni<Response> exportLogsToCsv() {
-        return requestLogService
+        return requestLogPort
                 .exportToCsv()
                 .map(
                         csv ->
@@ -431,7 +435,7 @@ public class RagController {
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<User> createUser(@Valid UserRequest request) {
         Log.info("Creating user: " + request.username);
-        return userService.createUser(request.username, request.email);
+        return userServicePort.createUser(request.username, request.email);
     }
     
     @GET
@@ -439,7 +443,7 @@ public class RagController {
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<User> getUser(@PathParam("userId") String userId) {
         Log.info("Getting user: " + userId);
-        return userService.getUserById(userId);
+        return userServicePort.getUserById(userId);
     }
     
     /**
@@ -450,7 +454,7 @@ public class RagController {
     @Produces(MediaType.APPLICATION_JSON)
     public Uni<List<User>> listUsers() {
         Log.info("Listing users");
-        return userService.listUsers();
+        return userServicePort.listUsers();
     }
     
     // ========== Endpoints de Conversa ==========
@@ -473,7 +477,7 @@ public class RagController {
                 .onItem()
                 .transformToUni(
                         syncedUser ->
-                                conversationService.createConversation(
+                                conversationServicePort.createConversation(
                                         syncedUser.getOrionUserHash(), request.title));
     }
     
@@ -490,7 +494,7 @@ public class RagController {
                 .onItem()
                 .transformToUni(
                         syncedUser ->
-                                conversationService.getUserConversations(
+                                conversationServicePort.getUserConversations(
                                         syncedUser.getOrionUserHash()));
     }
     
@@ -501,7 +505,7 @@ public class RagController {
     public Uni<Conversation> getConversation(
             @PathParam("conversationId") String conversationId) {
         Log.info("Getting conversation: " + conversationId);
-        return conversationService.getConversation(conversationId);
+        return conversationServicePort.getConversation(conversationId);
     }
 
     /**
@@ -521,71 +525,10 @@ public class RagController {
         return syncUserFromRequest()
             .onItem().transformToUni(syncedUser -> {
                 // Usar o ID real do usuário sincronizado para deletar
-                return conversationService.deleteConversation(conversationId,
+                return conversationServicePort.deleteConversation(conversationId,
                     syncedUser.getId())
                     .replaceWith(Response.ok().build());
             });
     }
     
-    // ========== DTOs ==========
-    
-    /**
-     * Request body for user creation.
-     */
-    public static class UserRequest {
-        /** Login username chosen by the new user. */
-        @NotBlank
-        public String username;
-
-        /** E-mail address of the new user. */
-        @NotBlank
-        public String email;
-    }
-
-    /**
-     * Request body for conversation creation.
-     */
-    public static class ConversationRequest {
-        /** Human-readable title for the new conversation. */
-        @NotBlank
-        public String title;
-    }
-
-    /**
-     * Request body for the POST /chatbot endpoint.
-     */
-    public static class ChatbotRequest {
-        /** Identifier of the conversation this message belongs to. */
-        @NotBlank
-        public String conversationId;
-
-        /** User's question or message text. */
-        @NotBlank
-        public String prompt;
-    }
-
-    /**
-     * Response for context retrieval (MCP / course-aware Q&A).
-     */
-    public static class ContextResponse {
-        /** Original query text used to search the embedding store. */
-        public final String query;
-        /** Ordered list of retrieved context passages, best match first. */
-        public final List<String> contexts;
-        /** Highest similarity score among the retrieved passages. */
-        public final double score;
-
-        /**
-         * Constructs a ContextResponse with the query, contexts and top score.
-         *
-         * @param query    original query text
-         * @param contexts retrieved context passages
-         * @param score    highest similarity score
-         */
-        public ContextResponse(String query, List<String> contexts, double score) {
-            this.query = query;
-            this.contexts = contexts;
-            this.score = score;
-        }
-    }
 }

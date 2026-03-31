@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * Driven port (out) — service contract for managing {@link User} entities.
  */
-public interface UserService {
+public interface UserServicePort {
 
     /**
      * Creates a new user with the given username and e-mail.

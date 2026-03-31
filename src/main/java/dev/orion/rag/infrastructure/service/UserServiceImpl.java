@@ -18,7 +18,7 @@ package dev.orion.rag.infrastructure.service;
 
 import dev.orion.rag.domain.model.User;
 import dev.orion.rag.domain.port.out.UserRepository;
-import dev.orion.rag.domain.port.out.UserService;
+import dev.orion.rag.domain.port.out.UserServicePort;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -26,10 +26,10 @@ import jakarta.inject.Inject;
 import java.util.List;
 
 /**
- * Implementation of UserService.
+ * Implementation of {@link UserServicePort}.
  */
 @ApplicationScoped
-public class UserServiceImpl implements UserService {
+public class UserServiceImpl implements UserServicePort {
     
     /** Repository used for all user persistence operations. */
     private final UserRepository userRepository;

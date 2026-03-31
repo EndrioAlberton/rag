@@ -23,10 +23,10 @@ import io.smallrye.mutiny.Uni;
 import java.util.List;
 
 /**
- * Port for managing conversation memory using PostgreSQL + Redis hybrid approach.
+ * Driven port (out) for managing conversation memory using PostgreSQL + Redis hybrid approach.
  * PostgreSQL for persistence, Redis for cache/performance.
  */
-public interface MemoryService {
+public interface MemoryPort {
 
     /**
      * Saves a chat message to the conversation memory.
@@ -45,17 +45,16 @@ public interface MemoryService {
      * @return a Uni containing the conversation memory, or null if not found
      */
     Uni<ConversationMemory> getConversationMemory(String sessionId);
-    
+
     /**
      * Retrieves the conversation memory for a specific conversation.
      * Tries Redis cache first, falls back to PostgreSQL if not found.
      *
-     * @param userId the user identifier
+     * @param userId         the user identifier
      * @param conversationId the conversation identifier
      * @return a Uni containing the conversation memory, or null if not found
      */
-    Uni<ConversationMemory> getConversationMemory(String userId, String
-        conversationId);
+    Uni<ConversationMemory> getConversationMemory(String userId, String conversationId);
 
     /**
      * Gets the last N messages from a conversation.
@@ -65,17 +64,16 @@ public interface MemoryService {
      * @return a Uni containing list of the last N messages
      */
     Uni<List<ChatMessage>> getLastMessages(String sessionId, int count);
-    
+
     /**
      * Gets the last N messages from a conversation.
      *
-     * @param userId the user identifier
+     * @param userId         the user identifier
      * @param conversationId the conversation identifier
-     * @param count     the number of messages to retrieve
+     * @param count          the number of messages to retrieve
      * @return a Uni containing list of the last N messages
      */
-    Uni<List<ChatMessage>> getLastMessages(String userId, String conversationId,
-        int count);
+    Uni<List<ChatMessage>> getLastMessages(String userId, String conversationId, int count);
 
     /**
      * Gets the conversation history as a formatted string.
@@ -84,11 +82,11 @@ public interface MemoryService {
      * @return a Uni containing the conversation history
      */
     Uni<String> getHistory(String sessionId);
-    
+
     /**
      * Gets the conversation history as a formatted string.
      *
-     * @param userId the user identifier
+     * @param userId         the user identifier
      * @param conversationId the conversation identifier
      * @return a Uni containing the conversation history
      */
@@ -101,11 +99,11 @@ public interface MemoryService {
      * @return a Uni that completes when the conversation is cleared
      */
     Uni<Void> clearConversation(String sessionId);
-    
+
     /**
      * Clears the conversation memory for a specific conversation.
      *
-     * @param userId the user identifier
+     * @param userId         the user identifier
      * @param conversationId the conversation identifier
      * @return a Uni that completes when the conversation is cleared
      */
@@ -118,11 +116,11 @@ public interface MemoryService {
      * @return a Uni containing true if conversation exists, false otherwise
      */
     Uni<Boolean> hasConversation(String sessionId);
-    
+
     /**
      * Checks if a conversation exists for the given user and conversation.
      *
-     * @param userId the user identifier
+     * @param userId         the user identifier
      * @param conversationId the conversation identifier
      * @return a Uni containing true if conversation exists, false otherwise
      */

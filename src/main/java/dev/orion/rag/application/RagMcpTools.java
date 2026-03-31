@@ -19,7 +19,7 @@ package dev.orion.rag.application;
 import dev.orion.rag.domain.model.RagQuery;
 import dev.orion.rag.domain.port.in.AskQuestionPort;
 import dev.orion.rag.domain.port.out.EmbeddingRepository;
-import dev.orion.rag.domain.port.out.RequestLogService;
+import dev.orion.rag.domain.port.out.RequestLogPort;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import io.quarkus.logging.Log;
@@ -47,9 +47,9 @@ public class RagMcpTools {
     @Inject
     AskQuestionPort askQuestionUseCase;
 
-    /** Serviço de logs de pedidos. */
+    /** Port for persisting request/response audit logs. */
     @Inject
-    RequestLogService requestLogService;
+    RequestLogPort requestLogPort;
 
     /**
      * Expõe a ferramenta MCP {@code retrieve_course_context} para o modelo
@@ -105,7 +105,7 @@ public class RagMcpTools {
                                 result = String.join("\n", lines);
                             }
                             String ragResult = result;
-                            return requestLogService
+                            return requestLogPort
                                     .log(
                                             null,
                                             sessionId,

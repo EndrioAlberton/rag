@@ -20,9 +20,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import dev.orion.rag.domain.model.User;
-import dev.orion.rag.domain.port.out.AuthService;
+import dev.orion.rag.domain.port.out.AuthPort;
 import dev.orion.rag.domain.port.out.UserRepository;
-import dev.orion.rag.domain.port.out.UserService;
+import dev.orion.rag.domain.port.out.UserServicePort;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -31,32 +31,32 @@ import jakarta.inject.Inject;
 import java.util.Base64;
 
 /**
- * Implementation of AuthService for JWT handling and user synchronization.
+ * Implementation of {@link AuthPort} for JWT handling and user synchronization.
  */
 @ApplicationScoped
-public class AuthServiceImpl implements AuthService {
+public class AuthServiceImpl implements AuthPort {
 
     /** Repository used to look up and persist users by hash or e-mail. */
     private final UserRepository userRepository;
-    /** Service used to create new local user accounts discovered via JWT. */
-    private final UserService userService;
+    /** Port used to create new local user accounts discovered via JWT. */
+    private final UserServicePort userServicePort;
     /** Jackson mapper for parsing the Base64-decoded JWT payload. */
     private final ObjectMapper objectMapper;
 
     /**
      * Creates an AuthServiceImpl with the required collaborators.
      *
-     * @param userRepository repository for user persistence
-     * @param userService    service for creating new users
-     * @param objectMapper   JSON mapper for JWT payload parsing
+     * @param userRepository  repository for user persistence
+     * @param userServicePort port for creating new users
+     * @param objectMapper    JSON mapper for JWT payload parsing
      */
     @Inject
     public AuthServiceImpl(
             UserRepository userRepository,
-            UserService userService,
+            UserServicePort userServicePort,
             ObjectMapper objectMapper) {
         this.userRepository = userRepository;
-        this.userService = userService;
+        this.userServicePort = userServicePort;
         this.objectMapper = objectMapper;
     }
 
@@ -134,7 +134,7 @@ public class AuthServiceImpl implements AuthService {
 
                                 String username = email.split("@")[0];
 
-                                return userService.createUser(username, email)
+                                return userServicePort.createUser(username, email)
                                         .onItem().transformToUni(newUser -> {
                                             newUser.setOrionUserHash(orionUserHash);
                                             return userRepository.persist(newUser)

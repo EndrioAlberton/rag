@@ -19,9 +19,9 @@ package dev.orion.rag.domain.usecase;
 import dev.orion.rag.domain.model.AIRequest;
 import dev.orion.rag.domain.model.RagQuery;
 import dev.orion.rag.domain.port.in.AskQuestionPort;
-import dev.orion.rag.domain.port.out.AIService;
+import dev.orion.rag.domain.port.out.AIPort;
 import dev.orion.rag.domain.port.out.EmbeddingRepository;
-import dev.orion.rag.domain.port.out.RequestLogService;
+import dev.orion.rag.domain.port.out.RequestLogPort;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.Vertx;
@@ -37,10 +37,10 @@ public class AskQuestionUseCase implements AskQuestionPort {
 
     /** Repository used to search embedding chunks relevant to the prompt. */
     private final EmbeddingRepository embeddingRepository;
-    /** AI service that streams the language-model response token by token. */
-    private final AIService aiService;
-    /** Service responsible for persisting the request/response audit log. */
-    private final RequestLogService requestLogService;
+    /** Port that streams the language-model response token by token. */
+    private final AIPort aiPort;
+    /** Port responsible for persisting the request/response audit log. */
+    private final RequestLogPort requestLogPort;
     /** Vert.x instance used to dispatch audit-log writes back to the event loop. */
     private final Vertx vertx;
 
@@ -51,18 +51,18 @@ public class AskQuestionUseCase implements AskQuestionPort {
      * Creates an AskQuestionUseCase with all required collaborators.
      *
      * @param embeddingRepository repository for vector-similarity search
-     * @param aiService           language-model response generator
-     * @param requestLogService   audit-log persistence service
+     * @param aiPort              language-model response generator port
+     * @param requestLogPort      audit-log persistence port
      * @param vertx               Vert.x instance for event-loop dispatch
      */
     public AskQuestionUseCase(
             EmbeddingRepository embeddingRepository,
-            AIService aiService,
-            RequestLogService requestLogService,
+            AIPort aiPort,
+            RequestLogPort requestLogPort,
             Vertx vertx) {
         this.embeddingRepository = embeddingRepository;
-        this.aiService = aiService;
-        this.requestLogService = requestLogService;
+        this.aiPort = aiPort;
+        this.requestLogPort = requestLogPort;
         this.vertx = vertx;
     }
 
@@ -95,7 +95,7 @@ public class AskQuestionUseCase implements AskQuestionPort {
                     AIRequest aiRequest = new AIRequest(session, prompt, ragResult);
                     long llmStart = System.currentTimeMillis();
                     StringBuilder accumulator = new StringBuilder();
-                    return aiService.generateResponse(aiRequest)
+                    return aiPort.generateResponse(aiRequest)
                             .group().intoLists().of(20)
                             .onItem().transform(list -> String.join("", list))
                             .onItem().invoke(chunk -> accumulator.append(chunk))
@@ -108,7 +108,7 @@ public class AskQuestionUseCase implements AskQuestionPort {
                                 return Uni.createFrom().<Void>emitter(em ->
                                         vertx.getDelegate().getOrCreateContext()
                                                 .runOnContext(ignored ->
-                                                        requestLogService.log(
+                                                        requestLogPort.log(
                                                                 phoneNumber,
                                                                 session,
                                                                 userName,

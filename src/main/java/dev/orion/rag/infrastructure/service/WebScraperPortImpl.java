@@ -35,11 +35,10 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * Fetches HTML from URLs and converts to Markdown documents.
- * Implements the WebScraperPort driven port.
+ * Implementation of {@link WebScraperPort} that fetches HTML from URLs and converts to Markdown documents.
  */
 @ApplicationScoped
-public class WebScraperService implements WebScraperPort {
+public class WebScraperPortImpl implements WebScraperPort {
 
     /** Service that converts raw HTML responses to clean Markdown text. */
     private final HtmlToMarkdownService htmlToMarkdownService;
@@ -51,8 +50,7 @@ public class WebScraperService implements WebScraperPort {
     int timeoutSeconds;
 
     /** {@code User-Agent} header sent with every scrape request. */
-    @ConfigProperty(name = "rag.scrape.user-agent", defaultValue =
-        "RAG-Scraper/1.0")
+    @ConfigProperty(name = "rag.scrape.user-agent", defaultValue = "RAG-Scraper/1.0")
     String userAgent;
 
     /** When {@code true}, scraped Markdown is also saved to {@link #markdownOutputDir} for inspection. */
@@ -60,18 +58,17 @@ public class WebScraperService implements WebScraperPort {
     boolean saveMarkdownToDisk;
 
     /** Directory where scraped Markdown files are saved when {@link #saveMarkdownToDisk} is {@code true}. */
-    @ConfigProperty(name = "rag.scrape.save-markdown.dir", defaultValue =
-        "target/scraped-markdown")
+    @ConfigProperty(name = "rag.scrape.save-markdown.dir", defaultValue = "target/scraped-markdown")
     String markdownOutputDir;
 
     /**
-     * Creates a WebScraperService with the given HTML-to-Markdown service.
+     * Creates a WebScraperPortImpl with the given HTML-to-Markdown service.
      * Initialises the HTTP client using the configured timeout.
      *
      * @param htmlToMarkdownService service for converting HTML to Markdown
      */
     @Inject
-    public WebScraperService(HtmlToMarkdownService htmlToMarkdownService) {
+    public WebScraperPortImpl(HtmlToMarkdownService htmlToMarkdownService) {
         this.htmlToMarkdownService = htmlToMarkdownService;
         int timeout = timeoutSeconds <= 0 ? 30 : timeoutSeconds;
         this.httpClient = HttpClient.newBuilder()
@@ -97,17 +94,15 @@ public class WebScraperService implements WebScraperPort {
                     .uri(URI.create(url))
                     .timeout(Duration.ofSeconds(timeout))
                     .header("User-Agent", userAgent)
-                    .header("Accept",
-                        "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8")
+                    .header("Accept", "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8")
                     .GET()
                     .build();
 
             HttpResponse<String> response = httpClient.send(request,
-                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
             if (response.statusCode() != 200) {
-                Log.warn("⚠️ Scrape falhou para " + url + ": HTTP " +
-                    response.statusCode());
+                Log.warn("⚠️ Scrape falhou para " + url + ": HTTP " + response.statusCode());
                 return Optional.empty();
             }
 
@@ -136,8 +131,7 @@ public class WebScraperService implements WebScraperPort {
         if (body == null || body.isBlank()) {
             return "";
         }
-        boolean urlEndsWithMd = url != null &&
-            url.trim().toLowerCase().endsWith(".md");
+        boolean urlEndsWithMd = url != null && url.trim().toLowerCase().endsWith(".md");
         boolean bodyLooksLikeHtml = body.trim().startsWith("<");
         if (urlEndsWithMd && !bodyLooksLikeHtml) {
             String md = htmlToMarkdownService.stripLeadingNavigationMenu(body);
@@ -191,16 +185,13 @@ public class WebScraperService implements WebScraperPort {
                     try {
                         Files.deleteIfExists(path);
                     } catch (Exception e) {
-                        Log.warn("⚠️ Failed to delete old markdown file " +
-                            path, e);
+                        Log.warn("⚠️ Failed to delete old markdown file " + path, e);
                     }
                 });
             }
-            Log.debug("🧹 Cleared existing markdown files from directory " +
-                dir);
+            Log.debug("🧹 Cleared existing markdown files from directory " + dir);
         } catch (Exception e) {
-            Log.warn("⚠️ Failed to clear markdown output directory " +
-                markdownOutputDir, e);
+            Log.warn("⚠️ Failed to clear markdown output directory " + markdownOutputDir, e);
         }
     }
 

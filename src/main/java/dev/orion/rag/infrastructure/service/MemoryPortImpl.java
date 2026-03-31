@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dev.orion.rag.infrastructure.repository;
+package dev.orion.rag.infrastructure.service;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,10 +25,11 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import dev.orion.rag.domain.model.ChatMessage;
 import dev.orion.rag.domain.model.ConversationMemory;
 import dev.orion.rag.domain.port.out.ConversationRepository;
-import dev.orion.rag.domain.port.out.ConversationService;
-import dev.orion.rag.domain.port.out.MemoryService;
+import dev.orion.rag.domain.port.out.ConversationServicePort;
+import dev.orion.rag.domain.port.out.MemoryPort;
 import dev.orion.rag.domain.port.out.UserRepository;
 import dev.orion.rag.infrastructure.persistence.EntityMapper;
+import dev.orion.rag.infrastructure.repository.ChatMessagePanacheRepository;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.logging.Log;
@@ -40,11 +41,11 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 /**
- * Implementation of MemoryService using PostgreSQL + Redis hybrid approach.
+ * Implementation of {@link MemoryPort} using PostgreSQL + Redis hybrid approach.
  * PostgreSQL for persistence, Redis for cache/performance.
  */
 @ApplicationScoped
-public class MemoryServiceImpl implements MemoryService {
+public class MemoryPortImpl implements MemoryPort {
 
     /** Redis key prefix used for anonymous/session-scoped conversation entries. */
     private static final String CONVERSATION_PREFIX = "conversation:";
@@ -55,59 +56,55 @@ public class MemoryServiceImpl implements MemoryService {
     private final ReactiveRedisDataSource reactiveRedisDataSource;
     /** Repository for loading and persisting conversation records from PostgreSQL. */
     private final ConversationRepository conversationRepository;
-    /** Service for conversation access-control and lifecycle management. */
-    private final ConversationService conversationService;
+    /** Port for conversation access-control and lifecycle management. */
+    private final ConversationServicePort conversationServicePort;
     /** Repository for looking up user records by ID or Orion hash. */
     private final UserRepository userRepository;
     /** Panache repository for persisting individual chat-message entities. */
-    private final ChatMessageRepository chatMessageRepository;
+    private final ChatMessagePanacheRepository chatMessagePanacheRepository;
     /** Maximum number of messages to retain per session; configurable via {@code memory.default.max-messages}. */
     private final int defaultMaxMessages;
     /** Number of hours after which a Redis memory entry expires; configurable via {@code memory.ttl.hours}. */
     private final int ttlHours;
 
     /**
-     * Creates a MemoryServiceImpl with all required collaborators and configuration values.
+     * Creates a MemoryPortImpl with all required collaborators and configuration values.
      *
-     * @param reactiveRedisDataSource Redis data source for reactive cache access
-     * @param conversationRepository  repository for conversation persistence
-     * @param conversationService     conversation access-control service
-     * @param userRepository          repository for user lookups
-     * @param chatMessageRepository   Panache repository for message persistence
-     * @param defaultMaxMessages      maximum messages to keep in memory (default 50)
-     * @param ttlHours                Redis TTL in hours for memory entries (default 24)
+     * @param reactiveRedisDataSource    Redis data source for reactive cache access
+     * @param conversationRepository     repository for conversation persistence
+     * @param conversationServicePort    port for conversation access-control
+     * @param userRepository             repository for user lookups
+     * @param chatMessagePanacheRepository Panache repository for message persistence
+     * @param defaultMaxMessages         maximum messages to keep in memory (default 50)
+     * @param ttlHours                   Redis TTL in hours for memory entries (default 24)
      */
     @Inject
-    public MemoryServiceImpl(ReactiveRedisDataSource reactiveRedisDataSource,
+    public MemoryPortImpl(ReactiveRedisDataSource reactiveRedisDataSource,
             ConversationRepository conversationRepository,
-            ConversationService conversationService,
+            ConversationServicePort conversationServicePort,
             UserRepository userRepository,
-            ChatMessageRepository chatMessageRepository,
+            ChatMessagePanacheRepository chatMessagePanacheRepository,
             @ConfigProperty(name = "memory.default.max-messages", defaultValue = "50") int defaultMaxMessages,
             @ConfigProperty(name = "memory.ttl.hours", defaultValue = "24") int ttlHours) {
         this.reactiveRedisDataSource = reactiveRedisDataSource;
         this.conversationRepository = conversationRepository;
-        this.conversationService = conversationService;
+        this.conversationServicePort = conversationServicePort;
         this.userRepository = userRepository;
-        this.chatMessageRepository = chatMessageRepository;
+        this.chatMessagePanacheRepository = chatMessagePanacheRepository;
         this.defaultMaxMessages = defaultMaxMessages;
         this.ttlHours = ttlHours;
     }
 
     @Override
     public Uni<Void> saveMessage(ChatMessage message) {
-        // If has userId and conversationId, use new hybrid flow
-        // Do NOT generate ID here for hybrid flow - let Hibernate generate it
         if (message.getUserId() != null && message.getConversationId() != null) {
             return saveMessageHybrid(message);
         }
-        
-        // Legacy flow for compatibility (Redis only)
-        // Generate ID if not set (for Redis only)
+
         if (message.getId() == null || message.getId().isEmpty()) {
             message.setId(UUID.randomUUID().toString());
         }
-        
+
         String key = CONVERSATION_PREFIX + message.getSessionId();
         return getConversationMemory(message.getSessionId())
                 .onItem().ifNull()
@@ -124,7 +121,7 @@ public class MemoryServiceImpl implements MemoryService {
                 .onFailure().invoke(e -> Log.error("Error saving message to Redis: " + e.getMessage(), e))
                 .replaceWithVoid();
     }
-    
+
     /**
      * Persists a message to PostgreSQL within a transaction (hybrid flow for authenticated conversations).
      * Verifies user access, resolves the conversation and user, and persists the entity via Panache.
@@ -134,73 +131,52 @@ public class MemoryServiceImpl implements MemoryService {
      */
     @WithTransaction
     public Uni<Void> saveMessageHybrid(ChatMessage message) {
-        // 1. Verify user access to conversation (only for USER messages)
         Uni<Boolean> accessCheck;
         if (message.getType() == ChatMessage.MessageType.USER && message.getUserId() != null) {
-            accessCheck = conversationService.userHasAccess(message.getUserId(), message.getConversationId());
+            accessCheck = conversationServicePort.userHasAccess(message.getUserId(), message.getConversationId());
         } else {
-            // ASSISTANT and SYSTEM messages do not need access verification
             accessCheck = Uni.createFrom().item(true);
         }
-        
+
         return accessCheck
             .chain(hasAccess -> {
                 if (!hasAccess) {
                     return Uni.createFrom().failure(new SecurityException(
                             "User does not have access to this conversation"));
                 }
-                
-                // 2. Save to PostgreSQL (permanent persistence)
-                // Fetch conversation to verify existence and get reference
+
                 return conversationRepository.findById(message.getConversationId())
                     .onItem().ifNull().failWith(() -> new IllegalArgumentException("Conversation not found"))
                     .chain(conversation -> {
-                        // Configure relationships
                         message.setConversationId(conversation.getId());
-                        message.setSessionId(conversation.getId()); // For compatibility
-                        
-                        // Remove ID if exists to ensure it is a new entity
-                        // Hibernate will generate the ID automatically via @GeneratedValue
+                        message.setSessionId(conversation.getId());
                         message.setId(null);
-                        
-                        // Fetch user if it is a user message
+
                         if (message.getType() == ChatMessage.MessageType.USER && message.getUserId() != null) {
-                            // Try to fetch by ID first
                             return userRepository.findById(message.getUserId())
-                                .onItem().ifNull().switchTo(() -> {
-                                    // If not found by ID, try to fetch by hash (compatibility)
-                                    return userRepository.findByOrionUserHash(message.getUserId());
-                                })
+                                .onItem().ifNull().switchTo(() ->
+                                    userRepository.findByOrionUserHash(message.getUserId()))
                                 .chain(user -> {
                                     if (user == null) {
                                         return Uni.createFrom().failure(
                                                 new IllegalArgumentException(
-                                                        "User not found: "
-                                                                + message.getUserId()));
+                                                        "User not found: " + message.getUserId()));
                                     }
-                                    // Ensure message userId is the database ID, not the hash
                                     message.setUserId(user.getId());
                                     message.setUser(user);
-                                    // Persist message directly instead of using cascade
-                                    return chatMessageRepository.persist(
-                                                    EntityMapper.toEntity(message))
+                                    return chatMessagePanacheRepository.persist(EntityMapper.toEntity(message))
                                         .chain(() -> conversationRepository.flush());
                                 });
                         } else {
-                            // Assistant or system message - should not have user_id
                             message.setUserId(null);
                             message.setUser(null);
-                            // Persistir mensagem diretamente em vez de usar cascade
-                            return chatMessageRepository.persist(
-                                            EntityMapper.toEntity(message))
+                            return chatMessagePanacheRepository.persist(EntityMapper.toEntity(message))
                                 .chain(() -> conversationRepository.flush());
                         }
                     });
             })
             .onFailure().invoke(e -> Log.error("Error saving message to database: " + e.getMessage(), e))
             .replaceWithVoid();
-            // Note: Redis cache will be updated on next read (lazy update)
-            // This avoids thread context issues after @WithTransaction
     }
 
     /**
@@ -227,12 +203,12 @@ public class MemoryServiceImpl implements MemoryService {
                 .onFailure().invoke(e -> Log.error("Error retrieving conversation from Redis: " + e.getMessage(), e))
                 .onFailure().recoverWithNull();
     }
-    
+
     /**
      * Retrieves the conversation memory for a specific conversation.
      * Tries Redis cache first, falls back to PostgreSQL if not found.
      *
-     * @param userId the user identifier
+     * @param userId         the user identifier
      * @param conversationId the conversation identifier
      * @return a Uni containing the conversation memory, or null if not found
      */
@@ -240,14 +216,12 @@ public class MemoryServiceImpl implements MemoryService {
     @WithSession
     public Uni<ConversationMemory> getConversationMemory(String userId, String conversationId) {
         String redisKey = MEMORY_PREFIX + conversationId;
-        
-        // Try to fetch from cache first
+
         return getConversationMemoryFromRedis(redisKey)
             .onItem().ifNull().switchTo(() -> loadConversationMemoryFromDB(conversationId)
                 .chain(memory -> {
                     if (memory != null) {
-                        // Save to cache for next queries
-                        ReactiveValueCommands<String, ConversationMemory> valueCommands = 
+                        ReactiveValueCommands<String, ConversationMemory> valueCommands =
                             reactiveRedisDataSource.value(ConversationMemory.class);
                         return valueCommands.setex(redisKey, ttlHours * 3600L, memory)
                             .replaceWith(memory);
@@ -256,7 +230,7 @@ public class MemoryServiceImpl implements MemoryService {
                 }))
             .onFailure().recoverWithNull();
     }
-    
+
     /**
      * Attempts to retrieve a {@link ConversationMemory} from Redis using the given key.
      *
@@ -264,11 +238,11 @@ public class MemoryServiceImpl implements MemoryService {
      * @return a Uni emitting the cached memory, or {@code null} if not found
      */
     private Uni<ConversationMemory> getConversationMemoryFromRedis(String key) {
-        ReactiveValueCommands<String, ConversationMemory> valueCommands = 
+        ReactiveValueCommands<String, ConversationMemory> valueCommands =
             reactiveRedisDataSource.value(ConversationMemory.class);
         return valueCommands.get(key);
     }
-    
+
     /**
      * Loads a {@link ConversationMemory} from PostgreSQL for the given conversation ID.
      * Returns an empty memory (no messages) if the conversation exists but has no messages yet.
@@ -280,22 +254,19 @@ public class MemoryServiceImpl implements MemoryService {
     protected Uni<ConversationMemory> loadConversationMemoryFromDB(String conversationId) {
         return conversationRepository.findById(conversationId)
             .onItem().ifNotNull().transform(conversation -> {
-                // Criar ConversationMemory mesmo se a conversa não tiver mensagens ainda
                 ConversationMemory memory = new ConversationMemory();
                 memory.setConversationId(conversationId);
-                memory.setSession(conversationId); // Para compatibilidade
+                memory.setSession(conversationId);
                 if (conversation.getOwner() != null) {
                     memory.setUserId(conversation.getOwner().getId());
                 }
-                // Converter Set<ChatMessage> para List<ChatMessage
-                // Se não houver mensagens, a lista ficará vazia (válido)
                 if (conversation.getMessages() != null && !conversation.getMessages().isEmpty()) {
                     memory.setMessages(new ArrayList<>(conversation.getMessages()));
                 } else {
-                    memory.setMessages(new ArrayList<>()); // Lista vazia para conversas sem mensagens
+                    memory.setMessages(new ArrayList<>());
                 }
-                memory.setLastActivity(conversation.getLastActivity() != null 
-                    ? conversation.getLastActivity() 
+                memory.setLastActivity(conversation.getLastActivity() != null
+                    ? conversation.getLastActivity()
                     : conversation.getCreatedAt());
                 memory.setMaxMessages(defaultMaxMessages);
                 return memory;
@@ -320,13 +291,13 @@ public class MemoryServiceImpl implements MemoryService {
                     return memory.getLastMessages(count);
                 });
     }
-    
+
     /**
      * Gets the last N messages from a conversation.
      *
-     * @param userId the user identifier
+     * @param userId         the user identifier
      * @param conversationId the conversation identifier
-     * @param count     the number of messages to retrieve
+     * @param count          the number of messages to retrieve
      * @return a Uni containing list of the last N messages
      */
     @Override
@@ -356,11 +327,11 @@ public class MemoryServiceImpl implements MemoryService {
                     return memory.getHistory();
                 });
     }
-    
+
     /**
      * Gets the full conversation history as a single string.
      *
-     * @param userId the user identifier
+     * @param userId         the user identifier
      * @param conversationId the conversation identifier
      * @return a Uni containing the conversation history as a string
      */
@@ -385,13 +356,12 @@ public class MemoryServiceImpl implements MemoryService {
                 .onFailure().invoke(e -> Log.error("Error clearing conversation from Redis: " + e.getMessage(), e))
                 .replaceWithVoid();
     }
-    
+
     @Override
     public Uni<Void> clearConversation(String userId, String conversationId) {
         String redisKey = MEMORY_PREFIX + conversationId;
         ReactiveKeyCommands<String> keyCommands = reactiveRedisDataSource.key();
-        
-        // Limpar apenas do cache Redis (mensagens permanecem no PostgreSQL)
+
         return keyCommands.del(redisKey)
                 .onItem().invoke(() -> Log.info("Cleared conversation cache for: " + conversationId))
                 .onFailure().invoke(e -> Log.error("Error clearing conversation cache: " + e.getMessage(), e))
@@ -403,7 +373,7 @@ public class MemoryServiceImpl implements MemoryService {
         return getConversationMemory(sessionId)
                 .onItem().transform(memory -> memory != null && !memory.getMessages().isEmpty());
     }
-    
+
     @Override
     public Uni<Boolean> hasConversation(String userId, String conversationId) {
         return getConversationMemory(userId, conversationId)
@@ -415,8 +385,6 @@ public class MemoryServiceImpl implements MemoryService {
         return getConversationMemory(sessionId)
                 .onItem().ifNotNull().transformToUni(memory -> {
                     memory.setMaxMessages(maxMessages);
-
-                    // Save updated memory back to Redis
                     String key = CONVERSATION_PREFIX + sessionId;
                     ReactiveValueCommands<String, ConversationMemory> valueCommands = reactiveRedisDataSource
                             .value(ConversationMemory.class);

@@ -18,7 +18,7 @@ package dev.orion.rag.infrastructure.service;
 
 import dev.orion.rag.domain.model.Conversation;
 import dev.orion.rag.domain.port.out.ConversationRepository;
-import dev.orion.rag.domain.port.out.ConversationService;
+import dev.orion.rag.domain.port.out.ConversationServicePort;
 import dev.orion.rag.domain.port.out.UserRepository;
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
@@ -38,7 +38,7 @@ import java.util.List;
  * compatibilidade com ambos os formatos.
  */
 @ApplicationScoped
-public class ConversationServiceImpl implements ConversationService {
+public class ConversationServiceImpl implements ConversationServicePort {
 
     /**
      * Repositório de conversas — persiste e consulta {@link Conversation}.

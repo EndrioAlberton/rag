@@ -16,26 +16,25 @@
 
 package dev.orion.rag.infrastructure.repository;
 
-import dev.orion.rag.infrastructure.persistence.ChatMessageEntity;
+import dev.orion.rag.infrastructure.persistence.RequestLogEntity;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.util.List;
+
 /**
- * Repository for ChatMessageEntity using Hibernate Reactive Panache.
+ * Panache repository for {@link RequestLogEntity}.
  */
 @ApplicationScoped
-public class ChatMessageRepository implements
-    PanacheRepositoryBase<ChatMessageEntity, String> {
-    
+public class RequestLogPanacheRepository implements PanacheRepositoryBase<RequestLogEntity, String> {
+
     /**
-     * Persists a new chat message entity and returns the managed entity with the generated ID.
+     * Returns all request log entries sorted chronologically by their message timestamp.
      *
-     * @param entity the chat message entity to persist
-     * @return a Uni emitting the persisted entity
+     * @return a Uni emitting the complete ordered list of log entries
      */
-    public Uni<ChatMessageEntity> persist(ChatMessageEntity entity) {
-        return PanacheRepositoryBase.super.persist(entity);
+    public Uni<List<RequestLogEntity>> findAllOrderedByTimestamp() {
+        return find("ORDER BY messageTimestamp ASC").list();
     }
 }
-

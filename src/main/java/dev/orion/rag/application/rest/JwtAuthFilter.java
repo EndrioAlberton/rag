@@ -16,7 +16,7 @@
 
 package dev.orion.rag.application.rest;
 
-import dev.orion.rag.domain.port.out.AuthService;
+import dev.orion.rag.domain.port.out.AuthPort;
 import io.quarkus.logging.Log;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
@@ -31,9 +31,9 @@ import jakarta.ws.rs.ext.Provider;
 @Provider
 public class JwtAuthFilter implements ContainerRequestFilter {
     
-    /** Authentication service used to extract user data from JWT tokens. */
+    /** Authentication port used to extract user data from JWT tokens. */
     @Inject
-    AuthService authService;
+    AuthPort authPort;
     
     @Override
     public void filter(ContainerRequestContext requestContext) {

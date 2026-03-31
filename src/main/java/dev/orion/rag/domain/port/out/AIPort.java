@@ -23,7 +23,7 @@ import io.smallrye.mutiny.Multi;
  * Driven port (out) for language-model interactions.
  * The domain defines this contract; the infrastructure adapter implements it.
  */
-public interface AIService {
+public interface AIPort {
 
     /**
      * Generates a response based on the provided AI request.

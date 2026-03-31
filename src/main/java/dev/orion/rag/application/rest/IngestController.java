@@ -16,11 +16,11 @@
 
 package dev.orion.rag.application.rest;
 
+import dev.orion.rag.application.rest.dto.IngestUrlsRequest;
 import dev.orion.rag.domain.port.in.IngestFromUrlsPort;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -64,12 +64,4 @@ public class IngestController {
         return Response.accepted().entity(result).build();
     }
 
-    /**
-     * Request body for the URL ingestion endpoint.
-     */
-    public static class IngestUrlsRequest {
-        /** Non-null list of URLs to scrape and ingest into the vector store. */
-        @NotNull
-        public java.util.List<String> urls;
-    }
 }

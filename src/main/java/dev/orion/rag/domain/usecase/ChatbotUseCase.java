@@ -20,10 +20,10 @@ import dev.orion.rag.domain.model.AIRequest;
 import dev.orion.rag.domain.model.ChatMessage;
 import dev.orion.rag.domain.model.RagQuery;
 import dev.orion.rag.domain.port.in.ChatbotPort;
-import dev.orion.rag.domain.port.out.AIService;
+import dev.orion.rag.domain.port.out.AIPort;
 import dev.orion.rag.domain.port.out.EmbeddingRepository;
-import dev.orion.rag.domain.port.out.MemoryService;
-import dev.orion.rag.domain.port.out.RequestLogService;
+import dev.orion.rag.domain.port.out.MemoryPort;
+import dev.orion.rag.domain.port.out.RequestLogPort;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
 
@@ -38,12 +38,12 @@ public class ChatbotUseCase implements ChatbotPort {
 
     /** Repository used to search embedding chunks relevant to the prompt. */
     private final EmbeddingRepository embeddingRepository;
-    /** AI service that streams the language-model response token by token. */
-    private final AIService aiService;
-    /** Service that loads and persists the per-session conversation memory. */
-    private final MemoryService memoryService;
-    /** Service responsible for persisting the request/response audit log. */
-    private final RequestLogService requestLogService;
+    /** Port that streams the language-model response token by token. */
+    private final AIPort aiPort;
+    /** Port that loads and persists the per-session conversation memory. */
+    private final MemoryPort memoryPort;
+    /** Port responsible for persisting the request/response audit log. */
+    private final RequestLogPort requestLogPort;
 
     /** Fallback context injected into the AI request when no RAG chunks are found. */
     private static final String DEFAULT_CONTEXT = "";
@@ -52,19 +52,19 @@ public class ChatbotUseCase implements ChatbotPort {
      * Creates a ChatbotUseCase with all required collaborators.
      *
      * @param embeddingRepository repository for vector-similarity search
-     * @param aiService           language-model response generator
-     * @param memoryService       conversation memory loader and persister
-     * @param requestLogService   audit-log persistence service
+     * @param aiPort              language-model response generator port
+     * @param memoryPort          conversation memory loader and persister port
+     * @param requestLogPort      audit-log persistence port
      */
     public ChatbotUseCase(
             EmbeddingRepository embeddingRepository,
-            AIService aiService,
-            MemoryService memoryService,
-            RequestLogService requestLogService) {
+            AIPort aiPort,
+            MemoryPort memoryPort,
+            RequestLogPort requestLogPort) {
         this.embeddingRepository = embeddingRepository;
-        this.aiService = aiService;
-        this.memoryService = memoryService;
-        this.requestLogService = requestLogService;
+        this.aiPort = aiPort;
+        this.memoryPort = memoryPort;
+        this.requestLogPort = requestLogPort;
     }
 
     /**
@@ -129,7 +129,7 @@ public class ChatbotUseCase implements ChatbotPort {
         ChatMessage userMessage = new ChatMessage(session, prompt,
                 ChatMessage.MessageType.USER);
 
-        return memoryService.saveMessage(userMessage)
+        return memoryPort.saveMessage(userMessage)
                 .onItem().invoke(() -> Log.info("Saved user message for session: "
                         + session))
                 .onItem().transformToMulti(ignored -> {
@@ -145,7 +145,7 @@ public class ChatbotUseCase implements ChatbotPort {
                                                 ? DEFAULT_CONTEXT
                                                 : ragResponse.getFirstContext();
 
-                                return memoryService.getHistory(session)
+                                return memoryPort.getHistory(session)
                                         .onItem().transformToMulti(history -> {
                                             AIRequest aiRequest = new AIRequest(
                                                     session, prompt, ragResult,
@@ -154,7 +154,7 @@ public class ChatbotUseCase implements ChatbotPort {
                                                     System.currentTimeMillis();
                                             StringBuilder accumulator =
                                                     new StringBuilder();
-                                            return aiService
+                                            return aiPort
                                                     .generateContextualResponse(
                                                             aiRequest)
                                                     .group().intoLists().of(20)
@@ -174,11 +174,11 @@ public class ChatbotUseCase implements ChatbotPort {
                                                                         session,
                                                                         fullResponse,
                                                                         ChatMessage.MessageType.ASSISTANT);
-                                                        return memoryService
+                                                        return memoryPort
                                                                 .saveMessage(
                                                                         assistantMessage)
                                                                 .chain(() ->
-                                                                        requestLogService.log(
+                                                                        requestLogPort.log(
                                                                                 phoneNumber,
                                                                                 session,
                                                                                 userName,
@@ -217,7 +217,7 @@ public class ChatbotUseCase implements ChatbotPort {
         ChatMessage userMessage = new ChatMessage(userId, conversationId, prompt,
                 ChatMessage.MessageType.USER);
 
-        return memoryService.saveMessage(userMessage)
+        return memoryPort.saveMessage(userMessage)
                 .onItem().invoke(() -> Log.info(
                         "Saved user message for conversation: "
                                 + conversationId))
@@ -234,7 +234,7 @@ public class ChatbotUseCase implements ChatbotPort {
                                                 ? DEFAULT_CONTEXT
                                                 : ragResponse.getFirstContext();
 
-                                return memoryService.getHistory(userId,
+                                return memoryPort.getHistory(userId,
                                                 conversationId)
                                         .onItem().transformToMulti(history -> {
                                             AIRequest aiRequest = new AIRequest(
@@ -244,7 +244,7 @@ public class ChatbotUseCase implements ChatbotPort {
                                                     System.currentTimeMillis();
                                             StringBuilder accumulator =
                                                     new StringBuilder();
-                                            return aiService
+                                            return aiPort
                                                     .generateContextualResponse(
                                                             aiRequest)
                                                     .group().intoLists().of(20)
@@ -271,11 +271,11 @@ public class ChatbotUseCase implements ChatbotPort {
                                                                 ChatMessage.MessageType.ASSISTANT);
                                                         assistantMessage.setUserId(
                                                                 null);
-                                                        return memoryService
+                                                        return memoryPort
                                                                 .saveMessage(
                                                                         assistantMessage)
                                                                 .chain(() ->
-                                                                        requestLogService.log(
+                                                                        requestLogPort.log(
                                                                                 phoneNumber,
                                                                                 userId,
                                                                                 userName,
