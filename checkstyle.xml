@@ -1,0 +1,186 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+    Checkstyle configuration for the RAG project.
+    Enforces hexagonal architecture boundaries and basic code style.
+
+    Architecture rules (ImportControl):
+      - domain.model       → only java.* (pure Java POJOs)
+      - domain.port.in/out → only java.*, domain.model.*, Mutiny reactive types
+      - domain.usecase     → only java.*, domain.*, Mutiny, Vertx, Quarkus logging
+      - application        → domain.* + framework, but NEVER infrastructure.*
+                              (except infrastructure.util for reactive utilities)
+      - infrastructure     → unrestricted (it sits at the outermost layer)
+
+    Line length: max 120 columns (linhas de código; cabeçalhos de licença / blocos * … ignorados).
+
+    Javadoc (MissingJavadocMethod / MissingJavadocType / JavadocVariable):
+      - Tipos, métodos, construtores e campos com Javadoc (âmbito private = todos os elementos da classe).
+      - Getters/setters (get/set/is…), equals/hashCode/toString/main ignorados em métodos.
+      - Campos log/logger/serialVersionUID ignorados (ignoreNamePattern).
+      - Gravidade warning nestes três módulos e em LineLength para o build passar até o código
+        estar totalmente documentado e quebrado a 80 colunas; altere para error quando estiver pronto.
+
+    Run: ./mvnw checkstyle:check
+-->
+<module name="Checker">
+
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="error"/>
+
+    <!-- ================================================================ -->
+    <!--  File-level checks                                                -->
+    <!-- ================================================================ -->
+
+    <!-- Require files to end with a newline -->
+    <module name="NewlineAtEndOfFile">
+        <property name="severity" value="warning"/>
+    </module>
+
+    <!-- No tab characters -->
+    <module name="FileTabCharacter">
+        <property name="severity" value="warning"/>
+    </module>
+
+    <!-- Max line length: 120 columns (linhas de comentário de bloco tipo * … são ignoradas) -->
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="ignorePattern"
+                  value="^ *\*.*$|^/\*.*$|^ \*/$"/>
+        <property name="severity" value="warning"/>
+    </module>
+
+    <!-- ================================================================ -->
+    <!--  TreeWalker (AST-based checks)                                    -->
+    <!-- ================================================================ -->
+
+    <module name="TreeWalker">
+
+        <!-- Suppress warnings via @SuppressWarnings annotation -->
+        <module name="SuppressWarningsHolder"/>
+
+        <!-- Import control — architectural boundary enforcement -->
+        <module name="ImportControl">
+            <property name="file" value="import-control.xml"/>
+            <property name="severity" value="error"/>
+        </module>
+
+        <!-- ========== Imports ========== -->
+
+        <!-- No wildcard imports (import foo.*) -->
+        <module name="AvoidStarImport">
+            <property name="severity" value="warning"/>
+        </module>
+
+        <!-- No redundant imports -->
+        <module name="RedundantImport">
+            <property name="severity" value="warning"/>
+        </module>
+
+        <!-- No unused imports -->
+        <module name="UnusedImports">
+            <property name="severity" value="warning"/>
+        </module>
+
+        <!-- ========== Naming conventions ========== -->
+
+        <!-- Package names: lowercase with dots -->
+        <module name="PackageName">
+            <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+        </module>
+
+        <!-- Type names: UpperCamelCase -->
+        <module name="TypeName"/>
+
+        <!-- Method names: lowerCamelCase -->
+        <module name="MethodName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*$"/>
+        </module>
+
+        <!-- Constants: UPPER_SNAKE_CASE -->
+        <module name="ConstantName"/>
+
+        <!-- ========== Code quality ========== -->
+
+        <!-- No empty blocks -->
+        <module name="EmptyBlock">
+            <property name="option" value="TEXT"/>
+            <property name="severity" value="warning"/>
+        </module>
+
+        <!-- Require braces for if/for/while/do -->
+        <module name="NeedBraces">
+            <property name="severity" value="warning"/>
+        </module>
+
+        <!-- One statement per line -->
+        <module name="OneStatementPerLine">
+            <property name="severity" value="warning"/>
+        </module>
+
+        <!-- No multiple variables on one line -->
+        <module name="MultipleVariableDeclarations">
+            <property name="severity" value="warning"/>
+        </module>
+
+        <!-- Modifier order: public protected private abstract static final ... -->
+        <module name="ModifierOrder">
+            <property name="severity" value="warning"/>
+        </module>
+
+        <!-- No redundant modifiers -->
+        <module name="RedundantModifier">
+            <property name="severity" value="warning"/>
+        </module>
+
+        <!-- Require @Override when overriding -->
+        <module name="MissingOverride">
+            <property name="severity" value="warning"/>
+        </module>
+
+        <!-- Equals and hashCode must be defined together -->
+        <module name="EqualsHashCode"/>
+
+        <!-- No fall-through in switch without comment -->
+        <module name="FallThrough">
+            <property name="severity" value="warning"/>
+        </module>
+
+        <!-- Javadoc em métodos e construtores (todos os níveis de visibilidade) -->
+        <module name="MissingJavadocMethod">
+            <property name="scope" value="private"/>
+            <property name="minLineCount" value="1"/>
+            <property name="tokens" value="METHOD_DEF, CTOR_DEF"/>
+            <property name="allowedAnnotations" value="Override, Test, BeforeEach, AfterEach, BeforeAll, AfterAll, ParameterizedTest, RepeatedTest, PostConstruct, PreDestroy, Scheduled"/>
+            <property name="ignoreMethodNamesRegex"
+                      value="^(get|set|is)[A-Z].*|^(equals|hashCode|toString|main)$"/>
+            <property name="severity" value="warning"/>
+        </module>
+        <!-- Javadoc em tipos (classe, interface, enum, anotação) -->
+        <module name="MissingJavadocType">
+            <property name="scope" value="private"/>
+            <property name="tokens" value="CLASS_DEF, INTERFACE_DEF, ENUM_DEF, ANNOTATION_DEF"/>
+            <property name="excludeScope" value="anoninner"/>
+            <property name="severity" value="warning"/>
+        </module>
+        <!-- Javadoc em campos -->
+        <module name="JavadocVariable">
+            <property name="scope" value="private"/>
+            <property name="ignoreNamePattern" value="^(log|LOG|logger|Logger|serialVersionUID)$"/>
+            <property name="severity" value="warning"/>
+        </module>
+
+    </module>
+
+    <!-- Optional per-file suppressions (empty by default: all sources checked) -->
+    <module name="SuppressionFilter">
+        <property name="file" value="suppressions-javadoc.xml"/>
+    </module>
+
+    <!-- Suppress warnings filter -->
+    <module name="SuppressWarningsFilter"/>
+
+</module>

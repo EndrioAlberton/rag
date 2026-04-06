@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+        "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+        "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+<!--
+  Add file-specific suppressions here if needed.
+  Javadoc and line length apply to all of src/main/java by default.
+-->
+<suppressions>
+</suppressions>

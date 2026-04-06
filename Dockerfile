@@ -10,23 +10,31 @@ RUN npm ci && npm run build
 # ------------------------------------------------------------------------------
 # Stage 2: Build JVM (Maven + JDK)
 # ------------------------------------------------------------------------------
-FROM maven:3.9-eclipse-temurin-21-alpine AS jvm-build
+FROM maven:3.9-eclipse-temurin-25-alpine AS jvm-build
 WORKDIR /build
 
-COPY --from=frontend /app/pom.xml .
+COPY --from=frontend /app/pom.xml /app/checkstyle.xml /app/import-control.xml /app/suppressions-javadoc.xml ./
 COPY --from=frontend /app/mvnw .
 COPY --from=frontend /app/.mvn .mvn
 COPY --from=frontend /app/src src
 
-RUN mvn package -DskipITs=true -DskipFrontend=true
+RUN mvn package -DskipTests=true -DskipITs=true -DskipFrontend=true
 
 # ------------------------------------------------------------------------------
 # Stage 3: Runtime (JRE)
 # ------------------------------------------------------------------------------
-FROM eclipse-temurin:21-jre-alpine
+# eclipse-temurin:25-jre-alpine uses musl libc which is missing glibc symbols
+# (e.g. __res_init) required by the DJL HuggingFace tokenizer native library.
+# The Ubuntu-based image ships full glibc and resolves the UnsatisfiedLinkError.
+FROM eclipse-temurin:25-jre
 WORKDIR /work
 
-RUN adduser -D -u 1001 jvm && chown -R jvm:jvm /work
+# curl: healthcheck do docker compose (rag deve estar “ready” antes do orion-users)
+RUN apt-get update -q && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN useradd -u 1001 -m jvm && chown -R jvm:jvm /work
 
 COPY --from=jvm-build --chown=jvm:jvm /build/target/quarkus-app/lib/ /work/lib/
 COPY --from=jvm-build --chown=jvm:jvm /build/target/quarkus-app/*.jar /work/
