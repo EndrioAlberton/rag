@@ -114,7 +114,7 @@ public class UserServiceImpl implements UserServicePort {
                 .onItem().ifNull().failWith(
                         () -> new IllegalArgumentException("Usuário não encontrado"))
                 .onItem().transformToUni(existing ->
-                        Uni.createFrom().completionStage(() -> userRepository.persist(user))
+                        Uni.createFrom().completionStage(() -> userRepository.merge(user))
                                 .onItem().transformToUni(u ->
                                         Uni.createFrom()
                                                 .completionStage(() -> userRepository.flush())))

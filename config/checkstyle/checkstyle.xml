@@ -62,9 +62,9 @@
         <!-- Suppress warnings via @SuppressWarnings annotation -->
         <module name="SuppressWarningsHolder"/>
 
-        <!-- Import control — architectural boundary enforcement -->
+        <!-- Import control — architectural boundary enforcement (path relative to project root) -->
         <module name="ImportControl">
-            <property name="file" value="import-control.xml"/>
+            <property name="file" value="config/checkstyle/import-control.xml"/>
             <property name="severity" value="error"/>
         </module>
 
@@ -173,11 +173,6 @@
             <property name="severity" value="warning"/>
         </module>
 
-    </module>
-
-    <!-- Optional per-file suppressions (empty by default: all sources checked) -->
-    <module name="SuppressionFilter">
-        <property name="file" value="suppressions-javadoc.xml"/>
     </module>
 
     <!-- Suppress warnings filter -->

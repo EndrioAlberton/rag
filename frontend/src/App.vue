@@ -1,9 +1,9 @@
 <template>
   <v-app>
     <v-app-bar color="primary" dark>
-      <v-app-bar-title>Chatbot</v-app-bar-title>
+      <v-app-bar-title>Orion Chatbot</v-app-bar-title>
       <v-spacer></v-spacer>
-      <v-btn v-if="isAuthenticated" to="/chat" icon>
+      <v-btn v-if="isAuthenticated" to="/conversations" icon>
         <v-icon>mdi-message</v-icon>
       </v-btn>
       <v-btn v-if="isAuthenticated" to="/settings" icon>

@@ -59,12 +59,20 @@ public interface UserRepository {
     CompletionStage<User> findByOrionUserHash(String orionUserHash);
 
     /**
-     * Persists a new or updated user.
+     * Persists a new user (no identifier yet). For updates to an existing row, use {@link #merge(User)}.
      *
      * @param user the user to persist
      * @return a CompletionStage emitting the persisted user (with any generated fields populated)
      */
     CompletionStage<User> persist(User user);
+
+    /**
+     * Merges changes from a detached user (typically with an identifier already set) into the persistence context.
+     *
+     * @param user the user state to merge
+     * @return a CompletionStage emitting the managed user after merge
+     */
+    CompletionStage<User> merge(User user);
 
     /**
      * Flushes any pending changes to the underlying persistence store.

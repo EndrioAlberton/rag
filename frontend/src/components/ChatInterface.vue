@@ -88,10 +88,10 @@ import 'highlight.js/styles/github-dark.css';
 import { apiService } from '../services/api';
 import { authService } from '../services/auth';
 
-// Configure marked with appropriate options
+// breaks:true: útil para respostas da IA com quebras simples; listas/código continuam com regras GFM
 marked.use({
-  breaks: true, // Line breaks as <br>
-  gfm: true, // GitHub Flavored Markdown
+  breaks: true,
+  gfm: true,
   highlight: function(code, lang) {
     const language = hljs.getLanguage(lang) ? lang : 'plaintext';
     try {
@@ -252,11 +252,9 @@ export default {
         // Normalize incomplete markdown during streaming
         const normalized = this.normalizeIncompleteMarkdown(cleaned);
         
-        // Process line breaks before rendering
-        // Ensure double line breaks create paragraphs
+        // Normalize line endings only — do not "guess" extra breaks (that breaks lists, code, tables).
         const processed = this.processLineBreaks(normalized);
-        
-        // Render markdown - options already configured globally with marked.use()
+
         const html = marked.parse(processed);
         
         // Apply highlight.js after rendering
@@ -282,75 +280,9 @@ export default {
     },
 
     processLineBreaks(text) {
-      // Normalize different types of line breaks
-      let processed = text
-        .replace(/\r\n/g, '\n') // Normalize Windows line breaks
-        .replace(/\r/g, '\n');   // Normalize Mac line breaks
-      
-      // If text has no line breaks (all on one line), add intelligent breaks
-      const hasLineBreaks = processed.includes('\n');
-      if (!hasLineBreaks || processed.split('\n').length < 3) {
-        processed = this.addIntelligentLineBreaks(processed);
-      }
-      
-      return processed;
-    },
-
-    addIntelligentLineBreaks(text) {
-      let processed = text;
-      
-      // Patterns to add double line breaks (new paragraphs):
-      // 1. Before important keywords (with or without colons)
-      const keywords = [
-        'History:', 'Context:', 'Question:', 'Answer:', 'Answers:',
-        'Problems', 'Need', 'Architecture', 'Features', 'Benefits',
-        'Example:', 'Examples:', 'Resources', 'Documentation', 'Tutorial', 'GitHub',
-        'How it works:', 'What is:', 'Here are', "Let's go!", 'In summary',
-        'Histórico:', 'Contexto:', 'Pergunta:', 'Resposta:', 'Respostas:',
-        'Problemas', 'Necessidade', 'Arquitetura', 'Características', 'Benefícios',
-        'Exemplo:', 'Exemplos:', 'Recursos', 'Documentação', 'Tutorial',
-        'Como funciona:', 'O que é:', 'Aqui estão', 'Vamos lá!', 'Em resumo'
-      ];
-      keywords.forEach(keyword => {
-        const escaped = this.escapeRegex(keyword);
-        // Break before keyword if not at the start
-        const regex = new RegExp(`([^\\n\\s])(${escaped})`, 'gi');
-        processed = processed.replace(regex, '$1\n\n$2');
-      });
-      
-      // 2. Before numbered lists (1., 2., 3., etc.) - more specific pattern
-      processed = processed.replace(/([^\d])(\d+\.\s+[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ])/g, '$1\n\n$2');
-      
-      // 3. Before bullet lists (*, -, •) when followed by uppercase
-      processed = processed.replace(/([^\n])([\*\-•]\s+[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ])/g, '$1\n$2');
-      
-      // 4. Before bold/markdown sections (**text**)
-      processed = processed.replace(/([^\n])(\*\*[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ])/g, '$1\n\n$2');
-      
-      // 5. After periods followed by space and uppercase (new important sentences)
-      // But avoid breaking on common abbreviations
-      processed = processed.replace(/([.!?])\s+([A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ][a-záéíóúàèìòùâêîôûãõç]{3,})/g, '$1\n\n$2');
-      
-      // 6. Break after colons when followed by long text (definitions)
-      processed = processed.replace(/(:[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ][^.!?]{40,}?)([.!?]|$)/g, '$1$2\n\n');
-      
-      // 7. Break after exclamations followed by uppercase
-      processed = processed.replace(/(!)\s+([A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ][a-záéíóúàèìòùâêîôûãõç]{2,})/g, '$1\n\n$2');
-      
-      // Clean consecutive line breaks (more than 2)
-      processed = processed.replace(/\n{3,}/g, '\n\n');
-      
-      // Clean spaces at the start of lines
-      processed = processed.replace(/\n\s+/g, '\n');
-      
-      // Clean line breaks at start and end
-      processed = processed.trim();
-      
-      return processed;
-    },
-
-    escapeRegex(str) {
-      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return text
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n');
     },
 
     normalizeIncompleteMarkdown(text) {
@@ -375,6 +307,41 @@ export default {
       return div.innerHTML;
     },
 
+    normalizeRoleType(raw) {
+      if (raw == null) {
+        return 'assistant';
+      }
+      let name = raw;
+      if (typeof raw === 'object' && raw !== null && raw.name) {
+        name = raw.name;
+      }
+      const s = String(name).toUpperCase();
+      if (s === 'USER' || s === 'HUMAN') {
+        return 'user';
+      }
+      return 'assistant';
+    },
+
+    parseMessageTime(msg) {
+      const t = msg.timestamp;
+      if (!t) {
+        return 0;
+      }
+      if (typeof t === 'string' || typeof t === 'number') {
+        const n = Date.parse(t);
+        return Number.isNaN(n) ? 0 : n;
+      }
+      if (Array.isArray(t) && t.length >= 3) {
+        // Java LocalDateTime as JSON array [y,M,d,h,m,s]
+        try {
+          return new Date(t[0], t[1] - 1, t[2], t[3] || 0, t[4] || 0, t[5] || 0).getTime();
+        } catch (e) {
+          return 0;
+        }
+      }
+      return 0;
+    },
+
     async loadHistory() {
       try {
         if (!this.conversationId) {
@@ -382,23 +349,17 @@ export default {
         }
         const memory = await apiService.getMemory(this.userId, this.conversationId);
         if (memory && memory.messages && Array.isArray(memory.messages)) {
-          this.messages = memory.messages.map(msg => {
-              // Map backend types (ASSISTANT, USER) to lowercase
-            let type = 'assistant';
-            if (msg.type) {
-              const msgType = msg.type.toUpperCase();
-              if (msgType === 'USER') {
-                type = 'user';
-              } else if (msgType === 'ASSISTANT') {
-                type = 'assistant';
-              }
-            }
-            return {
-              type: type,
-              content: msg.content || '',
-              isNew: false
-            };
+          const rows = memory.messages.map((msg) => ({
+            type: this.normalizeRoleType(msg.type),
+            content: msg.content != null ? String(msg.content) : '',
+            isNew: false,
+            _ts: this.parseMessageTime(msg)
+          }));
+          rows.sort((a, b) => a._ts - b._ts);
+          rows.forEach((r) => {
+            delete r._ts;
           });
+          this.messages = rows;
         }
       } catch (error) {
         console.error('Error loading history:', error);
@@ -464,7 +425,8 @@ export default {
             // Update bot message incrementally
             if (this.messages[botMessageIndex]) {
               // Clean any "data:" that may appear
-              const cleanedData = data.replace(/^data:\s*/gm, '').trim();
+              // Não usar trim(): chunks do stream podem terminar em espaço (separador entre palavras).
+              const cleanedData = data.replace(/^data:\s*/gm, '').replace(/\r/g, '');
               if (cleanedData) {
                 this.messages[botMessageIndex].content += cleanedData;
                 // Auto-scroll while receiving data
@@ -564,18 +526,21 @@ export default {
 }
 
 .assistant-message-content {
-  text-align: justify;
-  max-width: 80%;
+  text-align: start;
+  max-width: min(100%, 52rem);
   padding: 0.75rem 1rem;
   word-wrap: break-word;
-  font-size: 0.9rem;
-  line-height: 1.5;
+  overflow-wrap: anywhere;
+  font-size: 0.9375rem;
+  line-height: 1.6;
   margin: 0 auto;
+  overflow-x: auto;
 }
 
 .markdown-content {
   word-wrap: break-word;
-  color: #333;
+  overflow-wrap: anywhere;
+  color: rgba(0, 0, 0, 0.87);
 }
 
 /* Paragraphs */
@@ -722,13 +687,13 @@ export default {
   margin-bottom: 0;
 }
 
-/* Tables */
+/* Tables — keep table layout; scroll on the message container */
 .markdown-content :deep(table) {
   border-collapse: collapse;
   margin: 1rem 0;
   width: 100%;
-  display: block;
-  overflow-x: auto;
+  display: table;
+  table-layout: auto;
 }
 
 .markdown-content :deep(thead) {

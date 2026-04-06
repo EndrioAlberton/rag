@@ -17,13 +17,13 @@
 package dev.orion.rag.application;
 
 import dev.orion.rag.domain.model.RagQuery;
-import dev.orion.rag.domain.port.in.AskQuestionPort;
 import dev.orion.rag.domain.port.out.EmbeddingRepository;
 import dev.orion.rag.domain.port.out.RequestLogPort;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
+import io.vertx.mutiny.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -33,7 +33,7 @@ import java.util.List;
 
 /**
  * MCP tools for course-aware Q&A via RAG.
- * Exposes retrieve_course_context and ask_course_question to LLM platforms (Claude, Cursor).
+ * Exposes retrieve_course_context to LLM platforms (Claude, Cursor).
  * Converts domain {@link java.util.concurrent.CompletionStage} to Mutiny {@link Uni}
  * at the application boundary (MCP framework expects {@link Uni}).
  */
@@ -44,9 +44,9 @@ public class RagMcpTools {
     @Inject
     EmbeddingRepository embeddingRepository;
 
-    /** Use case that answers a one-shot question using RAG. */
+    /** Vert.x instance — used to dispatch Hibernate Reactive log writes to the EventLoop (HR000068). */
     @Inject
-    AskQuestionPort askQuestionUseCase;
+    Vertx vertx;
 
     /** Port for persisting request/response audit logs. */
     @Inject
@@ -90,11 +90,13 @@ public class RagMcpTools {
                         result = String.join("\n", lines);
                     }
                     String ragResult = result;
-                    return Uni.createFrom()
-                            .completionStage(() -> requestLogPort.log(
-                                    null, sessionId, null, null, query, messageTimestamp,
-                                    ragResult, ragLatencyMs, null, 0L, null))
-                            .replaceWith(ragResult);
+                    return Uni.createFrom().item(ragResult)
+                            .emitOn(vertx.nettyEventLoopGroup())
+                            .onItem().transformToUni(r ->
+                                    Uni.createFrom().completionStage(() -> requestLogPort.log(
+                                            null, sessionId, null, null, query, messageTimestamp,
+                                            r, ragLatencyMs, null, 0L, null))
+                                            .replaceWith(r));
                 })
                 .onFailure().recoverWithItem(e -> {
                     Log.error("MCP retrieve_course_context failed", e);

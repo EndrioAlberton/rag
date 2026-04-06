@@ -121,7 +121,7 @@ public class AuthServiceImpl implements AuthPort {
                                 if (userByEmail != null) {
                                     userByEmail.setOrionUserHash(orionUserHash);
                                     return Uni.createFrom()
-                                            .completionStage(() -> userRepository.persist(userByEmail))
+                                            .completionStage(() -> userRepository.merge(userByEmail))
                                             .onItem().transformToUni(u ->
                                                     Uni.createFrom()
                                                             .completionStage(() -> userRepository.flush())
@@ -133,7 +133,7 @@ public class AuthServiceImpl implements AuthPort {
                                         .onItem().transformToUni(newUser -> {
                                             newUser.setOrionUserHash(orionUserHash);
                                             return Uni.createFrom()
-                                                    .completionStage(() -> userRepository.persist(newUser))
+                                                    .completionStage(() -> userRepository.merge(newUser))
                                                     .onItem().transformToUni(u ->
                                                             Uni.createFrom()
                                                                     .completionStage(() -> userRepository.flush())

@@ -43,6 +43,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -452,6 +453,29 @@ public class RagController {
         Log.info("Getting conversation: " + conversationId);
         return Uni.createFrom().completionStage(
                 () -> conversationServicePort.getConversation(conversationId));
+    }
+
+    /**
+     * Updates the title of a conversation owned by the authenticated user.
+     *
+     * @param conversationId conversation identifier
+     * @param request        body with the new title
+     * @return the updated conversation
+     */
+    @PATCH
+    @Path("/conversations/{conversationId}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("user")
+    public Uni<Conversation> updateConversation(
+            @PathParam("conversationId") String conversationId,
+            @Valid ConversationRequest request) {
+        Log.info("Updating conversation title: " + conversationId);
+        return syncUserFromRequest()
+                .onItem().transformToUni(syncedUser ->
+                        Uni.createFrom().completionStage(() ->
+                                conversationServicePort.updateConversationTitle(
+                                        conversationId, syncedUser.getId(), request.title)));
     }
 
     /**

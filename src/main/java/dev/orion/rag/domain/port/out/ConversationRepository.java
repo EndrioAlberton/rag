@@ -97,4 +97,13 @@ public interface ConversationRepository {
      * @return a CompletionStage emitting {@code true} if deleted, {@code false} if not found
      */
     CompletionStage<Boolean> deleteById(String id);
+
+    /**
+     * Updates the title of an existing conversation.
+     *
+     * @param id    conversation identifier
+     * @param title new title
+     * @return a CompletionStage that completes when the update is flushed
+     */
+    CompletionStage<Void> updateTitle(String id, String title);
 }

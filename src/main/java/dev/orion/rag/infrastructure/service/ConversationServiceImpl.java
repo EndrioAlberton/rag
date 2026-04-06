@@ -87,7 +87,7 @@ public class ConversationServiceImpl implements ConversationServicePort {
     @Override
     public CompletionStage<Conversation> getConversation(String conversationId) {
         return sessionFactory.withSession(session ->
-            Uni.createFrom().completionStage(() -> conversationRepository.findById(conversationId))
+            Uni.createFrom().completionStage(() -> conversationRepository.findByIdWithMessages(conversationId))
                     .onItem().ifNull().failWith(
                             () -> new IllegalArgumentException("Conversa não encontrada"))
         ).subscribeAsCompletionStage();
@@ -158,6 +158,24 @@ public class ConversationServiceImpl implements ConversationServicePort {
                                 return Uni.createFrom()
                                         .completionStage(() -> conversationRepository.flush());
                             });
+                })
+        ).subscribeAsCompletionStage();
+    }
+
+    @Override
+    public CompletionStage<Conversation> updateConversationTitle(String conversationId, String userId,
+            String title) {
+        return sessionFactory.withTransaction(session ->
+            Uni.createFrom().completionStage(() -> conversationRepository.userHasAccess(userId, conversationId))
+                .onItem().transformToUni(hasAccess -> {
+                    if (!hasAccess) {
+                        return Uni.createFrom().failure(
+                                new SecurityException("Apenas o dono pode alterar a conversa"));
+                    }
+                    return Uni.createFrom()
+                            .completionStage(() -> conversationRepository.updateTitle(conversationId, title))
+                            .chain(() -> Uni.createFrom().completionStage(
+                                    () -> conversationRepository.findById(conversationId)));
                 })
         ).subscribeAsCompletionStage();
     }

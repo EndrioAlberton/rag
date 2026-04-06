@@ -34,23 +34,32 @@ import java.util.concurrent.CompletionStage;
 @ApplicationScoped
 public class ConversationRepositoryImpl implements ConversationRepository {
 
+    /**
+     * Hibernate Reactive does not lazy-load associations; owner must be fetched with the conversation.
+     */
+    private static final String HQL_BY_ID_WITH_OWNER =
+            "SELECT DISTINCT c FROM ConversationEntity c JOIN FETCH c.owner WHERE c.id = ?1";
+
+    /** Loads conversation, owner and messages for mapping to domain. */
+    private static final String HQL_BY_ID_WITH_OWNER_AND_MESSAGES =
+            "SELECT DISTINCT c FROM ConversationEntity c JOIN FETCH c.owner "
+                    + "LEFT JOIN FETCH c.messages WHERE c.id = ?1";
+
     /** Panache repository used for all JPA queries and persistence operations on conversations. */
     @Inject
     ConversationPanacheRepository panache;
 
     @Override
     public CompletionStage<Conversation> findById(String id) {
-        return panache.find("id", id).<ConversationEntity>firstResult()
+        return panache.find(HQL_BY_ID_WITH_OWNER, id)
+                .<ConversationEntity>firstResult()
                 .map(EntityMapper::toDomain)
                 .subscribeAsCompletionStage();
     }
 
     @Override
     public CompletionStage<Conversation> findByIdWithMessages(String id) {
-        return panache.find(
-                "SELECT c FROM ConversationEntity c LEFT JOIN FETCH c.messages "
-                        + "WHERE c.id = ?1",
-                id)
+        return panache.find(HQL_BY_ID_WITH_OWNER_AND_MESSAGES, id)
                 .<ConversationEntity>firstResult()
                 .map(EntityMapper::toDomain)
                 .subscribeAsCompletionStage();
@@ -62,7 +71,10 @@ public class ConversationRepositoryImpl implements ConversationRepository {
             return Uni.createFrom().<List<Conversation>>item(List.of())
                     .subscribeAsCompletionStage();
         }
-        return panache.find("id IN (?1)", ids).<ConversationEntity>list()
+        return panache.find(
+                        "SELECT DISTINCT c FROM ConversationEntity c JOIN FETCH c.owner WHERE c.id IN (?1)",
+                        ids)
+                .<ConversationEntity>list()
                 .map(entities -> entities.stream()
                         .map(EntityMapper::toDomain)
                         .toList())
@@ -71,7 +83,11 @@ public class ConversationRepositoryImpl implements ConversationRepository {
 
     @Override
     public CompletionStage<List<Conversation>> findOwnedByUserId(String userId) {
-        return panache.list("owner.id", userId)
+        return panache.find(
+                        "SELECT DISTINCT c FROM ConversationEntity c JOIN FETCH c.owner "
+                                + "WHERE c.owner.id = ?1 ORDER BY c.lastActivity DESC",
+                        userId)
+                .<ConversationEntity>list()
                 .map(entities -> entities.stream()
                         .map(EntityMapper::toDomain)
                         .toList())
@@ -94,7 +110,10 @@ public class ConversationRepositoryImpl implements ConversationRepository {
     public CompletionStage<Conversation> persist(Conversation conversation) {
         ConversationEntity entity = EntityMapper.toEntity(conversation);
         return panache.persist(entity)
-                .map(EntityMapper::toDomain)
+                .call(() -> panache.flush())
+                .chain(e -> panache.find(HQL_BY_ID_WITH_OWNER, e.getId())
+                        .<ConversationEntity>firstResult()
+                        .map(EntityMapper::toDomain))
                 .subscribeAsCompletionStage();
     }
 
@@ -107,6 +126,17 @@ public class ConversationRepositoryImpl implements ConversationRepository {
     public CompletionStage<Boolean> deleteById(String id) {
         return panache.delete("id", id)
                 .map(count -> count > 0)
+                .subscribeAsCompletionStage();
+    }
+
+    @Override
+    public CompletionStage<Void> updateTitle(String id, String title) {
+        return panache.find("id", id).<ConversationEntity>firstResult()
+                .onItem().ifNull().failWith(() -> new IllegalArgumentException("Conversa não encontrada"))
+                .chain(entity -> {
+                    entity.setTitle(title);
+                    return panache.flush();
+                })
                 .subscribeAsCompletionStage();
     }
 }
