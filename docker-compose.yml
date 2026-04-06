@@ -14,7 +14,7 @@ name: orion
 #
 # Quick start:
 #   cp .env.example .env
-#   ./scripts/docker-compose-up.sh
+#   ./config/scripts/docker-compose-up.sh
 #   # ou: docker compose up --build
 #   # RAG: http://localhost (host port defaults to 80; JVM listens on 8080 inside the container)
 #   # Orion Users (auth): http://localhost:8080 (same PostgreSQL database as RAG: POSTGRES_DB)

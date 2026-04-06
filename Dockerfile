@@ -13,7 +13,9 @@ RUN npm ci && npm run build
 FROM maven:3.9-eclipse-temurin-25-alpine AS jvm-build
 WORKDIR /build
 
-COPY --from=frontend /app/pom.xml /app/checkstyle.xml /app/import-control.xml /app/suppressions-javadoc.xml ./
+COPY --from=frontend /app/pom.xml ./
+# Checkstyle (validate) e scripts auxiliares; não são necessários para mvn package, mas mantêm o layout igual ao repositório
+COPY --from=frontend /app/config ./config
 COPY --from=frontend /app/mvnw .
 COPY --from=frontend /app/.mvn .mvn
 COPY --from=frontend /app/src src

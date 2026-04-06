@@ -295,7 +295,7 @@
                     </dependency>
                 </dependencies>
                 <configuration>
-                    <configLocation>checkstyle.xml</configLocation>
+                    <configLocation>config/checkstyle/checkstyle.xml</configLocation>
                     <consoleOutput>true</consoleOutput>
                     <failsOnError>true</failsOnError>
                     <violationSeverity>error</violationSeverity>

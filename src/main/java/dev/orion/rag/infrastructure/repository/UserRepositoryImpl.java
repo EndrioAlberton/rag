@@ -74,6 +74,15 @@ public class UserRepositoryImpl implements UserRepository {
     }
 
     @Override
+    public CompletionStage<User> merge(User user) {
+        UserEntity entity = EntityMapper.toEntity(user);
+        return panache.getSession()
+                .flatMap(session -> session.merge(entity))
+                .map(EntityMapper::toDomain)
+                .subscribeAsCompletionStage();
+    }
+
+    @Override
     public CompletionStage<Void> flush() {
         return panache.flush().subscribeAsCompletionStage();
     }

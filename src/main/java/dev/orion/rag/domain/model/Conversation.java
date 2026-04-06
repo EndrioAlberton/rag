@@ -17,7 +17,7 @@
 package dev.orion.rag.domain.model;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -35,8 +35,8 @@ public class Conversation {
     private LocalDateTime createdAt;
     /** Date and time of the most recent message or activity in this conversation. */
     private LocalDateTime lastActivity;
-    /** Ordered set of chat messages that make up this conversation. */
-    private Set<ChatMessage> messages = new HashSet<>();
+    /** Messages in conversation order (insertion / timestamp order). */
+    private Set<ChatMessage> messages = new LinkedHashSet<>();
 
     /**
      * Default no-arg constructor required by the persistence and mapping layers.

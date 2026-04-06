@@ -21,6 +21,10 @@ import dev.orion.rag.domain.model.Conversation;
 import dev.orion.rag.domain.model.RequestLog;
 import dev.orion.rag.domain.model.User;
 
+import org.hibernate.Hibernate;
+
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.stream.Collectors;
 
 /**
@@ -41,6 +45,9 @@ public final class EntityMapper {
      */
     public static User toDomain(UserEntity entity) {
         if (entity == null) {
+            return null;
+        }
+        if (!Hibernate.isInitialized(entity)) {
             return null;
         }
         User user = new User();
@@ -94,7 +101,10 @@ public final class EntityMapper {
     // ========== Conversation ==========
 
     /**
-     * Converts a {@link ConversationEntity} (with its messages eagerly loaded) to the domain model.
+     * Converts a {@link ConversationEntity} to the domain model.
+     * The {@code messages} collection is only copied when it has been initialised in the persistence
+     * context (e.g. via {@code JOIN FETCH} or {@code Mutiny.fetch}); otherwise the domain object keeps an
+     * empty set — Hibernate Reactive does not support lazy loading outside an explicit fetch.
      *
      * @param entity JPA entity to convert (may be null)
      * @return the equivalent domain model, or {@code null} if the entity is null
@@ -109,10 +119,12 @@ public final class EntityMapper {
         conv.setOwner(toDomain(entity.getOwner()));
         conv.setCreatedAt(entity.getCreatedAt());
         conv.setLastActivity(entity.getLastActivity());
-        if (entity.getMessages() != null) {
+        if (Hibernate.isInitialized(entity.getMessages())) {
             conv.setMessages(entity.getMessages().stream()
+                    .sorted(Comparator.comparing(ChatMessageEntity::getTimestamp,
+                            Comparator.nullsLast(Comparator.naturalOrder())))
                     .map(EntityMapper::toDomain)
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toCollection(LinkedHashSet::new)));
         }
         return conv;
     }

@@ -33,6 +33,7 @@
                 :conversation="conversation"
                 @delete="handleDelete"
                 @select="handleSelect"
+                @renamed="loadConversations"
               />
             </v-list>
 

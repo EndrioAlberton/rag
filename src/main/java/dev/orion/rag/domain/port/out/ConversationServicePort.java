@@ -68,4 +68,14 @@ public interface ConversationServicePort {
      * @return a CompletionStage that completes when the conversation is deleted
      */
     CompletionStage<Void> deleteConversation(String conversationId, String userId);
+
+    /**
+     * Updates the conversation title if the user is the owner.
+     *
+     * @param conversationId conversation identifier
+     * @param userId         internal user id (same as used for {@link #userHasAccess})
+     * @param title          new title
+     * @return a CompletionStage emitting the updated conversation
+     */
+    CompletionStage<Conversation> updateConversationTitle(String conversationId, String userId, String title);
 }

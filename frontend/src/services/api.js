@@ -10,6 +10,18 @@ const api = axios.create({
   }
 });
 
+/**
+ * Extrai o payload de uma linha SSE "data:...".
+ * NÃO consome nenhum espaço após "data:" porque tokens do LLM começam com espaço
+ * (ex.: " que", " você") e esse espaço É o separador de palavras.
+ * Se o servidor adicionar um espaço de formatação, o HTML colapsa espaços extras.
+ */
+function sseDataPayload(line) {
+  const s = line.replace(/\r$/, '');
+  const m = s.match(/^\s*data:(.*)$/);
+  return m ? m[1] : null;
+}
+
 // Interceptor para adicionar token JWT
 api.interceptors.request.use(
   (config) => {
@@ -70,6 +82,11 @@ export const apiService = {
 
   async deleteConversation(conversationId, userId) {
     const response = await api.delete(`/ai/conversations/${conversationId}?userId=${userId}`);
+    return response.data;
+  },
+
+  async updateConversationTitle(conversationId, title) {
+    const response = await api.patch(`/ai/conversations/${conversationId}`, { title });
     return response.data;
   },
 
@@ -148,18 +165,23 @@ export const apiService = {
         
         if (done) {
           // Processar buffer restante
-          if (buffer.trim()) {
+          if (buffer.length > 0) {
             const lines = buffer.split('\n');
             for (const line of lines) {
-              const trimmedLine = line.trim();
-              if (trimmedLine.startsWith('data: ')) {
-                const data = trimmedLine.substring(6);
-                if (data && data !== '[DONE]') {
-                  onMessage(data);
+              const payload = sseDataPayload(line);
+              if (payload !== null) {
+                if (payload.trim() === '[DONE]') {
+                  onComplete();
+                  return;
                 }
-              } else if (trimmedLine && !trimmedLine.startsWith(':')) {
-                // Se não começa com ':', pode ser conteúdo direto
-                onMessage(trimmedLine);
+                if (payload) {
+                  onMessage(payload);
+                }
+              } else {
+                const raw = line.replace(/\r$/, '');
+                if (raw && !raw.startsWith(':') && !raw.startsWith('event:')) {
+                  onMessage(raw);
+                }
               }
             }
           }
@@ -172,19 +194,20 @@ export const apiService = {
         buffer = lines.pop() || '';
 
         for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (trimmedLine.startsWith('data: ')) {
-            const data = trimmedLine.substring(6);
-            if (data === '[DONE]') {
+          const payload = sseDataPayload(line);
+          if (payload !== null) {
+            if (payload.trim() === '[DONE]') {
               onComplete();
               return;
             }
-            if (data) {
-              onMessage(data);
+            if (payload) {
+              onMessage(payload);
             }
-          } else if (trimmedLine && !trimmedLine.startsWith(':') && !trimmedLine.startsWith('event:')) {
-            // Aceitar conteúdo direto (alguns servidores SSE não usam prefixo 'data:')
-            onMessage(trimmedLine);
+          } else {
+            const raw = line.replace(/\r$/, '');
+            if (raw && !raw.startsWith(':') && !raw.startsWith('event:')) {
+              onMessage(raw);
+            }
           }
         }
       }

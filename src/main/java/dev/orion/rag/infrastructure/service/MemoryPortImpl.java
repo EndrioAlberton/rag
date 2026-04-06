@@ -17,6 +17,7 @@
 package dev.orion.rag.infrastructure.service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
@@ -36,6 +37,7 @@ import io.quarkus.redis.datasource.ReactiveRedisDataSource;
 import io.quarkus.redis.datasource.keys.ReactiveKeyCommands;
 import io.quarkus.redis.datasource.value.ReactiveValueCommands;
 import io.smallrye.mutiny.Uni;
+import io.vertx.mutiny.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -60,6 +62,8 @@ public class MemoryPortImpl implements MemoryPort {
     private final ChatMessagePanacheRepository chatMessagePanacheRepository;
     /** Hibernate Reactive session factory for programmatic transaction management. */
     private final Mutiny.SessionFactory sessionFactory;
+    /** Vert.x instance used to dispatch Hibernate Reactive calls to the event loop. */
+    private final Vertx vertx;
     /** Maximum number of messages retained in memory per conversation. */
     private final int defaultMaxMessages;
     /** Time-to-live in hours for Redis-cached conversation data. */
@@ -73,6 +77,7 @@ public class MemoryPortImpl implements MemoryPort {
      * @param userRepository                  repository for user lookups
      * @param chatMessagePanacheRepository    Panache repository for individual message persistence
      * @param sessionFactory                  Hibernate Reactive session factory
+     * @param vertx                           Vert.x instance for event-loop dispatching
      * @param defaultMaxMessages              maximum messages to retain per conversation
      * @param ttlHours                        time-to-live in hours for Redis-cached data
      */
@@ -83,6 +88,7 @@ public class MemoryPortImpl implements MemoryPort {
             UserRepository userRepository,
             ChatMessagePanacheRepository chatMessagePanacheRepository,
             Mutiny.SessionFactory sessionFactory,
+            Vertx vertx,
             @ConfigProperty(name = "memory.default.max-messages", defaultValue = "50") int defaultMaxMessages,
             @ConfigProperty(name = "memory.ttl.hours", defaultValue = "24") int ttlHours) {
         this.reactiveRedisDataSource = reactiveRedisDataSource;
@@ -90,6 +96,7 @@ public class MemoryPortImpl implements MemoryPort {
         this.userRepository = userRepository;
         this.chatMessagePanacheRepository = chatMessagePanacheRepository;
         this.sessionFactory = sessionFactory;
+        this.vertx = vertx;
         this.defaultMaxMessages = defaultMaxMessages;
         this.ttlHours = ttlHours;
     }
@@ -100,7 +107,12 @@ public class MemoryPortImpl implements MemoryPort {
 
     @Override
     public CompletionStage<Void> saveMessage(ChatMessage message) {
-        if (message.getUserId() != null && message.getConversationId() != null) {
+        Log.info("saveMessage called — type=" + message.getType()
+                + ", conversationId=" + message.getConversationId()
+                + ", userId=" + message.getUserId()
+                + ", contentLen=" + (message.getContent() != null ? message.getContent().length() : 0));
+
+        if (message.getConversationId() != null && !message.getConversationId().isBlank()) {
             return saveMessageHybrid(message);
         }
 
@@ -133,7 +145,12 @@ public class MemoryPortImpl implements MemoryPort {
      * @return a {@link CompletionStage} that completes when both stores have been updated
      */
     private CompletionStage<Void> saveMessageHybrid(ChatMessage message) {
-        return sessionFactory.withTransaction(session -> {
+        // Hibernate Reactive requires the Vert.x event-loop thread (HR000068).
+        // The AccumulatingOnCompletePublisher callback may run on a worker thread,
+        // so we dispatch back to the event loop via Uni.emitOn.
+        return Uni.createFrom().voidItem()
+            .emitOn(vertx.nettyEventLoopGroup())
+            .chain(() -> sessionFactory.withTransaction(session -> {
             Uni<Boolean> accessCheck;
             if (message.getType() == ChatMessage.MessageType.USER && message.getUserId() != null) {
                 accessCheck = Uni.createFrom()
@@ -193,8 +210,12 @@ public class MemoryPortImpl implements MemoryPort {
                             } else {
                                 message.setUserId(null);
                                 message.setUser(null);
+                                Log.info("Persisting ASSISTANT message for conversation: "
+                                        + message.getConversationId());
                                 return chatMessagePanacheRepository
                                         .persist(EntityMapper.toEntity(message))
+                                        .invoke(() -> Log.info("ASSISTANT message persisted OK for conversation: "
+                                                + message.getConversationId()))
                                         .chain(() -> Uni.createFrom()
                                                 .completionStage(() -> conversationRepository.flush())
                                                 .replaceWithVoid());
@@ -203,7 +224,27 @@ public class MemoryPortImpl implements MemoryPort {
                 })
                 .onFailure().invoke(e -> Log.error("Error saving message to database: " + e.getMessage(), e))
                 .replaceWithVoid();
-        }).subscribeAsCompletionStage();
+        })).chain(() -> invalidateUserConversationMemoryCache(message.getConversationId()))
+                .subscribeAsCompletionStage();
+    }
+
+    /**
+     * Drops the Redis snapshot for this conversation so the next {@code getMemory} reloads from PostgreSQL.
+     * Hybrid saves only write to the DB; without this, a previously cached empty memory would hide new messages.
+     */
+    private Uni<Void> invalidateUserConversationMemoryCache(String conversationId) {
+        if (conversationId == null || conversationId.isEmpty()) {
+            return Uni.createFrom().voidItem();
+        }
+        String redisKey = MEMORY_PREFIX + conversationId;
+        ReactiveKeyCommands<String> keyCommands = reactiveRedisDataSource.key();
+        return keyCommands.del(redisKey)
+                .invoke(deleted -> {
+                    if (deleted != null && deleted > 0) {
+                        Log.debug("Invalidated memory cache for conversation: " + conversationId);
+                    }
+                })
+                .replaceWithVoid();
     }
 
     // -------------------------------------------------------------------------
@@ -241,18 +282,20 @@ public class MemoryPortImpl implements MemoryPort {
         ReactiveValueCommands<String, ConversationMemory> valueCommands =
                 reactiveRedisDataSource.value(ConversationMemory.class);
 
-        return valueCommands.get(redisKey)
-            .onItem().ifNull().switchTo(() ->
-                sessionFactory.withSession(session -> loadConversationMemoryFromDB(conversationId))
-                    .chain(memory -> {
-                        if (memory != null) {
-                            return valueCommands.setex(redisKey, ttlHours * 3600L, memory)
-                                    .replaceWith(memory);
-                        }
+        // Always load from PostgreSQL for this path so message list is complete and ordered; Redis is only a cache refresh.
+        return sessionFactory.withSession(session -> loadConversationMemoryFromDB(conversationId))
+                .chain(fromDb -> {
+                    if (fromDb == null) {
                         return Uni.createFrom().nullItem();
-                    }))
-            .onFailure().recoverWithNull()
-            .subscribeAsCompletionStage();
+                    }
+                    if (!fromDb.getMessages().isEmpty()) {
+                        return valueCommands.setex(redisKey, ttlHours * 3600L, fromDb)
+                                .replaceWith(fromDb);
+                    }
+                    return Uni.createFrom().item(fromDb);
+                })
+                .onFailure().recoverWithNull()
+                .subscribeAsCompletionStage();
     }
 
     /**
@@ -262,7 +305,7 @@ public class MemoryPortImpl implements MemoryPort {
      * @return a {@link io.smallrye.mutiny.Uni} emitting the memory or {@code null} if not found
      */
     private Uni<ConversationMemory> loadConversationMemoryFromDB(String conversationId) {
-        return Uni.createFrom().completionStage(() -> conversationRepository.findById(conversationId))
+        return Uni.createFrom().completionStage(() -> conversationRepository.findByIdWithMessages(conversationId))
             .onItem().ifNotNull().transform(conversation -> {
                 ConversationMemory memory = new ConversationMemory();
                 memory.setConversationId(conversationId);
@@ -271,7 +314,10 @@ public class MemoryPortImpl implements MemoryPort {
                     memory.setUserId(conversation.getOwner().getId());
                 }
                 if (conversation.getMessages() != null && !conversation.getMessages().isEmpty()) {
-                    memory.setMessages(new ArrayList<>(conversation.getMessages()));
+                    List<ChatMessage> ordered = new ArrayList<>(conversation.getMessages());
+                    ordered.sort(Comparator.comparing(ChatMessage::getTimestamp,
+                            Comparator.nullsLast(Comparator.naturalOrder())));
+                    memory.setMessages(ordered);
                 } else {
                     memory.setMessages(new ArrayList<>());
                 }
