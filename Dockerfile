@@ -29,6 +29,11 @@ RUN mvn package -DskipTests=true -DskipITs=true -DskipFrontend=true
 FROM eclipse-temurin:25-jre
 WORKDIR /work
 
+# curl: healthcheck do docker compose (rag deve estar “ready” antes do orion-users)
+RUN apt-get update -q && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN useradd -u 1001 -m jvm && chown -R jvm:jvm /work
 
 COPY --from=jvm-build --chown=jvm:jvm /build/target/quarkus-app/lib/ /work/lib/
