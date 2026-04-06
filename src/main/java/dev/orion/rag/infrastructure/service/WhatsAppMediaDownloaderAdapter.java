@@ -47,8 +47,8 @@ public class WhatsAppMediaDownloaderAdapter implements MediaDownloaderPort {
     private final ObjectMapper objectMapper;
 
     /** WhatsApp Cloud API access token used to authenticate all requests. */
-    @ConfigProperty(name = "whatsapp.access-token", defaultValue = "")
-    String accessToken;
+    @ConfigProperty(name = "whatsapp.access-token")
+    Optional<String> accessToken;
 
     /**
      * Creates a WhatsAppMediaDownloaderAdapter; initialises the HTTP client with a 10-second connect timeout.
@@ -70,7 +70,8 @@ public class WhatsAppMediaDownloaderAdapter implements MediaDownloaderPort {
      */
     @Override
     public Optional<byte[]> downloadMedia(String mediaId) {
-        if (accessToken == null || accessToken.isBlank()) {
+        String token = accessToken.orElse("");
+        if (token.isBlank()) {
             Log.warn("WhatsApp access-token ausente - não é possível baixar mídia");
             return Optional.empty();
         }
@@ -82,7 +83,7 @@ public class WhatsAppMediaDownloaderAdapter implements MediaDownloaderPort {
             HttpRequest metaRequest = HttpRequest.newBuilder()
                     .uri(URI.create(WHATSAPP_API_BASE + "/" + mediaId))
                     .timeout(Duration.ofSeconds(10))
-                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Authorization", "Bearer " + token)
                     .GET()
                     .build();
 
@@ -104,7 +105,7 @@ public class WhatsAppMediaDownloaderAdapter implements MediaDownloaderPort {
             HttpRequest downloadRequest = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(Duration.ofSeconds(30))
-                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Authorization", "Bearer " + token)
                     .GET()
                     .build();
 

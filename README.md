@@ -123,8 +123,8 @@ docker build -f src/main/docker/Dockerfile.jvm -t rag:jvm .
 # Run container (requires OPENAI_API_KEY and PostgreSQL/Redis URLs)
 docker run -i --rm -p 8081:8081 \
   -e OPENAI_API_KEY=$OPENAI_API_KEY \
-  -e QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://host.docker.internal:5432/rag_db \
-  -e QUARKUS_DATASOURCE_REACTIVE_URL=postgresql://host.docker.internal:5432/rag_db \
+  -e QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://host.docker.internal:5432/orion_rag \
+  -e QUARKUS_DATASOURCE_REACTIVE_URL=postgresql://host.docker.internal:5432/orion_rag \
   -e QUARKUS_REDIS_HOSTS=redis://host.docker.internal:6379 \
   rag:jvm
 ```
@@ -141,8 +141,8 @@ docker build -f src/main/docker/Dockerfile.native -t rag:native .
 # Run container (same env vars as JVM)
 docker run -i --rm -p 8081:8081 \
   -e OPENAI_API_KEY=$OPENAI_API_KEY \
-  -e QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://host.docker.internal:5432/rag_db \
-  -e QUARKUS_DATASOURCE_REACTIVE_URL=postgresql://host.docker.internal:5432/rag_db \
+  -e QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://host.docker.internal:5432/orion_rag \
+  -e QUARKUS_DATASOURCE_REACTIVE_URL=postgresql://host.docker.internal:5432/orion_rag \
   -e QUARKUS_REDIS_HOSTS=redis://host.docker.internal:6379 \
   rag:native
 ```
@@ -162,8 +162,8 @@ services:
       - "8081:8081"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://postgres:5432/rag_db
-      - QUARKUS_DATASOURCE_REACTIVE_URL=postgresql://postgres:5432/rag_db
+      - QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://postgres:5432/orion_rag
+      - QUARKUS_DATASOURCE_REACTIVE_URL=postgresql://postgres:5432/orion_rag
       - QUARKUS_REDIS_HOSTS=redis://redis:6379
     depends_on:
       - redis
@@ -179,7 +179,7 @@ services:
     environment:
       POSTGRES_USER: quarkus
       POSTGRES_PASSWORD: quarkus
-      POSTGRES_DB: rag_db
+      POSTGRES_DB: orion_rag
     ports:
       - "5432:5432"
 ```

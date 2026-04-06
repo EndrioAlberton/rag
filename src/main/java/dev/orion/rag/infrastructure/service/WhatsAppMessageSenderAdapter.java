@@ -29,6 +29,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Optional;
 
 /**
  * Implementation of {@link MessageSenderPort} using the WhatsApp Cloud API (Meta).
@@ -46,12 +47,12 @@ public class WhatsAppMessageSenderAdapter implements MessageSenderPort {
     private final ObjectMapper objectMapper;
 
     /** Default business phone number ID; can be overridden per-call using the webhook metadata value. */
-    @ConfigProperty(name = "whatsapp.phone-number-id", defaultValue = "")
-    String phoneNumberId;
+    @ConfigProperty(name = "whatsapp.phone-number-id")
+    Optional<String> phoneNumberId;
 
     /** WhatsApp Cloud API access token used to authenticate all outgoing requests. */
-    @ConfigProperty(name = "whatsapp.access-token", defaultValue = "")
-    String accessToken;
+    @ConfigProperty(name = "whatsapp.access-token")
+    Optional<String> accessToken;
 
     /**
      * Creates a WhatsAppMessageSenderAdapter; initialises the HTTP client with a 10-second connect timeout.
@@ -88,9 +89,9 @@ public class WhatsAppMessageSenderAdapter implements MessageSenderPort {
         String effectivePhoneId =
                 (overridePhoneId != null && !overridePhoneId.isBlank())
                         ? overridePhoneId
-                        : phoneNumberId;
-        if (effectivePhoneId == null || effectivePhoneId.isBlank()
-                || accessToken == null || accessToken.isBlank()) {
+                        : phoneNumberId.orElse("");
+        String token = accessToken.orElse("");
+        if (effectivePhoneId.isBlank() || token.isBlank()) {
             Log.warn("WhatsApp não configurado: phone-number-id ou access-token ausente");
             return false;
         }
@@ -115,7 +116,7 @@ public class WhatsAppMessageSenderAdapter implements MessageSenderPort {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(WHATSAPP_API_BASE + "/" + effectivePhoneId + "/messages"))
                     .timeout(Duration.ofSeconds(15))
-                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Authorization", "Bearer " + token)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
                     .build();
@@ -149,9 +150,8 @@ public class WhatsAppMessageSenderAdapter implements MessageSenderPort {
         String effectivePhoneId =
                 (overridePhoneId != null && !overridePhoneId.isBlank())
                         ? overridePhoneId
-                        : phoneNumberId;
-        if (effectivePhoneId == null || effectivePhoneId.isBlank()
-                || accessToken == null || accessToken.isBlank()) {
+                        : phoneNumberId.orElse("");
+        if (effectivePhoneId.isBlank() || accessToken.orElse("").isBlank()) {
             Log.warn("WhatsApp não configurado: phone-number-id ou access-token ausente — typing indicator ignorado");
             return false;
         }
@@ -189,7 +189,7 @@ public class WhatsAppMessageSenderAdapter implements MessageSenderPort {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(WHATSAPP_API_BASE + "/" + effectivePhoneId + "/messages"))
                     .timeout(Duration.ofSeconds(10))
-                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Authorization", "Bearer " + accessToken.orElse(""))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
                     .build();
@@ -225,9 +225,8 @@ public class WhatsAppMessageSenderAdapter implements MessageSenderPort {
         String effectivePhoneId =
                 (overridePhoneId != null && !overridePhoneId.isBlank())
                         ? overridePhoneId
-                        : phoneNumberId;
-        if (effectivePhoneId == null || effectivePhoneId.isBlank()
-                || accessToken == null || accessToken.isBlank()) {
+                        : phoneNumberId.orElse("");
+        if (effectivePhoneId.isBlank() || accessToken.orElse("").isBlank()) {
             return false;
         }
         if (to == null || to.isBlank() || messageId == null || messageId.isBlank()) {
@@ -251,7 +250,7 @@ public class WhatsAppMessageSenderAdapter implements MessageSenderPort {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(WHATSAPP_API_BASE + "/" + effectivePhoneId + "/messages"))
                     .timeout(Duration.ofSeconds(10))
-                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Authorization", "Bearer " + accessToken.orElse(""))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
                     .build();
