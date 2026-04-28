@@ -86,7 +86,20 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
 
             var matches = embeddingStore.search(searchRequest).matches();
             var contexts = matches.stream()
-                    .map(match -> match.embedded().text())
+                    .map(match -> {
+                        String source = null;
+                        try {
+                            // Some stores may not persist metadata; best effort only.
+                            source = match.embedded().metadata() != null
+                                    ? match.embedded().metadata().getString("source")
+                                    : null;
+                        } catch (Exception ignored) {
+                        }
+                        String prefix = (source == null || source.isBlank())
+                                ? ""
+                                : ("[Fonte: " + source + "]\n");
+                        return prefix + match.embedded().text();
+                    })
                     .toList();
 
             double score = matches.isEmpty() ? 0.0 : matches.get(0).score();
@@ -107,12 +120,17 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
                             if (pdfService.isPdfFile(file)) {
                                 String extractedText = pdfService.extractText(file);
                                 if (!extractedText.isEmpty()) {
-                                    Document pdfDocument = Document.from(extractedText);
+                                    Document pdfDocument = Document.from(extractedText,
+                                            Metadata.from("source", file.getFileName().toString()));
                                     documents.add(pdfDocument);
                                     Log.info("PDF processed: " + file.getFileName());
                                 }
                             } else {
                                 Document fileDoc = FileSystemDocumentLoader.loadDocument(file);
+                                try {
+                                    fileDoc.metadata().put("source", file.getFileName().toString());
+                                } catch (Exception ignored) {
+                                }
                                 documents.add(fileDoc);
                                 Log.info("File processed: " + file.getFileName());
                             }

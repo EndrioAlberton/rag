@@ -20,7 +20,7 @@ COPY --from=frontend /app/mvnw .
 COPY --from=frontend /app/.mvn .mvn
 COPY --from=frontend /app/src src
 
-RUN mvn package -DskipTests=true -DskipITs=true -DskipFrontend=true
+RUN mvn -ntp -e package -DskipTests=true -DskipITs=true -DskipFrontend=true
 
 # ------------------------------------------------------------------------------
 # Stage 3: Runtime (JRE)

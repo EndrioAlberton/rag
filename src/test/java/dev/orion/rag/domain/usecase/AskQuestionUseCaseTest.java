@@ -37,6 +37,7 @@ import java.util.concurrent.Flow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -75,8 +76,8 @@ class AskQuestionUseCaseTest {
                         new RagResponse("q", List.of("ctx-a", "ctx-b"), 0.8)));
         Flow.Publisher<String> stream = FlowTestSupport.emitTokens("hel", "lo");
         when(aiPort.generateResponse(any())).thenReturn(stream);
-        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), anyLong(), any(), anyLong(),
-                any()))
+        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), any(), anyLong(),
+                anyBoolean(), any(), any(), anyLong(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         List<String> out = FlowTestSupport.collectAll(
@@ -101,7 +102,10 @@ class AskQuestionUseCaseTest {
                 eq("question?"),
                 any(),
                 eq("ctx-a"),
+                eq(0.8),
                 anyLong(),
+                eq(false),
+                isNull(),
                 eq("hello"),
                 anyLong(),
                 isNull());
@@ -113,8 +117,8 @@ class AskQuestionUseCaseTest {
                 .thenReturn(CompletableFuture.completedFuture(
                         new RagResponse("q", List.of(), 0.0)));
         when(aiPort.generateResponse(any())).thenReturn(FlowTestSupport.emitTokens("ok"));
-        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), anyLong(), any(), anyLong(),
-                any()))
+        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), any(), anyLong(),
+                anyBoolean(), any(), any(), anyLong(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         FlowTestSupport.collectAll(useCase.execute("s", "p")).get();

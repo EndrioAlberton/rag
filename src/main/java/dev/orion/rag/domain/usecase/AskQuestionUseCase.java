@@ -23,6 +23,8 @@ import dev.orion.rag.domain.port.out.AIPort;
 import dev.orion.rag.domain.port.out.EmbeddingRepository;
 import dev.orion.rag.domain.port.out.RequestLogPort;
 import dev.orion.rag.domain.support.AccumulatingOnCompletePublisher;
+import dev.orion.rag.domain.support.AppendOnCompletePublisher;
+import dev.orion.rag.domain.support.RagSourceFormatter;
 import dev.orion.rag.domain.support.DeferredPublisher;
 
 import java.time.Instant;
@@ -36,6 +38,13 @@ public class AskQuestionUseCase implements AskQuestionPort {
 
     /** Fallback context string used when no RAG result is found. */
     private static final String DEFAULT_CONTEXT = "";
+    private static final String HUMAN_SUPPORT_CONTACT = """
+
+---
+Suporte humano (IFRS POA)
+E-mail: comunicacao@poa.ifrs.edu.br
+Telefone: (51) 3930-6002
+""";
 
     /** Repository used to search embedding chunks relevant to the prompt. */
     private final EmbeddingRepository embeddingRepository;
@@ -83,17 +92,48 @@ public class AskQuestionUseCase implements AskQuestionPort {
                     long ragLatencyMs = System.currentTimeMillis() - ragStart;
                     String ragResult = ragResponse.getContexts().isEmpty()
                             ? DEFAULT_CONTEXT : ragResponse.getFirstContext();
-                    AIRequest aiRequest = new AIRequest(session, prompt, ragResult);
+                    boolean handoffRequired = ragResult == null || ragResult.isBlank();
+                    String handoffReason = handoffRequired ? "no_context" : null;
+
                     long llmStart = System.currentTimeMillis();
-                    Flow.Publisher<String> stream = aiPort.generateResponse(aiRequest);
+                    // If there is no RAG context, do NOT call the LLM (avoid generic/hallucinated answers).
+                    Flow.Publisher<String> withAppendix;
+                    if (handoffRequired) {
+                        String msg = "Não encontrei informação suficiente na base para responder com segurança."
+                                + HUMAN_SUPPORT_CONTACT;
+                        withAppendix = subscriber -> subscriber.onSubscribe(new Flow.Subscription() {
+                            private boolean done = false;
+
+                            @Override
+                            public void request(long n) {
+                                if (done) {
+                                    return;
+                                }
+                                done = true;
+                                subscriber.onNext(msg);
+                                subscriber.onComplete();
+                            }
+
+                            @Override
+                            public void cancel() {
+                                done = true;
+                            }
+                        });
+                    } else {
+                        AIRequest aiRequest = new AIRequest(session, prompt, ragResult);
+                        Flow.Publisher<String> stream = aiPort.generateResponse(aiRequest);
+                        String sourcesAppendix = RagSourceFormatter.sourcesAppendix(ragResult);
+                        withAppendix = new AppendOnCompletePublisher(stream, sourcesAppendix);
+                    }
                     return (Flow.Publisher<String>) new AccumulatingOnCompletePublisher(
-                            stream,
+                            withAppendix,
                             fullResponse -> {
                                 long llmLatencyMs = System.currentTimeMillis() - llmStart;
                                 return requestLogPort.log(
                                         phoneNumber, session, userName, email,
                                         prompt, messageTimestamp,
-                                        ragResult, ragLatencyMs,
+                                        ragResult, ragResponse.getScore(), ragLatencyMs,
+                                        handoffRequired, handoffReason,
                                         fullResponse, llmLatencyMs, null);
                             });
                 })

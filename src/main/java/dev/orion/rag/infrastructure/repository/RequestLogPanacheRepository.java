@@ -37,4 +37,13 @@ public class RequestLogPanacheRepository implements PanacheRepositoryBase<Reques
     public Uni<List<RequestLogEntity>> findAllOrderedByTimestamp() {
         return find("ORDER BY messageTimestamp ASC").list();
     }
+
+    public Uni<RequestLogEntity> findLatestByConversationAndPrompt(
+            String userId,
+            String conversationId,
+            String userMessage) {
+        return find("conversationId = ?1 and userMessage = ?2 ORDER BY createdAt DESC",
+                conversationId, userMessage)
+                .firstResult();
+    }
 }

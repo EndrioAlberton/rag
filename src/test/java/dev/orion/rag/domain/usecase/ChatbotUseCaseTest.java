@@ -37,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -82,8 +83,8 @@ class ChatbotUseCaseTest {
                 .thenReturn(CompletableFuture.completedFuture("hist-line"));
         when(aiPort.generateContextualResponse(any()))
                 .thenReturn(FlowTestSupport.emitTokens("A", "I"));
-        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), anyLong(), any(), anyLong(),
-                any()))
+        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), any(), anyLong(),
+                anyBoolean(), any(), any(), anyLong(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         List<String> tokens = FlowTestSupport.collectAll(
@@ -112,7 +113,10 @@ class ChatbotUseCaseTest {
                 eq("hi"),
                 any(),
                 eq("rag-text"),
+                eq(0.9),
                 anyLong(),
+                eq(false),
+                isNull(),
                 eq("AI"),
                 anyLong(),
                 isNull());
@@ -128,8 +132,8 @@ class ChatbotUseCaseTest {
                 .thenReturn(CompletableFuture.completedFuture(""));
         when(aiPort.generateContextualResponse(any()))
                 .thenReturn(FlowTestSupport.emitTokens("x"));
-        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), anyLong(), any(), anyLong(),
-                any()))
+        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), any(), anyLong(),
+                anyBoolean(), any(), any(), anyLong(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         FlowTestSupport.collectAll(
@@ -146,7 +150,10 @@ class ChatbotUseCaseTest {
                 eq("q"),
                 any(),
                 eq("c"),
+                eq(1.0),
                 anyLong(),
+                eq(false),
+                isNull(),
                 eq("x"),
                 anyLong(),
                 eq("conv-1"));

@@ -44,7 +44,8 @@ public interface RequestLogPort {
      */
     CompletionStage<Void> log(String phoneNumber, String userId, String userName, String email,
             String userMessage, Instant messageTimestamp,
-            String ragResult, long ragLatencyMs,
+            String ragResult, Double ragScore, long ragLatencyMs,
+            boolean handoffRequired, String handoffReason,
             String llmResponse, long llmLatencyMs, String conversationId);
 
     /**

@@ -6,6 +6,9 @@
       <v-btn v-if="isAuthenticated" to="/conversations" icon>
         <v-icon>mdi-message</v-icon>
       </v-btn>
+      <v-btn v-if="isAuthenticated" to="/dashboard" icon>
+        <v-icon>mdi-chart-bar</v-icon>
+      </v-btn>
       <v-btn v-if="isAuthenticated" to="/settings" icon>
         <v-icon>mdi-cog</v-icon>
       </v-btn>

@@ -5,6 +5,7 @@ import Settings from '../components/Settings.vue';
 import TwoFactorSettings from '../components/TwoFactorSettings.vue';
 import ChatInterface from '../components/ChatInterface.vue';
 import ConversationList from '../components/ConversationList.vue';
+import Dashboard from '../components/Dashboard.vue';
 
 const routes = [
   {
@@ -43,6 +44,12 @@ const routes = [
     path: '/conversations',
     name: 'Conversations',
     component: ConversationList,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: Dashboard,
     meta: { requiresAuth: true }
   }
 ];

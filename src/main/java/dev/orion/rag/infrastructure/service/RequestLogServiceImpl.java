@@ -61,7 +61,8 @@ public class RequestLogServiceImpl implements RequestLogPort {
     @Override
     public CompletionStage<Void> log(String phoneNumber, String userId, String userName,
             String email, String userMessage,
-            Instant messageTimestamp, String ragResult, long ragLatencyMs,
+            Instant messageTimestamp, String ragResult, Double ragScore, long ragLatencyMs,
+            boolean handoffRequired, String handoffReason,
             String llmResponse, long llmLatencyMs, String conversationId) {
         return sessionFactory.withTransaction(session -> {
             RequestLogEntity entity = new RequestLogEntity();
@@ -73,7 +74,10 @@ public class RequestLogServiceImpl implements RequestLogPort {
             entity.setUserMessage(userMessage);
             entity.setMessageTimestamp(LocalDateTime.ofInstant(messageTimestamp, ZoneOffset.UTC));
             entity.setRagResult(ragResult);
+            entity.setRagScore(ragScore);
             entity.setRagLatencyMs(ragLatencyMs);
+            entity.setHandoffRequired(handoffRequired);
+            entity.setHandoffReason(handoffReason != null && !handoffReason.isBlank() ? handoffReason : null);
             entity.setLlmResponse(llmResponse);
             entity.setLlmLatencyMs(llmLatencyMs);
             entity.setCreatedAt(LocalDateTime.now());

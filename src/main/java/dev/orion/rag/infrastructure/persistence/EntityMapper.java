@@ -215,7 +215,10 @@ public final class EntityMapper {
         log.setUserMessage(entity.getUserMessage());
         log.setMessageTimestamp(entity.getMessageTimestamp());
         log.setRagResult(entity.getRagResult());
+        log.setRagScore(entity.getRagScore());
         log.setRagLatencyMs(entity.getRagLatencyMs());
+        log.setHandoffRequired(entity.isHandoffRequired());
+        log.setHandoffReason(entity.getHandoffReason());
         log.setLlmResponse(entity.getLlmResponse());
         log.setLlmLatencyMs(entity.getLlmLatencyMs());
         log.setCreatedAt(entity.getCreatedAt());
@@ -242,7 +245,10 @@ public final class EntityMapper {
         entity.setUserMessage(domain.getUserMessage());
         entity.setMessageTimestamp(domain.getMessageTimestamp());
         entity.setRagResult(domain.getRagResult());
+        entity.setRagScore(domain.getRagScore());
         entity.setRagLatencyMs(domain.getRagLatencyMs());
+        entity.setHandoffRequired(domain.isHandoffRequired());
+        entity.setHandoffReason(domain.getHandoffReason());
         entity.setLlmResponse(domain.getLlmResponse());
         entity.setLlmLatencyMs(domain.getLlmLatencyMs());
         entity.setCreatedAt(domain.getCreatedAt());

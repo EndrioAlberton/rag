@@ -25,6 +25,8 @@ import dev.orion.rag.domain.port.out.EmbeddingRepository;
 import dev.orion.rag.domain.port.out.MemoryPort;
 import dev.orion.rag.domain.port.out.RequestLogPort;
 import dev.orion.rag.domain.support.AccumulatingOnCompletePublisher;
+import dev.orion.rag.domain.support.AppendOnCompletePublisher;
+import dev.orion.rag.domain.support.RagSourceFormatter;
 import dev.orion.rag.domain.support.DeferredPublisher;
 
 import java.time.Instant;
@@ -40,6 +42,13 @@ public class ChatbotUseCase implements ChatbotPort {
     private static final Logger LOG = Logger.getLogger(ChatbotUseCase.class.getName());
     /** Fallback context string used when no RAG result is found. */
     private static final String DEFAULT_CONTEXT = "";
+    private static final String HUMAN_SUPPORT_CONTACT = """
+
+---
+Suporte humano (IFRS POA)
+E-mail: comunicacao@poa.ifrs.edu.br
+Telefone: (51) 3930-6002
+""";
 
     /** Repository used to search embedding chunks relevant to the prompt. */
     private final EmbeddingRepository embeddingRepository;
@@ -103,12 +112,41 @@ public class ChatbotUseCase implements ChatbotPort {
                                     ? DEFAULT_CONTEXT : ragResponse.getFirstContext();
                             return memoryPort.getHistory(session)
                                 .thenApply(history -> {
-                                    AIRequest aiRequest = new AIRequest(session, prompt, ragResult, history);
                                     long llmStart = System.currentTimeMillis();
-                                    Flow.Publisher<String> stream =
-                                            aiPort.generateContextualResponse(aiRequest);
+                                    boolean handoffRequired = ragResult == null || ragResult.isBlank();
+                                    String handoffReason = handoffRequired ? "no_context" : null;
+
+                                    Flow.Publisher<String> withAppendix;
+                                    if (handoffRequired) {
+                                        String msg = "Não encontrei informação suficiente na base para responder com segurança."
+                                                + HUMAN_SUPPORT_CONTACT;
+                                        withAppendix = subscriber -> subscriber.onSubscribe(new Flow.Subscription() {
+                                            private boolean done = false;
+
+                                            @Override
+                                            public void request(long n) {
+                                                if (done) {
+                                                    return;
+                                                }
+                                                done = true;
+                                                subscriber.onNext(msg);
+                                                subscriber.onComplete();
+                                            }
+
+                                            @Override
+                                            public void cancel() {
+                                                done = true;
+                                            }
+                                        });
+                                    } else {
+                                        AIRequest aiRequest = new AIRequest(session, prompt, ragResult, history);
+                                        Flow.Publisher<String> stream =
+                                                aiPort.generateContextualResponse(aiRequest);
+                                        String sourcesAppendix = RagSourceFormatter.sourcesAppendix(ragResult);
+                                        withAppendix = new AppendOnCompletePublisher(stream, sourcesAppendix);
+                                    }
                                     return (Flow.Publisher<String>) new AccumulatingOnCompletePublisher(
-                                            stream,
+                                            withAppendix,
                                             fullResponse -> {
                                                 long llmLatencyMs =
                                                         System.currentTimeMillis() - llmStart;
@@ -119,7 +157,8 @@ public class ChatbotUseCase implements ChatbotPort {
                                                         .thenCompose(v2 -> requestLogPort.log(
                                                                 phoneNumber, session, userName,
                                                                 email, prompt, messageTimestamp,
-                                                                ragResult, ragLatencyMs,
+                                                                ragResult, ragResponse.getScore(), ragLatencyMs,
+                                                                handoffRequired, handoffReason,
                                                                 fullResponse, llmLatencyMs, null));
                                             });
                                 });
@@ -148,13 +187,42 @@ public class ChatbotUseCase implements ChatbotPort {
                                     ? DEFAULT_CONTEXT : ragResponse.getFirstContext();
                             return memoryPort.getHistory(userId, conversationId)
                                 .thenApply(history -> {
-                                    AIRequest aiRequest = new AIRequest(
-                                            conversationId, prompt, ragResult, history);
                                     long llmStart = System.currentTimeMillis();
-                                    Flow.Publisher<String> stream =
-                                            aiPort.generateContextualResponse(aiRequest);
+                                    boolean handoffRequired = ragResult == null || ragResult.isBlank();
+                                    String handoffReason = handoffRequired ? "no_context" : null;
+
+                                    Flow.Publisher<String> withAppendix;
+                                    if (handoffRequired) {
+                                        String msg = "Não encontrei informação suficiente na base para responder com segurança."
+                                                + HUMAN_SUPPORT_CONTACT;
+                                        withAppendix = subscriber -> subscriber.onSubscribe(new Flow.Subscription() {
+                                            private boolean done = false;
+
+                                            @Override
+                                            public void request(long n) {
+                                                if (done) {
+                                                    return;
+                                                }
+                                                done = true;
+                                                subscriber.onNext(msg);
+                                                subscriber.onComplete();
+                                            }
+
+                                            @Override
+                                            public void cancel() {
+                                                done = true;
+                                            }
+                                        });
+                                    } else {
+                                        AIRequest aiRequest = new AIRequest(
+                                                conversationId, prompt, ragResult, history);
+                                        Flow.Publisher<String> stream =
+                                                aiPort.generateContextualResponse(aiRequest);
+                                        String sourcesAppendix = RagSourceFormatter.sourcesAppendix(ragResult);
+                                        withAppendix = new AppendOnCompletePublisher(stream, sourcesAppendix);
+                                    }
                                     return (Flow.Publisher<String>) new AccumulatingOnCompletePublisher(
-                                            stream,
+                                            withAppendix,
                                             fullResponse -> {
                                                 long llmLatencyMs =
                                                         System.currentTimeMillis() - llmStart;
@@ -169,7 +237,8 @@ public class ChatbotUseCase implements ChatbotPort {
                                                         .thenCompose(v2 -> requestLogPort.log(
                                                                 phoneNumber, userId, userName,
                                                                 email, prompt, messageTimestamp,
-                                                                ragResult, ragLatencyMs,
+                                                                ragResult, ragResponse.getScore(), ragLatencyMs,
+                                                                handoffRequired, handoffReason,
                                                                 fullResponse, llmLatencyMs,
                                                                 conversationId));
                                             });

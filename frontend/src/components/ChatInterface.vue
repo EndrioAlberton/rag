@@ -25,9 +25,9 @@
         <div class="mt-2 text-body-2">Initializing conversation...</div>
       </div>
       <div v-else>
-        <div 
-          v-for="(message, index) in messages" 
-          :key="index" 
+        <div
+          v-for="(message, index) in messages"
+          :key="index"
           :class="['message-container', message.type === 'user' ? 'user-message' : 'assistant-message', { 'message-enter': message.isNew }]"
         >
           <v-card
@@ -39,11 +39,39 @@
               {{ message.content }}
             </div>
           </v-card>
-          <div 
-            v-else 
-            class="assistant-message-content markdown-content" 
-            v-html="getRenderedMarkdown(message)"
-          ></div>
+          <div v-else class="assistant-block">
+            <div
+              class="assistant-message-content markdown-content"
+              v-html="getRenderedMarkdown(message)"
+            ></div>
+
+            <div class="feedback-row">
+
+              <v-btn
+                variant="text"
+                size="small"
+                :color="message.feedbackValue === 'LIKE' ? 'primary' : undefined"
+                :disabled="isLoading || message.feedbackValue === 'DISLIKE' || message.feedbackSubmitting"
+                @click="rateAssistantMessage(index, 'LIKE')"
+              >
+                <v-icon start>mdi-thumb-up-outline</v-icon>
+                Like
+              </v-btn>
+              <v-btn
+                variant="text"
+                size="small"
+                :color="message.feedbackValue === 'DISLIKE' ? 'error' : undefined"
+                :disabled="isLoading || message.feedbackValue === 'LIKE' || message.feedbackSubmitting"
+                @click="rateAssistantMessage(index, 'DISLIKE')"
+              >
+                <v-icon start>mdi-thumb-down-outline</v-icon>
+                Dislike
+              </v-btn>
+              <span v-if="message.feedbackValue" class="feedback-saved">
+                Avaliado: {{ message.feedbackValue }}
+              </span>
+            </div>
+          </div>
         </div>
         <div v-if="isTyping" class="message-container assistant-message">
           <div class="typing-indicator">
@@ -356,8 +384,20 @@ export default {
             _ts: this.parseMessageTime(msg)
           }));
           rows.sort((a, b) => a._ts - b._ts);
+          let lastUserMessage = null;
           rows.forEach((r) => {
             delete r._ts;
+            if (r.type === 'user') {
+              lastUserMessage = (r.content || '').trim() || null;
+              return;
+            }
+            if (r.type === 'assistant') {
+              r.canFeedback = !!(r.content || '').trim();
+              r.feedbackValue = null;
+              r.feedbackSubmitting = false;
+              // Link to last user question, so feedback works even after reload.
+              r._userMessage = lastUserMessage;
+            }
           });
           this.messages = rows;
         }
@@ -401,7 +441,7 @@ export default {
       this.$nextTick(() => {
         setTimeout(() => {
           if (this.messages[userMsgIndex] && this.messages[userMsgIndex].type === 'user') {
-            this.$set(this.messages[userMsgIndex], 'isNew', false);
+            this.messages[userMsgIndex].isNew = false;
           }
         }, 300);
       });
@@ -414,7 +454,11 @@ export default {
       this.messages.push({
         type: 'assistant',
         content: '',
-        isNew: true
+        isNew: true,
+        canFeedback: false,
+        feedbackValue: null,
+        feedbackSubmitting: false,
+        _userMessage: userMessage
       });
 
       try {
@@ -448,9 +492,11 @@ export default {
             if (this.messages[botMessageIndex]) {
               this.$nextTick(() => {
                 setTimeout(() => {
-                  this.$set(this.messages[botMessageIndex], 'isNew', false);
+                  this.messages[botMessageIndex].isNew = false;
                 }, 300);
               });
+              const hasContent = !!(this.messages[botMessageIndex].content || '').trim();
+              this.messages[botMessageIndex].canFeedback = hasContent;
             }
             this.scrollToBottom();
           }
@@ -464,10 +510,47 @@ export default {
         this.isLoading = false;
       }
     }
+
+    ,
+    async rateAssistantMessage(index, value) {
+      const msg = this.messages[index];
+      if (!msg || msg.type !== 'assistant') return;
+      if (msg.feedbackSubmitting) return;
+
+      try {
+        this.messages[index].feedbackSubmitting = true;
+        const linkedUserMessage = msg._userMessage || this.findPreviousUserMessage(index);
+        if (!linkedUserMessage) {
+          throw new Error('Não foi possível vincular avaliação a uma pergunta do usuário.');
+        }
+        // Ensure we persist linkage for future renders/history loads
+        this.messages[index]._userMessage = linkedUserMessage;
+        await apiService.submitFeedback(this.userId, this.conversationId, linkedUserMessage, value);
+        this.messages[index].feedbackValue = value;
+      } catch (e) {
+        console.error('Erro ao enviar feedback:', e);
+        this.error = e.message || 'Erro ao enviar feedback';
+      } finally {
+        this.messages[index].feedbackSubmitting = false;
+      }
+    }
+    ,
+    findPreviousUserMessage(assistantIndex) {
+      if (assistantIndex == null || assistantIndex <= 0) {
+        return null;
+      }
+      for (let i = assistantIndex - 1; i >= 0; i--) {
+        const m = this.messages[i];
+        if (m && m.type === 'user') {
+          const s = (m.content || '').trim();
+          return s || null;
+        }
+      }
+      return null;
+    }
   }
 };
 </script>
-
 <style scoped>
 .chat-wrapper {
   display: flex;
@@ -535,6 +618,26 @@ export default {
   line-height: 1.6;
   margin: 0 auto;
   overflow-x: auto;
+}
+
+.assistant-block {
+  width: 100%;
+  max-width: min(100%, 52rem);
+  margin: 0 auto;
+}
+
+.feedback-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: min(100%, 52rem);
+  margin: 0.25rem auto 0;
+  padding: 0 1rem;
+}
+
+.feedback-saved {
+  font-size: 0.8rem;
+  opacity: 0.7;
 }
 
 .markdown-content {

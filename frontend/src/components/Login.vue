@@ -27,7 +27,7 @@
                 :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
                 @click:append-inner="showPassword = !showPassword"
                 @keyup.enter="login"
-                hint="Password must be at least 8 characters, including an uppercase letter, a number and a special character"
+                hint="Password must be at least 8 characters"
                 persistent-hint
               ></v-text-field>
 
@@ -129,10 +129,7 @@ export default {
       ],
       passwordRules: [
         v => !!v || 'Password is required',
-        v => !v || (v && v.length >= 8) || 'Password must be at least 8 characters',
-        v => !v || (v && /[A-Z]/.test(v)) || 'Password must contain at least one uppercase letter',
-        v => !v || (v && /[0-9]/.test(v)) || 'Password must contain at least one number',
-        v => !v || (v && /[^A-Za-z0-9]/.test(v)) || 'Password must contain at least one special character'
+        v => !v || (v && v.length >= 8) || 'Password must be at least 8 characters'
       ]
     };
   },

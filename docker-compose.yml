@@ -83,7 +83,10 @@ services:
 
   orion-users:
     build:
-      context: https://github.com/orion-services/users.git#main
+      # Windows path bug with remote git context (https://...).
+      # Use local clone at ../users instead.
+      context: ../users
+      dockerfile: Dockerfile
     ports:
       - "${ORION_USERS_HOST_PORT:-8080}:8080"
     environment:
@@ -96,6 +99,15 @@ services:
       postgres:
         condition: service_healthy
       rag:
+        condition: service_healthy
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8888:8080"
+    depends_on:
+      postgres:
         condition: service_healthy
     restart: unless-stopped
 

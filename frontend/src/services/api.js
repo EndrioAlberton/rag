@@ -221,6 +221,21 @@ export const apiService = {
         // Ignorar erro ao liberar lock
       }
     }
+  },
+
+  async submitFeedback(userId, conversationId, userMessage, value) {
+    const response = await api.post(`/ai/feedback`, {
+      userId,
+      conversationId,
+      userMessage,
+      value
+    });
+    return response.data;
+  },
+
+  async getDashboardMetrics() {
+    const response = await api.get(`/ai/dashboard/metrics`);
+    return response.data;
   }
 };
 

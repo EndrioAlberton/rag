@@ -95,7 +95,9 @@ public class RagMcpTools {
                             .onItem().transformToUni(r ->
                                     Uni.createFrom().completionStage(() -> requestLogPort.log(
                                             null, sessionId, null, null, query, messageTimestamp,
-                                            r, ragLatencyMs, null, 0L, null))
+                                            r, null, ragLatencyMs,
+                                            false, null,
+                                            null, 0L, null))
                                             .replaceWith(r));
                 })
                 .onFailure().recoverWithItem(e -> {
