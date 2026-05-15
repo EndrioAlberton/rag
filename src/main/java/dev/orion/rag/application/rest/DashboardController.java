@@ -2,6 +2,7 @@ package dev.orion.rag.application.rest;
 
 import dev.orion.rag.application.rest.dto.DashboardMetricsResponse;
 import dev.orion.rag.application.rest.dto.FeedbackRequest;
+import dev.orion.rag.domain.model.InteractionSummary;
 import dev.orion.rag.domain.port.out.DashboardPort;
 import dev.orion.rag.domain.port.out.FeedbackPort;
 import io.quarkus.logging.Log;
@@ -13,8 +14,11 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+
+import java.util.List;
 
 @Path("/ai")
 public class DashboardController {
@@ -56,8 +60,38 @@ public class DashboardController {
                     r.handoffRequired = m.getHandoffRequired();
                     r.likes = m.getLikes();
                     r.dislikes = m.getDislikes();
+                    r.urgencyLow = m.getUrgencyLow();
+                    r.urgencyMedium = m.getUrgencyMedium();
+                    r.urgencyHigh = m.getUrgencyHigh();
                     return r;
                 });
+    }
+
+    /**
+     * Returns interactions filtered by urgency (BAIXA / MEDIA / ALTA) or by
+     * feedback (LIKE / DISLIKE). Use ?urgency=ALTA or ?feedback=LIKE.
+     */
+    @GET
+    @Path("/dashboard/interactions")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Uni<Response> interactions(
+            @QueryParam("urgency") String urgency,
+            @QueryParam("feedback") String feedback) {
+        if (urgency != null && !urgency.isBlank()) {
+            return Uni.createFrom()
+                    .completionStage(() -> dashboardPort.interactionsByUrgency(urgency))
+                    .map(list -> Response.ok(list).build())
+                    .onFailure().recoverWithItem(Response.serverError().build());
+        }
+        if (feedback != null && !feedback.isBlank()) {
+            boolean liked = "LIKE".equalsIgnoreCase(feedback);
+            return Uni.createFrom()
+                    .completionStage(() -> dashboardPort.interactionsByFeedback(liked))
+                    .map(list -> Response.ok(list).build())
+                    .onFailure().recoverWithItem(Response.serverError().build());
+        }
+        return Uni.createFrom().item(
+            Response.status(400).entity("{\"message\":\"Use ?urgency=ALTA ou ?feedback=LIKE\"}").build());
     }
 }
 

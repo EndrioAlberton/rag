@@ -97,7 +97,7 @@ public class RagMcpTools {
                                             null, sessionId, null, null, query, messageTimestamp,
                                             r, null, ragLatencyMs,
                                             false, null,
-                                            null, 0L, null))
+                                            null, 0L, null, null))
                                             .replaceWith(r));
                 })
                 .onFailure().recoverWithItem(e -> {

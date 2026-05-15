@@ -77,7 +77,7 @@ class AskQuestionUseCaseTest {
         Flow.Publisher<String> stream = FlowTestSupport.emitTokens("hel", "lo");
         when(aiPort.generateResponse(any())).thenReturn(stream);
         when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), any(), anyLong(),
-                anyBoolean(), any(), any(), anyLong(), any()))
+                anyBoolean(), any(), any(), anyLong(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         List<String> out = FlowTestSupport.collectAll(
@@ -108,6 +108,7 @@ class AskQuestionUseCaseTest {
                 isNull(),
                 eq("hello"),
                 anyLong(),
+                isNull(),
                 isNull());
     }
 
@@ -118,7 +119,7 @@ class AskQuestionUseCaseTest {
                         new RagResponse("q", List.of(), 0.0)));
         when(aiPort.generateResponse(any())).thenReturn(FlowTestSupport.emitTokens("ok"));
         when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), any(), anyLong(),
-                anyBoolean(), any(), any(), anyLong(), any()))
+                anyBoolean(), any(), any(), anyLong(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         FlowTestSupport.collectAll(useCase.execute("s", "p")).get();

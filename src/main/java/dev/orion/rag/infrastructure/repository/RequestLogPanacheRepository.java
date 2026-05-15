@@ -1,19 +1,3 @@
-/*
- * Copyright 2026 Orion Services.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package dev.orion.rag.infrastructure.repository;
 
 import dev.orion.rag.infrastructure.persistence.RequestLogEntity;
@@ -29,11 +13,6 @@ import java.util.List;
 @ApplicationScoped
 public class RequestLogPanacheRepository implements PanacheRepositoryBase<RequestLogEntity, String> {
 
-    /**
-     * Returns all request log entries sorted chronologically by their message timestamp.
-     *
-     * @return a Uni emitting the complete ordered list of log entries
-     */
     public Uni<List<RequestLogEntity>> findAllOrderedByTimestamp() {
         return find("ORDER BY messageTimestamp ASC").list();
     }
@@ -46,4 +25,13 @@ public class RequestLogPanacheRepository implements PanacheRepositoryBase<Reques
                 conversationId, userMessage)
                 .firstResult();
     }
+
+    public Uni<List<RequestLogEntity>> findByUrgencyOrderedByDate(String urgency) {
+        return find("urgency = ?1 ORDER BY createdAt DESC", urgency).list();
+    }
+
+    public Uni<Long> countByUrgency(String urgency) {
+        return count("urgency", urgency);
+    }
 }
+

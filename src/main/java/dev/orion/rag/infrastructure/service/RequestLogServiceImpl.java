@@ -63,7 +63,7 @@ public class RequestLogServiceImpl implements RequestLogPort {
             String email, String userMessage,
             Instant messageTimestamp, String ragResult, Double ragScore, long ragLatencyMs,
             boolean handoffRequired, String handoffReason,
-            String llmResponse, long llmLatencyMs, String conversationId) {
+            String llmResponse, long llmLatencyMs, String conversationId, String urgency) {
         return sessionFactory.withTransaction(session -> {
             RequestLogEntity entity = new RequestLogEntity();
             entity.setPhoneNumber(phoneNumber != null && !phoneNumber.isBlank() ? phoneNumber : null);
@@ -80,6 +80,7 @@ public class RequestLogServiceImpl implements RequestLogPort {
             entity.setHandoffReason(handoffReason != null && !handoffReason.isBlank() ? handoffReason : null);
             entity.setLlmResponse(llmResponse);
             entity.setLlmLatencyMs(llmLatencyMs);
+            entity.setUrgency(urgency);
             entity.setCreatedAt(LocalDateTime.now());
             return requestLogPanacheRepository.persist(entity).replaceWithVoid();
         }).subscribeAsCompletionStage();

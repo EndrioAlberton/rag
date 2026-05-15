@@ -40,13 +40,14 @@ public interface RequestLogPort {
      * @param llmResponse      complete LLM response (after streaming finishes)
      * @param llmLatencyMs     time to receive complete LLM response in milliseconds
      * @param conversationId   unique conversation identifier (UUID) or null for legacy session-based flows
+     * @param urgency          triagem urgency classification (BAIXA/MEDIA/ALTA), nullable
      * @return CompletionStage that completes when the log is persisted
      */
     CompletionStage<Void> log(String phoneNumber, String userId, String userName, String email,
             String userMessage, Instant messageTimestamp,
             String ragResult, Double ragScore, long ragLatencyMs,
             boolean handoffRequired, String handoffReason,
-            String llmResponse, long llmLatencyMs, String conversationId);
+            String llmResponse, long llmLatencyMs, String conversationId, String urgency);
 
     /**
      * Exports all request logs to CSV format.

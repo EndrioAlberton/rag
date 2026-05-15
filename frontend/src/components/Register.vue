@@ -34,7 +34,7 @@
                 :type="showPassword ? 'text' : 'password'"
                 :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
                 @click:append-inner="showPassword = !showPassword"
-                hint="Password must be at least 8 characters"
+                hint="Mínimo 8 caracteres, 1 maiúscula, 1 minúscula, 1 especial (!@#$...)"
                 persistent-hint
               ></v-text-field>
 
@@ -138,7 +138,10 @@ export default {
       ],
       passwordRules: [
         v => !!v || 'Password is required',
-        v => !v || (v && v.length >= 8) || 'Password must be at least 8 characters'
+        v => !v || v.length >= 8 || 'Mínimo 8 caracteres',
+        v => !v || /[A-Z]/.test(v) || 'Deve conter ao menos 1 maiúscula',
+        v => !v || /[a-z]/.test(v) || 'Deve conter ao menos 1 minúscula',
+        v => !v || /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(v) || 'Deve conter ao menos 1 caractere especial (!@#$...)'
       ],
       confirmPasswordRules: [
         v => !!v || 'Password confirmation is required',

@@ -19,10 +19,12 @@ package dev.orion.rag.domain.usecase;
 import dev.orion.rag.domain.model.AIRequest;
 import dev.orion.rag.domain.model.ChatMessage;
 import dev.orion.rag.domain.model.RagResponse;
+import dev.orion.rag.domain.model.TriagemResult;
 import dev.orion.rag.domain.port.out.AIPort;
 import dev.orion.rag.domain.port.out.EmbeddingRepository;
 import dev.orion.rag.domain.port.out.MemoryPort;
 import dev.orion.rag.domain.port.out.RequestLogPort;
+import dev.orion.rag.domain.port.out.TriagemPort;
 import dev.orion.rag.domain.testsupport.FlowTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,6 +62,9 @@ class ChatbotUseCaseTest {
     @Mock
     RequestLogPort requestLogPort;
 
+    @Mock
+    TriagemPort triagemPort;
+
     @Captor
     ArgumentCaptor<AIRequest> aiRequestCaptor;
 
@@ -70,7 +75,10 @@ class ChatbotUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        useCase = new ChatbotUseCase(embeddingRepository, aiPort, memoryPort, requestLogPort);
+        useCase = new ChatbotUseCase(embeddingRepository, aiPort, memoryPort, requestLogPort, triagemPort);
+        // Default: triagem returns AUTO_RESPONDER BAIXA
+        when(triagemPort.classify(any(), any())).thenReturn(CompletableFuture.completedFuture(
+            new TriagemResult(TriagemResult.Decisao.AUTO_RESPONDER, TriagemResult.Urgencia.BAIXA, null)));
     }
 
     @Test
@@ -84,7 +92,7 @@ class ChatbotUseCaseTest {
         when(aiPort.generateContextualResponse(any()))
                 .thenReturn(FlowTestSupport.emitTokens("A", "I"));
         when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), any(), anyLong(),
-                anyBoolean(), any(), any(), anyLong(), any()))
+                anyBoolean(), any(), any(), anyLong(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         List<String> tokens = FlowTestSupport.collectAll(
@@ -119,7 +127,8 @@ class ChatbotUseCaseTest {
                 isNull(),
                 eq("AI"),
                 anyLong(),
-                isNull());
+                isNull(),
+                any());
     }
 
     @Test
@@ -133,7 +142,7 @@ class ChatbotUseCaseTest {
         when(aiPort.generateContextualResponse(any()))
                 .thenReturn(FlowTestSupport.emitTokens("x"));
         when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), any(), anyLong(),
-                anyBoolean(), any(), any(), anyLong(), any()))
+                anyBoolean(), any(), any(), anyLong(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         FlowTestSupport.collectAll(
@@ -156,6 +165,7 @@ class ChatbotUseCaseTest {
                 isNull(),
                 eq("x"),
                 anyLong(),
-                eq("conv-1"));
+                eq("conv-1"),
+                any());
     }
 }

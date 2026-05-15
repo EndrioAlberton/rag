@@ -42,7 +42,7 @@
           <div v-else class="assistant-block">
             <div
               class="assistant-message-content markdown-content"
-              v-html="getRenderedMarkdown(message)"
+              v-html="message.renderedHtml || ''"
             ></div>
 
             <div class="feedback-row">
@@ -272,39 +272,30 @@ export default {
     renderMarkdown(text) {
       try {
         if (!text) return '';
-        
-        // Clean content first
         const cleaned = this.cleanContent(text);
         if (!cleaned) return '';
-        
-        // Normalize incomplete markdown during streaming
         const normalized = this.normalizeIncompleteMarkdown(cleaned);
-        
-        // Normalize line endings only — do not "guess" extra breaks (that breaks lists, code, tables).
         const processed = this.processLineBreaks(normalized);
-
-        const html = marked.parse(processed);
-        
-        // Apply highlight.js after rendering
-        this.$nextTick(() => {
-          const elements = this.$el?.querySelectorAll('.markdown-content');
-          if (elements) {
-            elements.forEach(element => {
-              element.querySelectorAll('pre code').forEach((block) => {
-                if (!block.classList.contains('hljs')) {
-                  hljs.highlightElement(block);
-                }
-              });
-            });
-          }
-        });
-        
-        return html;
+        return marked.parse(processed);
       } catch (error) {
         console.error('Error rendering markdown:', error);
-        // On error, return escaped text
         return this.escapeHtml(text);
       }
+    },
+
+    highlightCodeBlocks() {
+      this.$nextTick(() => {
+        const elements = this.$el?.querySelectorAll('.markdown-content');
+        if (elements) {
+          elements.forEach(element => {
+            element.querySelectorAll('pre code').forEach((block) => {
+              if (!block.classList.contains('hljs')) {
+                hljs.highlightElement(block);
+              }
+            });
+          });
+        }
+      });
     },
 
     processLineBreaks(text) {
@@ -395,11 +386,12 @@ export default {
               r.canFeedback = !!(r.content || '').trim();
               r.feedbackValue = null;
               r.feedbackSubmitting = false;
-              // Link to last user question, so feedback works even after reload.
               r._userMessage = lastUserMessage;
+              r.renderedHtml = this.renderMarkdown(r.content);
             }
           });
           this.messages = rows;
+          this.highlightCodeBlocks();
         }
       } catch (error) {
         console.error('Error loading history:', error);
@@ -454,6 +446,7 @@ export default {
       this.messages.push({
         type: 'assistant',
         content: '',
+        renderedHtml: '',
         isNew: true,
         canFeedback: false,
         feedbackValue: null,
@@ -466,14 +459,12 @@ export default {
           this.conversationId,
           userMessage,
           (data) => {
-            // Update bot message incrementally
             if (this.messages[botMessageIndex]) {
-              // Clean any "data:" that may appear
-              // Não usar trim(): chunks do stream podem terminar em espaço (separador entre palavras).
               const cleanedData = data.replace(/^data:\s*/gm, '').replace(/\r/g, '');
               if (cleanedData) {
-                this.messages[botMessageIndex].content += cleanedData;
-                // Auto-scroll while receiving data
+                const msg = this.messages[botMessageIndex];
+                msg.content += cleanedData;
+                msg.renderedHtml = this.renderMarkdown(msg.content);
                 this.scrollToBottom();
               }
             }
@@ -488,15 +479,18 @@ export default {
           },
           () => {
             this.isLoading = false;
-            // Remove isNew flag from assistant message after animation
             if (this.messages[botMessageIndex]) {
+              const msg = this.messages[botMessageIndex];
+              msg.renderedHtml = this.renderMarkdown(msg.content);
+              msg.canFeedback = !!(msg.content || '').trim();
               this.$nextTick(() => {
                 setTimeout(() => {
-                  this.messages[botMessageIndex].isNew = false;
+                  if (this.messages[botMessageIndex]) {
+                    this.messages[botMessageIndex].isNew = false;
+                  }
                 }, 300);
               });
-              const hasContent = !!(this.messages[botMessageIndex].content || '').trim();
-              this.messages[botMessageIndex].canFeedback = hasContent;
+              this.highlightCodeBlocks();
             }
             this.scrollToBottom();
           }

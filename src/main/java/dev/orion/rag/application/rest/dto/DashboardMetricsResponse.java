@@ -6,5 +6,8 @@ public class DashboardMetricsResponse {
     public long handoffRequired;
     public long likes;
     public long dislikes;
+    public long urgencyLow;
+    public long urgencyMedium;
+    public long urgencyHigh;
 }
 

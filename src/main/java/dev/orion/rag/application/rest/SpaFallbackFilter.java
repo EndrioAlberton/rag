@@ -1,41 +1,28 @@
 package dev.orion.rag.application.rest;
 
-import io.vertx.core.http.HttpServerRequest;
-import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.container.ContainerRequestFilter;
-import jakarta.ws.rs.core.Context;
+import jakarta.annotation.security.PermitAll;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriInfo;
-import jakarta.ws.rs.ext.Provider;
+import java.net.URI;
 
 /**
- * Redirects unknown frontend routes to index.html so Vue Router handles them (SPA fallback).
+ * Catch-all JAX-RS resource that redirects unknown SPA routes to index.html.
+ * More specific resources (e.g. /ai/*) take priority over this catch-all.
  */
-@Provider
-public class SpaFallbackFilter implements ContainerRequestFilter {
+@Path("{path: .*}")
+@PermitAll
+public class SpaFallbackFilter {
 
-    @Context
-    UriInfo uriInfo;
-
-    @Override
-    public void filter(ContainerRequestContext ctx) {
-        String path = uriInfo.getPath();
-
-        // Only intercept non-API, non-asset GET requests
-        if (!ctx.getMethod().equals("GET")) return;
-        if (path.startsWith("ai/") || path.startsWith("q/") || path.startsWith("webhook/")
-                || path.startsWith("mcp/") || path.startsWith("assets/")
+    @GET
+    public Response spa(@PathParam("path") String path) {
+        // Let API, health, static assets and files through
+        if (path.startsWith("ai/") || path.startsWith("q/")
+                || path.startsWith("mcp/") || path.startsWith("webhook/")
                 || path.contains(".")) {
-            return;
+            return Response.status(404).build();
         }
-
-        // SPA routes — forward to index.html
-        if (path.startsWith("chat") || path.startsWith("conversations")
-                || path.startsWith("dashboard") || path.startsWith("settings")
-                || path.startsWith("login") || path.startsWith("register")) {
-            ctx.abortWith(Response
-                    .temporaryRedirect(uriInfo.getBaseUri().resolve("index.html"))
-                    .build());
-        }
+        return Response.temporaryRedirect(URI.create("/")).build();
     }
 }

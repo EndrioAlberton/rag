@@ -96,6 +96,10 @@ public class RequestLogEntity {
     @Column(name = "llm_latency_ms")
     private Long llmLatencyMs;
 
+    /** Urgency classification from triagem: BAIXA, MEDIA, ALTA (null when triagem not applied). */
+    @Column(name = "urgency", length = 10)
+    private String urgency;
+
     /** Timestamp at which this log entry was inserted into the database. */
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

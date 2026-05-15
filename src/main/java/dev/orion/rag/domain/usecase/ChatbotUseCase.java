@@ -19,11 +19,14 @@ package dev.orion.rag.domain.usecase;
 import dev.orion.rag.domain.model.AIRequest;
 import dev.orion.rag.domain.model.ChatMessage;
 import dev.orion.rag.domain.model.RagQuery;
+import dev.orion.rag.domain.model.TriagemResult;
+import dev.orion.rag.domain.model.TriagemResult.Decisao;
 import dev.orion.rag.domain.port.in.ChatbotPort;
 import dev.orion.rag.domain.port.out.AIPort;
 import dev.orion.rag.domain.port.out.EmbeddingRepository;
 import dev.orion.rag.domain.port.out.MemoryPort;
 import dev.orion.rag.domain.port.out.RequestLogPort;
+import dev.orion.rag.domain.port.out.TriagemPort;
 import dev.orion.rag.domain.support.AccumulatingOnCompletePublisher;
 import dev.orion.rag.domain.support.AppendOnCompletePublisher;
 import dev.orion.rag.domain.support.RagSourceFormatter;
@@ -58,6 +61,8 @@ Telefone: (51) 3930-6002
     private final MemoryPort memoryPort;
     /** Port responsible for persisting the request/response audit log. */
     private final RequestLogPort requestLogPort;
+    /** Port for classifying message urgency and triagem decision. */
+    private final TriagemPort triagemPort;
 
     /**
      * Creates a ChatbotUseCase with all required collaborators.
@@ -66,16 +71,19 @@ Telefone: (51) 3930-6002
      * @param aiPort              language-model response generator port
      * @param memoryPort          conversation memory loader and persister port
      * @param requestLogPort      audit-log persistence port
+     * @param triagemPort         triagem classification port
      */
     public ChatbotUseCase(
             EmbeddingRepository embeddingRepository,
             AIPort aiPort,
             MemoryPort memoryPort,
-            RequestLogPort requestLogPort) {
+            RequestLogPort requestLogPort,
+            TriagemPort triagemPort) {
         this.embeddingRepository = embeddingRepository;
         this.aiPort = aiPort;
         this.memoryPort = memoryPort;
         this.requestLogPort = requestLogPort;
+        this.triagemPort = triagemPort;
     }
 
     @Override
@@ -102,68 +110,62 @@ Telefone: (51) 3930-6002
 
         return new DeferredPublisher<>(() ->
             memoryPort.saveMessage(userMsg)
-                .thenCompose(v -> {
-                    RagQuery query = new RagQuery(prompt, 1, 0.7);
-                    long ragStart = System.currentTimeMillis();
-                    return embeddingRepository.searchChunks(query)
-                        .thenCompose(ragResponse -> {
-                            long ragLatencyMs = System.currentTimeMillis() - ragStart;
-                            String ragResult = ragResponse.getContexts().isEmpty()
-                                    ? DEFAULT_CONTEXT : ragResponse.getFirstContext();
-                            return memoryPort.getHistory(session)
-                                .thenApply(history -> {
-                                    long llmStart = System.currentTimeMillis();
-                                    boolean handoffRequired = ragResult == null || ragResult.isBlank();
-                                    String handoffReason = handoffRequired ? "no_context" : null;
+                .thenCompose(v -> memoryPort.getHistory(session))
+                .thenCompose(history -> triagemPort.classify(prompt, history)
+                    .thenCompose(triage -> {
+                        // PEDIR_INFO: ask user for more info, skip RAG
+                        if (triage.getDecisao() == Decisao.PEDIR_INFO) {
+                            String campos = triage.getCamposFaltantes() != null
+                                    ? " Para continuar, informe: " + triage.getCamposFaltantes() + "."
+                                    : "";
+                            String pedirMsg = "Para responder melhor, preciso de mais detalhes." + campos;
+                            return java.util.concurrent.CompletableFuture.completedFuture(
+                                publishSingle(pedirMsg));
+                        }
+                        RagQuery query = new RagQuery(prompt, 3, 0.7);
+                        long ragStart = System.currentTimeMillis();
+                        String urgency = triage.getUrgencia().name();
+                        return embeddingRepository.searchChunks(query)
+                            .thenApply(ragResponse -> {
+                                long ragLatencyMs = System.currentTimeMillis() - ragStart;
+                                String ragResult = ragResponse.getContexts().isEmpty()
+                                        ? DEFAULT_CONTEXT
+                                        : String.join("\n\n---\n\n", ragResponse.getContexts());
+                                long llmStart = System.currentTimeMillis();
+                                boolean handoffRequired = ragResult == null || ragResult.isBlank();
+                                String handoffReason = handoffRequired ? "no_context" : null;
 
-                                    Flow.Publisher<String> withAppendix;
-                                    if (handoffRequired) {
-                                        String msg = "Não encontrei informação suficiente na base para responder com segurança."
-                                                + HUMAN_SUPPORT_CONTACT;
-                                        withAppendix = subscriber -> subscriber.onSubscribe(new Flow.Subscription() {
-                                            private boolean done = false;
-
-                                            @Override
-                                            public void request(long n) {
-                                                if (done) {
-                                                    return;
-                                                }
-                                                done = true;
-                                                subscriber.onNext(msg);
-                                                subscriber.onComplete();
-                                            }
-
-                                            @Override
-                                            public void cancel() {
-                                                done = true;
-                                            }
+                                Flow.Publisher<String> withAppendix;
+                                if (handoffRequired) {
+                                    String msg = "Não encontrei informação suficiente na base para responder com segurança."
+                                            + HUMAN_SUPPORT_CONTACT;
+                                    withAppendix = publishSingle(msg);
+                                } else {
+                                    AIRequest aiRequest = new AIRequest(session, prompt, ragResult, history);
+                                    Flow.Publisher<String> stream =
+                                            aiPort.generateContextualResponse(aiRequest);
+                                    String sourcesAppendix = RagSourceFormatter.sourcesAppendix(ragResult);
+                                    withAppendix = new AppendOnCompletePublisher(stream, sourcesAppendix);
+                                }
+                                return (Flow.Publisher<String>) new AccumulatingOnCompletePublisher(
+                                        withAppendix,
+                                        fullResponse -> {
+                                            long llmLatencyMs =
+                                                    System.currentTimeMillis() - llmStart;
+                                            ChatMessage assistantMsg = new ChatMessage(
+                                                    session, fullResponse,
+                                                    ChatMessage.MessageType.ASSISTANT);
+                                            return memoryPort.saveMessage(assistantMsg)
+                                                    .thenCompose(v2 -> requestLogPort.log(
+                                                            phoneNumber, session, userName,
+                                                            email, prompt, messageTimestamp,
+                                                            ragResult, ragResponse.getScore(), ragLatencyMs,
+                                                            handoffRequired, handoffReason,
+                                                            fullResponse, llmLatencyMs, null, urgency));
                                         });
-                                    } else {
-                                        AIRequest aiRequest = new AIRequest(session, prompt, ragResult, history);
-                                        Flow.Publisher<String> stream =
-                                                aiPort.generateContextualResponse(aiRequest);
-                                        String sourcesAppendix = RagSourceFormatter.sourcesAppendix(ragResult);
-                                        withAppendix = new AppendOnCompletePublisher(stream, sourcesAppendix);
-                                    }
-                                    return (Flow.Publisher<String>) new AccumulatingOnCompletePublisher(
-                                            withAppendix,
-                                            fullResponse -> {
-                                                long llmLatencyMs =
-                                                        System.currentTimeMillis() - llmStart;
-                                                ChatMessage assistantMsg = new ChatMessage(
-                                                        session, fullResponse,
-                                                        ChatMessage.MessageType.ASSISTANT);
-                                                return memoryPort.saveMessage(assistantMsg)
-                                                        .thenCompose(v2 -> requestLogPort.log(
-                                                                phoneNumber, session, userName,
-                                                                email, prompt, messageTimestamp,
-                                                                ragResult, ragResponse.getScore(), ragLatencyMs,
-                                                                handoffRequired, handoffReason,
-                                                                fullResponse, llmLatencyMs, null));
-                                            });
-                                });
-                        });
-                })
+                            });
+                    })
+                )
         );
     }
 
@@ -177,74 +179,83 @@ Telefone: (51) 3930-6002
 
         return new DeferredPublisher<>(() ->
             memoryPort.saveMessage(userMsg)
-                .thenCompose(v -> {
-                    RagQuery query = new RagQuery(prompt, 1, 0.7);
-                    long ragStart = System.currentTimeMillis();
-                    return embeddingRepository.searchChunks(query)
-                        .thenCompose(ragResponse -> {
-                            long ragLatencyMs = System.currentTimeMillis() - ragStart;
-                            String ragResult = ragResponse.getContexts().isEmpty()
-                                    ? DEFAULT_CONTEXT : ragResponse.getFirstContext();
-                            return memoryPort.getHistory(userId, conversationId)
-                                .thenApply(history -> {
-                                    long llmStart = System.currentTimeMillis();
-                                    boolean handoffRequired = ragResult == null || ragResult.isBlank();
-                                    String handoffReason = handoffRequired ? "no_context" : null;
+                .thenCompose(v -> memoryPort.getHistory(userId, conversationId))
+                .thenCompose(history -> triagemPort.classify(prompt, history)
+                    .thenCompose(triage -> {
+                        // PEDIR_INFO: ask user for more info, skip RAG
+                        if (triage.getDecisao() == Decisao.PEDIR_INFO) {
+                            String campos = triage.getCamposFaltantes() != null
+                                    ? " Para continuar, informe: " + triage.getCamposFaltantes() + "."
+                                    : "";
+                            String pedirMsg = "Para responder melhor, preciso de mais detalhes." + campos;
+                            return java.util.concurrent.CompletableFuture.completedFuture(
+                                publishSingle(pedirMsg));
+                        }
+                        RagQuery query = new RagQuery(prompt, 3, 0.7);
+                        long ragStart = System.currentTimeMillis();
+                        String urgency = triage.getUrgencia().name();
+                        return embeddingRepository.searchChunks(query)
+                            .thenApply(ragResponse -> {
+                                long ragLatencyMs = System.currentTimeMillis() - ragStart;
+                                String ragResult = ragResponse.getContexts().isEmpty()
+                                        ? DEFAULT_CONTEXT
+                                        : String.join("\n\n---\n\n", ragResponse.getContexts());
+                                long llmStart = System.currentTimeMillis();
+                                boolean handoffRequired = ragResult == null || ragResult.isBlank();
+                                String handoffReason = handoffRequired ? "no_context" : null;
 
-                                    Flow.Publisher<String> withAppendix;
-                                    if (handoffRequired) {
-                                        String msg = "Não encontrei informação suficiente na base para responder com segurança."
-                                                + HUMAN_SUPPORT_CONTACT;
-                                        withAppendix = subscriber -> subscriber.onSubscribe(new Flow.Subscription() {
-                                            private boolean done = false;
-
-                                            @Override
-                                            public void request(long n) {
-                                                if (done) {
-                                                    return;
-                                                }
-                                                done = true;
-                                                subscriber.onNext(msg);
-                                                subscriber.onComplete();
-                                            }
-
-                                            @Override
-                                            public void cancel() {
-                                                done = true;
-                                            }
+                                Flow.Publisher<String> withAppendix;
+                                if (handoffRequired) {
+                                    String msg = "Não encontrei informação suficiente na base para responder com segurança."
+                                            + HUMAN_SUPPORT_CONTACT;
+                                    withAppendix = publishSingle(msg);
+                                } else {
+                                    AIRequest aiRequest = new AIRequest(
+                                            conversationId, prompt, ragResult, history);
+                                    Flow.Publisher<String> stream =
+                                            aiPort.generateContextualResponse(aiRequest);
+                                    String sourcesAppendix = RagSourceFormatter.sourcesAppendix(ragResult);
+                                    withAppendix = new AppendOnCompletePublisher(stream, sourcesAppendix);
+                                }
+                                return (Flow.Publisher<String>) new AccumulatingOnCompletePublisher(
+                                        withAppendix,
+                                        fullResponse -> {
+                                            long llmLatencyMs =
+                                                    System.currentTimeMillis() - llmStart;
+                                            ChatMessage assistantMsg = new ChatMessage();
+                                            assistantMsg.setConversationId(conversationId);
+                                            assistantMsg.setSessionId(conversationId);
+                                            assistantMsg.setContent(fullResponse);
+                                            assistantMsg.setType(
+                                                    ChatMessage.MessageType.ASSISTANT);
+                                            assistantMsg.setUserId(null);
+                                            return memoryPort.saveMessage(assistantMsg)
+                                                    .thenCompose(v2 -> requestLogPort.log(
+                                                            phoneNumber, userId, userName,
+                                                            email, prompt, messageTimestamp,
+                                                            ragResult, ragResponse.getScore(), ragLatencyMs,
+                                                            handoffRequired, handoffReason,
+                                                            fullResponse, llmLatencyMs,
+                                                            conversationId, urgency));
                                         });
-                                    } else {
-                                        AIRequest aiRequest = new AIRequest(
-                                                conversationId, prompt, ragResult, history);
-                                        Flow.Publisher<String> stream =
-                                                aiPort.generateContextualResponse(aiRequest);
-                                        String sourcesAppendix = RagSourceFormatter.sourcesAppendix(ragResult);
-                                        withAppendix = new AppendOnCompletePublisher(stream, sourcesAppendix);
-                                    }
-                                    return (Flow.Publisher<String>) new AccumulatingOnCompletePublisher(
-                                            withAppendix,
-                                            fullResponse -> {
-                                                long llmLatencyMs =
-                                                        System.currentTimeMillis() - llmStart;
-                                                ChatMessage assistantMsg = new ChatMessage();
-                                                assistantMsg.setConversationId(conversationId);
-                                                assistantMsg.setSessionId(conversationId);
-                                                assistantMsg.setContent(fullResponse);
-                                                assistantMsg.setType(
-                                                        ChatMessage.MessageType.ASSISTANT);
-                                                assistantMsg.setUserId(null);
-                                                return memoryPort.saveMessage(assistantMsg)
-                                                        .thenCompose(v2 -> requestLogPort.log(
-                                                                phoneNumber, userId, userName,
-                                                                email, prompt, messageTimestamp,
-                                                                ragResult, ragResponse.getScore(), ragLatencyMs,
-                                                                handoffRequired, handoffReason,
-                                                                fullResponse, llmLatencyMs,
-                                                                conversationId));
-                                            });
-                                });
-                        });
-                })
+                            });
+                    })
+                )
         );
     }
+
+    /** Helper to create a single-item publisher for fixed messages. */
+    private static Flow.Publisher<String> publishSingle(String message) {
+        return subscriber -> subscriber.onSubscribe(new Flow.Subscription() {
+            private boolean done = false;
+            @Override public void request(long n) {
+                if (done) return;
+                done = true;
+                subscriber.onNext(message);
+                subscriber.onComplete();
+            }
+            @Override public void cancel() { done = true; }
+        });
+    }
 }
+

@@ -236,6 +236,16 @@ export const apiService = {
   async getDashboardMetrics() {
     const response = await api.get(`/ai/dashboard/metrics`);
     return response.data;
+  },
+
+  async getDashboardInteractionsByUrgency(urgency) {
+    const response = await api.get(`/ai/dashboard/interactions?urgency=${urgency}`);
+    return response.data;
+  },
+
+  async getDashboardInteractionsByFeedback(value) {
+    const response = await api.get(`/ai/dashboard/interactions?feedback=${value}`);
+    return response.data;
   }
 };
 

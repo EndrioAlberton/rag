@@ -24,6 +24,7 @@ import dev.orion.rag.domain.port.out.AIPort;
 import dev.orion.rag.domain.port.out.EmbeddingRepository;
 import dev.orion.rag.domain.port.out.MemoryPort;
 import dev.orion.rag.domain.port.out.RequestLogPort;
+import dev.orion.rag.domain.port.out.TriagemPort;
 import dev.orion.rag.domain.port.out.WebScraperPort;
 import dev.orion.rag.domain.usecase.AskQuestionUseCase;
 import dev.orion.rag.domain.usecase.ChatbotUseCase;
@@ -57,6 +58,10 @@ public class ApplicationBeans {
     @Inject
     RequestLogPort requestLogPort;
 
+    /** Port for triagem classification. */
+    @Inject
+    TriagemPort triagemPort;
+
     /** Port for web content scraping. */
     @Inject
     WebScraperPort webScraperPort;
@@ -70,7 +75,7 @@ public class ApplicationBeans {
     @Produces
     @ApplicationScoped
     public ChatbotPort chatbotPort() {
-        return new ChatbotUseCase(embeddingRepository, aiPort, memoryPort, requestLogPort);
+        return new ChatbotUseCase(embeddingRepository, aiPort, memoryPort, requestLogPort, triagemPort);
     }
 
     @Produces

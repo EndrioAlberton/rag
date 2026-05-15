@@ -83,7 +83,7 @@ Telefone: (51) 3930-6002
     public Flow.Publisher<String> execute(String session, String prompt,
             String phoneNumber, String userName, String email) {
         Instant messageTimestamp = Instant.now();
-        RagQuery query = new RagQuery(prompt, 1, 0.7);
+        RagQuery query = new RagQuery(prompt, 3, 0.7);
         long ragStart = System.currentTimeMillis();
 
         return new DeferredPublisher<>(() ->
@@ -91,7 +91,8 @@ Telefone: (51) 3930-6002
                 .thenApply(ragResponse -> {
                     long ragLatencyMs = System.currentTimeMillis() - ragStart;
                     String ragResult = ragResponse.getContexts().isEmpty()
-                            ? DEFAULT_CONTEXT : ragResponse.getFirstContext();
+                            ? DEFAULT_CONTEXT
+                            : String.join("\n\n---\n\n", ragResponse.getContexts());
                     boolean handoffRequired = ragResult == null || ragResult.isBlank();
                     String handoffReason = handoffRequired ? "no_context" : null;
 
@@ -134,7 +135,7 @@ Telefone: (51) 3930-6002
                                         prompt, messageTimestamp,
                                         ragResult, ragResponse.getScore(), ragLatencyMs,
                                         handoffRequired, handoffReason,
-                                        fullResponse, llmLatencyMs, null);
+                                        fullResponse, llmLatencyMs, null, null);
                             });
                 })
         );
