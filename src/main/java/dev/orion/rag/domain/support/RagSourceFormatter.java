@@ -13,6 +13,8 @@ public final class RagSourceFormatter {
             "https://poa.ifrs.edu.br/attachments/article/2808/PPC_SSI_POA_Final_Aprovado.docx.pdf";
     private static final String ANEXO_URL =
             "https://poa.ifrs.edu.br/attachments/article/2808/Res_2025_Anexo.pdf";
+    private static final String ANEXO_69_URL =
+            "https://poa.ifrs.edu.br/attachments/article/2808/69_ANEXO_DE_RESOLUCAO.pdf";
     private static final String DUVIDAS_RESPOSTAS_URL =
             "https://poa.ifrs.edu.br/index.php/duvidas-respostas";
 
@@ -59,8 +61,11 @@ public final class RagSourceFormatter {
         if (lower.contains("res_2025_anexo") || lower.contains("res_2025_anexo.pdf")) {
             return "[" + trimmed + "](" + ANEXO_URL + ")";
         }
+        if (lower.contains("69_anexo_de_resolucao")) {
+            return "[" + trimmed + "](" + ANEXO_69_URL + ")";
+        }
         if (lower.contains("duvidas") && lower.contains("respostas")) {
-            return "[" + trimmed + "](" + DUVIDAS_RESPOSTAS_URL + ")";
+            return "[Dúvidas e Respostas — IFRS POA](" + DUVIDAS_RESPOSTAS_URL + ")";
         }
 
         // Default: show filename only (clean, no raw RAG dump).

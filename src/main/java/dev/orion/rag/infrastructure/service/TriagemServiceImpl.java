@@ -23,9 +23,19 @@ Retorne SOMENTE um JSON com este formato exato:
 {"decisao":"AUTO_RESPONDER","urgencia":"BAIXA","camposFaltantes":""}
 
 Regras de decisão:
-- AUTO_RESPONDER: perguntas sobre o IFRS, OU mensagens que são continuações ou refinamentos de uma pergunta anterior no histórico. Em caso de dúvida, prefira AUTO_RESPONDER.
-- PEDIR_INFO: APENAS para mensagens completamente novas, sem relação com o histórico, onde a falta de informação torna impossível dar qualquer resposta (ex: "quero saber sobre inscrição" como primeira mensagem sem especificar curso). Nunca use PEDIR_INFO para follow-ups de uma conversa em andamento.
-- REDIRECIONAR: claramente fora do escopo do IFRS.
+- AUTO_RESPONDER: use em QUALQUER uma das situações abaixo:
+  * O histórico não está vazio (já há conversa em andamento).
+  * A mensagem menciona o IFRS, SSI, PPC, disciplina, semestre, TCC, estágio, frequência, reprovação, grade curricular ou atividades complementares.
+  * A mensagem é uma continuação, refinamento ou pergunta de acompanhamento de qualquer tópico anterior.
+  * Em caso de QUALQUER dúvida → sempre prefira AUTO_RESPONDER.
+
+- PEDIR_INFO: use SOMENTE quando TODAS as condições abaixo forem verdadeiras ao mesmo tempo:
+  1. O histórico está completamente vazio (primeiro contato).
+  2. A mensagem é tão genérica que é impossível dar qualquer resposta útil (ex: "quero saber sobre inscrição" sem mencionar instituição, curso ou contexto).
+  3. Perguntar o dado faltante é estritamente necessário para responder.
+  NUNCA use PEDIR_INFO se o histórico tiver qualquer mensagem anterior.
+
+- REDIRECIONAR: use apenas quando a mensagem for claramente fora do escopo do IFRS (medicina, culinária, esportes, etc.).
 
 Regras de urgência:
 - BAIXA: perguntas gerais sem prazo imediato.

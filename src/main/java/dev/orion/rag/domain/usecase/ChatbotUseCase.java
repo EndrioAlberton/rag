@@ -119,8 +119,10 @@ Telefone: (51) 3930-6002
                                     ? " Para continuar, informe: " + triage.getCamposFaltantes() + "."
                                     : "";
                             String pedirMsg = "Para responder melhor, preciso de mais detalhes." + campos;
-                            return java.util.concurrent.CompletableFuture.completedFuture(
-                                publishSingle(pedirMsg));
+                            ChatMessage clarificationMsg = new ChatMessage(
+                                    session, pedirMsg, ChatMessage.MessageType.ASSISTANT);
+                            return memoryPort.saveMessage(clarificationMsg)
+                                    .thenApply(v2 -> publishSingle(pedirMsg));
                         }
                         RagQuery query = new RagQuery(prompt, 3, 0.7);
                         long ragStart = System.currentTimeMillis();
@@ -188,8 +190,14 @@ Telefone: (51) 3930-6002
                                     ? " Para continuar, informe: " + triage.getCamposFaltantes() + "."
                                     : "";
                             String pedirMsg = "Para responder melhor, preciso de mais detalhes." + campos;
-                            return java.util.concurrent.CompletableFuture.completedFuture(
-                                publishSingle(pedirMsg));
+                            ChatMessage clarificationMsg = new ChatMessage();
+                            clarificationMsg.setConversationId(conversationId);
+                            clarificationMsg.setSessionId(conversationId);
+                            clarificationMsg.setContent(pedirMsg);
+                            clarificationMsg.setType(ChatMessage.MessageType.ASSISTANT);
+                            clarificationMsg.setUserId(null);
+                            return memoryPort.saveMessage(clarificationMsg)
+                                    .thenApply(v2 -> publishSingle(pedirMsg));
                         }
                         RagQuery query = new RagQuery(prompt, 3, 0.7);
                         long ragStart = System.currentTimeMillis();

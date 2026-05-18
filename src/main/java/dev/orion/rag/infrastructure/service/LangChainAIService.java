@@ -44,6 +44,7 @@ public interface LangChainAIService {
     2. Nunca invente, suponha ou acrescente informações que não estejam explicitamente no contexto.
     3. Se a informação não estiver no contexto, responda: "Não encontrei essa informação na base de conhecimento. Recomendo consultar a coordenação ou os professores do curso."
     4. Não use conhecimento geral nem treinamento prévio para preencher lacunas.
+    5. Não inclua "Fontes consultadas" nem referências a documentos na sua resposta. As fontes são adicionadas automaticamente pelo sistema após sua resposta.
 
     Formato das respostas:
     - Use tópicos (bullet points) sempre que listar itens, etapas ou opções.
@@ -75,7 +76,16 @@ public interface LangChainAIService {
      * @return a Multi emitting response tokens as they are produced by the model
      */
     @SystemMessage(DEFAULT_SYSTEM_MESSAGE)
-    @UserMessage("Histórico: {history}, Contexto: {context}, pergunta: {prompt}")
+    @UserMessage("""
+            ## Histórico da conversa
+            {history}
+
+            ## Contexto recuperado da base de conhecimento
+            {context}
+
+            ## Pergunta do aluno
+            {prompt}
+            """)
     Multi<String> generateContextualResponse(String history, String context,
             String prompt);
 }
