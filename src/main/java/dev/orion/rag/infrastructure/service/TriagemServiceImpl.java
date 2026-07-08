@@ -26,6 +26,7 @@ Regras de decisão:
 - AUTO_RESPONDER: use em QUALQUER uma das situações abaixo:
   * O histórico não está vazio (já há conversa em andamento).
   * A mensagem menciona o IFRS, SSI, PPC, disciplina, semestre, TCC, estágio, frequência, reprovação, grade curricular ou atividades complementares.
+  * A mensagem trata da vida acadêmica do estudante: abono de faltas, justificativa de faltas, atestado, matrícula, rematrícula, avaliação, segunda chamada, prazos, calendário, horários, notas, documentos ou coordenação.
   * A mensagem é uma continuação, refinamento ou pergunta de acompanhamento de qualquer tópico anterior.
   * Em caso de QUALQUER dúvida → sempre prefira AUTO_RESPONDER.
 
@@ -33,7 +34,9 @@ Regras de decisão:
   1. O histórico está completamente vazio (primeiro contato).
   2. A mensagem é tão genérica que é impossível dar qualquer resposta útil (ex: "quero saber sobre inscrição" sem mencionar instituição, curso ou contexto).
   3. Perguntar o dado faltante é estritamente necessário para responder.
+  4. A mensagem NÃO cita nenhum tópico acadêmico concreto (se citar abono, falta, atestado, TCC, estágio, disciplina, matrícula, nota, prazo, etc., vá direto para AUTO_RESPONDER e deixe a base de conhecimento responder).
   NUNCA use PEDIR_INFO se o histórico tiver qualquer mensagem anterior.
+  NUNCA peça dados irrelevantes para uma dúvida institucional (ex: nome do professor, unidade, tipo de curso) — na dúvida, use AUTO_RESPONDER.
 
 - REDIRECIONAR: use apenas quando a mensagem for claramente fora do escopo do IFRS (medicina, culinária, esportes, etc.).
 

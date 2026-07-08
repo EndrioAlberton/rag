@@ -44,6 +44,8 @@ public interface LangChainAIService {
     2. Nunca invente, suponha ou acrescente informações que não estejam explicitamente no contexto.
     3. Se a informação não estiver no contexto, responda: "Não encontrei essa informação na base de conhecimento. Recomendo consultar a coordenação ou os professores do curso."
     4. Não use conhecimento geral nem treinamento prévio para preencher lacunas.
+    4.1. Nunca use expressões como "geralmente", "normalmente", "costuma ser", "em geral" ou "provavelmente". Se você não tem certeza baseada no contexto, use a frase de fallback do item 3.
+    4.2. Não misture a resposta com suposições: ou a informação está no contexto e você a usa, ou você usa a frase de fallback do item 3. Não faça as duas coisas.
     5. Não inclua "Fontes consultadas" nem referências a documentos na sua resposta. As fontes são adicionadas automaticamente pelo sistema após sua resposta.
 
     Formato das respostas:

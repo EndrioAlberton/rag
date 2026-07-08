@@ -124,7 +124,7 @@ Telefone: (51) 3930-6002
                             return memoryPort.saveMessage(clarificationMsg)
                                     .thenApply(v2 -> publishSingle(pedirMsg));
                         }
-                        RagQuery query = new RagQuery(prompt, 3, 0.7);
+                        RagQuery query = new RagQuery(prompt, 6, 0.55);
                         long ragStart = System.currentTimeMillis();
                         String urgency = triage.getUrgencia().name();
                         return embeddingRepository.searchChunks(query)
@@ -199,7 +199,7 @@ Telefone: (51) 3930-6002
                             return memoryPort.saveMessage(clarificationMsg)
                                     .thenApply(v2 -> publishSingle(pedirMsg));
                         }
-                        RagQuery query = new RagQuery(prompt, 3, 0.7);
+                        RagQuery query = new RagQuery(prompt, 6, 0.55);
                         long ragStart = System.currentTimeMillis();
                         String urgency = triage.getUrgencia().name();
                         return embeddingRepository.searchChunks(query)

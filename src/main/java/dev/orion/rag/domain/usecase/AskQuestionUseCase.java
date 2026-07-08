@@ -83,7 +83,7 @@ Telefone: (51) 3930-6002
     public Flow.Publisher<String> execute(String session, String prompt,
             String phoneNumber, String userName, String email) {
         Instant messageTimestamp = Instant.now();
-        RagQuery query = new RagQuery(prompt, 3, 0.7);
+        RagQuery query = new RagQuery(prompt, 6, 0.55);
         long ragStart = System.currentTimeMillis();
 
         return new DeferredPublisher<>(() ->
