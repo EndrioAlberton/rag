@@ -59,14 +59,13 @@ public class RequestLogServiceImpl implements RequestLogPort {
     }
 
     @Override
-    public CompletionStage<Void> log(String phoneNumber, String userId, String userName,
+    public CompletionStage<Void> log(String userId, String userName,
             String email, String userMessage,
             Instant messageTimestamp, String ragResult, Double ragScore, long ragLatencyMs,
             boolean handoffRequired, String handoffReason,
             String llmResponse, long llmLatencyMs, String conversationId, String urgency) {
         return sessionFactory.withTransaction(session -> {
             RequestLogEntity entity = new RequestLogEntity();
-            entity.setPhoneNumber(phoneNumber != null && !phoneNumber.isBlank() ? phoneNumber : null);
             entity.setUserId(userId);
             entity.setUserName(userName != null && !userName.isBlank() ? userName : null);
             entity.setEmail(email != null && !email.isBlank() ? email : null);
@@ -122,11 +121,10 @@ public class RequestLogServiceImpl implements RequestLogPort {
      */
     private static String toCsv(List<RequestLog> logs) {
         StringBuilder sb = new StringBuilder();
-        sb.append("phone_number,user_id,user_name,email,conversation_id,"
+        sb.append("user_id,user_name,email,conversation_id,"
                 + "user_message,message_timestamp,rag_result,rag_latency_ms,"
                 + "llm_response,llm_latency_ms\n");
         for (RequestLog log : logs) {
-            sb.append(escapeCsvField(log.getPhoneNumber())).append(",");
             sb.append(escapeCsvField(log.getUserId())).append(",");
             sb.append(escapeCsvField(log.getUserName())).append(",");
             sb.append(escapeCsvField(log.getEmail())).append(",");

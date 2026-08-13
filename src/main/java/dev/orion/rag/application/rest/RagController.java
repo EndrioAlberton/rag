@@ -19,19 +19,16 @@ package dev.orion.rag.application.rest;
 import dev.orion.rag.application.rest.dto.ChatbotRequest;
 import dev.orion.rag.application.rest.dto.ContextResponse;
 import dev.orion.rag.application.rest.dto.ConversationRequest;
-import dev.orion.rag.application.rest.dto.UserRequest;
 import dev.orion.rag.domain.model.Conversation;
 import dev.orion.rag.domain.model.ConversationMemory;
 import dev.orion.rag.domain.model.RagQuery;
 import dev.orion.rag.domain.model.User;
-import dev.orion.rag.domain.port.in.AskQuestionPort;
 import dev.orion.rag.domain.port.in.ChatbotPort;
 import dev.orion.rag.domain.port.out.AuthPort;
 import dev.orion.rag.domain.port.out.ConversationServicePort;
 import dev.orion.rag.domain.port.out.EmbeddingRepository;
 import dev.orion.rag.domain.port.out.MemoryPort;
 import dev.orion.rag.domain.port.out.RequestLogPort;
-import dev.orion.rag.domain.port.out.UserServicePort;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -57,23 +54,21 @@ import jakarta.ws.rs.core.Response;
 import java.util.List;
 
 /**
- * Main REST controller for RAG-powered chat, context retrieval, conversation management and user operations.
+ * Main REST controller for RAG-powered chat, context retrieval and conversation management.
  * Converts between the domain's {@link java.util.concurrent.CompletionStage}/
  * {@link java.util.concurrent.Flow.Publisher} and Mutiny types at the application boundary.
+ *
+ * <p>Every endpoint requires an authenticated user; account management lives in Orion Users.
  */
 @Path("/ai")
 public class RagController {
 
-    /** Use case that handles streaming chatbot responses within a session. */
+    /** Use case that handles streaming chatbot responses within a conversation. */
     private final ChatbotPort chatbotUseCase;
-    /** Use case that answers a one-shot question using RAG. */
-    private final AskQuestionPort askQuestionUseCase;
     /** Port for embedding-based retrieval of course context. */
     private final EmbeddingRepository embeddingRepository;
-    /** Port that manages per-session conversation memory. */
+    /** Port that manages per-conversation memory. */
     private final MemoryPort memoryPort;
-    /** Domain service for user management. */
-    private final UserServicePort userServicePort;
     /** Domain service for conversation management. */
     private final ConversationServicePort conversationServicePort;
     /** Port for JWT authentication and user resolution. */
@@ -89,28 +84,22 @@ public class RagController {
      * Creates a RagController with all required domain ports.
      *
      * @param chatbotUseCase           streaming chatbot use case
-     * @param askQuestionUseCase       one-shot RAG question use case
      * @param embeddingRepository      embedding search repository
      * @param memoryPort               conversation memory port
-     * @param userServicePort          user management service
      * @param conversationServicePort  conversation management service
      * @param authPort                 JWT authentication port
      * @param requestLogPort           audit log port
      */
     @Inject
     public RagController(ChatbotPort chatbotUseCase,
-            AskQuestionPort askQuestionUseCase,
             EmbeddingRepository embeddingRepository,
             MemoryPort memoryPort,
-            UserServicePort userServicePort,
             ConversationServicePort conversationServicePort,
             AuthPort authPort,
             RequestLogPort requestLogPort) {
         this.chatbotUseCase = chatbotUseCase;
-        this.askQuestionUseCase = askQuestionUseCase;
         this.embeddingRepository = embeddingRepository;
         this.memoryPort = memoryPort;
-        this.userServicePort = userServicePort;
         this.conversationServicePort = conversationServicePort;
         this.authPort = authPort;
         this.requestLogPort = requestLogPort;
@@ -165,9 +154,9 @@ public class RagController {
                                             new SecurityException("Acesso negado"));
                                 }
                                 return Multi.createFrom().publisher(
-                                        chatbotUseCase.executeWithPhone(
+                                        chatbotUseCase.execute(
                                                 syncedUserId, request.conversationId,
-                                                request.prompt, null,
+                                                request.prompt,
                                                 syncedUserName, syncedEmail));
                             })
                             .onFailure().recoverWithMulti(e -> {
@@ -189,90 +178,60 @@ public class RagController {
     }
 
     /**
-     * Legacy GET endpoint for streaming chatbot responses, supporting both session-based
-     * and user+conversation-based addressing.
+     * GET variant of the chatbot stream, for clients that cannot POST an SSE request
+     * (e.g. the browser's native {@code EventSource}).
      *
-     * @param session        anonymous session identifier (optional)
-     * @param userId         authenticated user ID (optional, combined with conversationId)
-     * @param conversationId conversation to resume (optional, combined with userId)
+     * @param userId         authenticated user ID
+     * @param conversationId conversation to resume
      * @param prompt         the user's prompt text
      * @return server-sent event stream of response tokens
      */
     @GET
     @Path("/chatbot")
     @Produces(MediaType.SERVER_SENT_EVENTS)
-    public Multi<String> chatbotLegacy(
-            @QueryParam("session") String session,
-            @QueryParam("userId") String userId,
-            @QueryParam("conversationId") String conversationId,
+    @RolesAllowed("user")
+    public Multi<String> chatbotGet(
+            @QueryParam("userId") @NotBlank String userId,
+            @QueryParam("conversationId") @NotBlank String conversationId,
             @QueryParam("prompt") @NotBlank String prompt) {
-        if (userId != null && conversationId != null) {
-            Log.info("Chatbot GET (legacy) User: " + userId + ", Conversation: " + conversationId);
-            return syncUserFromRequest()
-                .onItem().transformToMulti(syncedUser -> {
-                    String syncedUserId = syncedUser.getId();
-                    String syncedUserName = syncedUser.getUsername();
-                    String syncedEmail = syncedUser.getEmail();
-                    return Uni.createFrom()
-                            .completionStage(() -> conversationServicePort
-                                    .userHasAccess(syncedUserId, conversationId))
-                            .onItem().transformToMulti(hasAccess -> {
-                                if (!hasAccess) {
-                                    Log.warn("Access denied for user " + syncedUserId
-                                            + " to conversation " + conversationId);
-                                    return Multi.createFrom().failure(
-                                            new SecurityException("Acesso negado"));
-                                }
-                                return Multi.createFrom().publisher(
-                                        chatbotUseCase.executeWithPhone(
-                                                syncedUserId, conversationId, prompt,
-                                                null, syncedUserName, syncedEmail));
-                            })
-                            .onFailure().recoverWithMulti(e -> {
-                                String msg = e instanceof SecurityException
-                                        ? "Erro: Acesso negado à conversa"
-                                        : "Erro: " + (e.getMessage() != null ? e.getMessage() : "Erro desconhecido");
-                                return Multi.createFrom().item("data: " + msg + "\n\n");
-                            });
-                })
-                .onFailure().invoke(e -> Log.error("Error processing chatbot request", e))
-                .onFailure().recoverWithMulti(e -> {
-                    String msg = e.getMessage() != null ? e.getMessage() : "Erro desconhecido";
-                    return Multi.createFrom().item("data: Erro: " + msg + "\n\n");
-                });
-        } else if (session != null) {
-            Log.info("Chatbot GET (legacy) Session: " + session);
-            return Multi.createFrom().publisher(chatbotUseCase.execute(session, prompt))
-                .onFailure().recoverWithMulti(e -> {
-                    Log.error("Error processing chatbot with session", e);
-                    String msg = e.getMessage() != null ? e.getMessage() : "Erro desconhecido";
-                    return Multi.createFrom().item("data: Erro: " + msg + "\n\n");
-                });
-        } else {
-            return Multi.createFrom().item(
-                    "data: Erro: Deve fornecer session ou userId+conversationId\n\n");
-        }
+        Log.info("Chatbot GET User: " + userId + ", Conversation: " + conversationId);
+        return syncUserFromRequest()
+            .onItem().transformToMulti(syncedUser -> {
+                String syncedUserId = syncedUser.getId();
+                String syncedUserName = syncedUser.getUsername();
+                String syncedEmail = syncedUser.getEmail();
+                return Uni.createFrom()
+                        .completionStage(() -> conversationServicePort
+                                .userHasAccess(syncedUserId, conversationId))
+                        .onItem().transformToMulti(hasAccess -> {
+                            if (!hasAccess) {
+                                Log.warn("Access denied for user " + syncedUserId
+                                        + " to conversation " + conversationId);
+                                return Multi.createFrom().failure(
+                                        new SecurityException("Acesso negado"));
+                            }
+                            return Multi.createFrom().publisher(
+                                    chatbotUseCase.execute(
+                                            syncedUserId, conversationId, prompt,
+                                            syncedUserName, syncedEmail));
+                        })
+                        .onFailure().recoverWithMulti(e -> {
+                            String msg = e instanceof SecurityException
+                                    ? "Erro: Acesso negado à conversa"
+                                    : "Erro: " + (e.getMessage() != null ? e.getMessage() : "Erro desconhecido");
+                            return Multi.createFrom().item("data: " + msg + "\n\n");
+                        });
+            })
+            .onFailure().invoke(e -> Log.error("Error processing chatbot request", e))
+            .onFailure().recoverWithMulti(e -> {
+                String msg = e.getMessage() != null ? e.getMessage() : "Erro desconhecido";
+                return Multi.createFrom().item("data: Erro: " + msg + "\n\n");
+            });
     }
 
     /**
-     * Streams a one-shot RAG-augmented model response for the given session and prompt.
-     *
-     * @param session the session identifier used to scope RAG retrieval
-     * @param prompt  the user's question
-     * @return server-sent event stream of response tokens
-     */
-    @GET
-    @Path("/ask")
-    @Produces(MediaType.SERVER_SENT_EVENTS)
-    public Multi<String> askModel(
-            @QueryParam("session") @NotBlank String session,
-            @QueryParam("prompt") @NotBlank String prompt) {
-        Log.info("Ask Model Session: " + session);
-        return Multi.createFrom().publisher(askQuestionUseCase.execute(session, prompt));
-    }
-
-    /**
-     * Returns the most relevant RAG context chunks for a given session and prompt.
+     * Returns the most relevant RAG context chunks for a given prompt. Exposes the retrieval
+     * layer on its own, so a response can be traced back to the documents that grounded it.
      *
      * @param session    the session or course identifier
      * @param prompt     the query text used for similarity search
@@ -282,6 +241,7 @@ public class RagController {
     @GET
     @Path("/context")
     @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("user")
     public Uni<ContextResponse> getContext(
             @QueryParam("session") @NotBlank String session,
             @QueryParam("prompt") @NotBlank String prompt,
@@ -298,34 +258,25 @@ public class RagController {
     }
 
     /**
-     * Returns the in-memory conversation state for a given session or user+conversation pair.
+     * Returns the stored conversation state for the authenticated user.
      *
-     * @param session        anonymous session identifier (optional)
-     * @param userId         authenticated user ID (optional, combined with conversationId)
-     * @param conversationId conversation identifier (optional, combined with userId)
+     * @param userId         authenticated user ID
+     * @param conversationId conversation identifier
      * @return the current {@link ConversationMemory}, or null if not found
      */
     @GET
     @Path("/memory")
     @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("user")
     public Uni<ConversationMemory> getMemory(
-            @QueryParam("session") String session,
-            @QueryParam("userId") String userId,
-            @QueryParam("conversationId") String conversationId) {
-        if (userId != null && conversationId != null) {
-            Log.info("Memory User: " + userId + ", Conversation: " + conversationId);
-            return syncUserFromRequest()
-                .onItem().transformToUni(syncedUser ->
-                        Uni.createFrom().completionStage(() ->
-                                memoryPort.getConversationMemory(
-                                        syncedUser.getOrionUserHash(), conversationId)));
-        } else if (session != null) {
-            Log.info("Memory Session: " + session);
-            return Uni.createFrom().completionStage(() ->
-                    memoryPort.getConversationMemory(session));
-        } else {
-            return Uni.createFrom().nullItem();
-        }
+            @QueryParam("userId") @NotBlank String userId,
+            @QueryParam("conversationId") @NotBlank String conversationId) {
+        Log.info("Memory User: " + userId + ", Conversation: " + conversationId);
+        return syncUserFromRequest()
+            .onItem().transformToUni(syncedUser ->
+                    Uni.createFrom().completionStage(() ->
+                            memoryPort.getConversationMemory(
+                                    syncedUser.getOrionUserHash(), conversationId)));
     }
 
     /**
@@ -342,53 +293,6 @@ public class RagController {
                 .map(csv -> Response.ok(csv)
                         .header("Content-Disposition", "attachment; filename=\"request_logs.csv\"")
                         .build());
-    }
-
-    // =========================================================================
-    // User endpoints
-    // =========================================================================
-
-    /**
-     * Creates a new user account.
-     *
-     * @param request user creation request with username and email
-     * @return the created {@link User}
-     */
-    @POST
-    @Path("/users")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    public Uni<User> createUser(@Valid UserRequest request) {
-        Log.info("Creating user: " + request.username);
-        return Uni.createFrom().completionStage(
-                () -> userServicePort.createUser(request.username, request.email));
-    }
-
-    /**
-     * Retrieves a user by their identifier.
-     *
-     * @param userId the user's unique identifier
-     * @return the matching {@link User}
-     */
-    @GET
-    @Path("/users/{userId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Uni<User> getUser(@PathParam("userId") String userId) {
-        Log.info("Getting user: " + userId);
-        return Uni.createFrom().completionStage(() -> userServicePort.getUserById(userId));
-    }
-
-    /**
-     * Returns a list of all users in the system.
-     *
-     * @return list of {@link User} domain objects
-     */
-    @GET
-    @Path("/users")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Uni<List<User>> listUsers() {
-        Log.info("Listing users");
-        return Uni.createFrom().completionStage(() -> userServicePort.listUsers());
     }
 
     // =========================================================================

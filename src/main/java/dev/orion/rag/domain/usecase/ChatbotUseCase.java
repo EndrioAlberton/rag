@@ -19,7 +19,6 @@ package dev.orion.rag.domain.usecase;
 import dev.orion.rag.domain.model.AIRequest;
 import dev.orion.rag.domain.model.ChatMessage;
 import dev.orion.rag.domain.model.RagQuery;
-import dev.orion.rag.domain.model.TriagemResult;
 import dev.orion.rag.domain.model.TriagemResult.Decisao;
 import dev.orion.rag.domain.port.in.ChatbotPort;
 import dev.orion.rag.domain.port.out.AIPort;
@@ -87,93 +86,13 @@ Telefone: (51) 3930-6002
     }
 
     @Override
-    public Flow.Publisher<String> execute(String session, String prompt) {
-        return executeWithPhone(session, prompt, null, null, null);
-    }
-
-    @Override
     public Flow.Publisher<String> execute(String userId, String conversationId, String prompt) {
-        return executeWithPhone(userId, conversationId, prompt, null, null, null);
+        return execute(userId, conversationId, prompt, null, null);
     }
 
     @Override
-    public Flow.Publisher<String> executeWithPhone(String session, String prompt, String phoneNumber) {
-        return executeWithPhone(session, prompt, phoneNumber, null, null);
-    }
-
-    @Override
-    public Flow.Publisher<String> executeWithPhone(String session, String prompt,
-            String phoneNumber, String userName, String email) {
-        LOG.info("ChatbotUseCase (session): " + session);
-        Instant messageTimestamp = Instant.now();
-        ChatMessage userMsg = new ChatMessage(session, prompt, ChatMessage.MessageType.USER);
-
-        return new DeferredPublisher<>(() ->
-            memoryPort.saveMessage(userMsg)
-                .thenCompose(v -> memoryPort.getHistory(session))
-                .thenCompose(history -> triagemPort.classify(prompt, history)
-                    .thenCompose(triage -> {
-                        // PEDIR_INFO: ask user for more info, skip RAG
-                        if (triage.getDecisao() == Decisao.PEDIR_INFO) {
-                            String campos = triage.getCamposFaltantes() != null
-                                    ? " Para continuar, informe: " + triage.getCamposFaltantes() + "."
-                                    : "";
-                            String pedirMsg = "Para responder melhor, preciso de mais detalhes." + campos;
-                            ChatMessage clarificationMsg = new ChatMessage(
-                                    session, pedirMsg, ChatMessage.MessageType.ASSISTANT);
-                            return memoryPort.saveMessage(clarificationMsg)
-                                    .thenApply(v2 -> publishSingle(pedirMsg));
-                        }
-                        RagQuery query = new RagQuery(prompt, 6, 0.55);
-                        long ragStart = System.currentTimeMillis();
-                        String urgency = triage.getUrgencia().name();
-                        return embeddingRepository.searchChunks(query)
-                            .thenApply(ragResponse -> {
-                                long ragLatencyMs = System.currentTimeMillis() - ragStart;
-                                String ragResult = ragResponse.getContexts().isEmpty()
-                                        ? DEFAULT_CONTEXT
-                                        : String.join("\n\n---\n\n", ragResponse.getContexts());
-                                long llmStart = System.currentTimeMillis();
-                                boolean handoffRequired = ragResult == null || ragResult.isBlank();
-                                String handoffReason = handoffRequired ? "no_context" : null;
-
-                                Flow.Publisher<String> withAppendix;
-                                if (handoffRequired) {
-                                    String msg = "Não encontrei informação suficiente na base para responder com segurança."
-                                            + HUMAN_SUPPORT_CONTACT;
-                                    withAppendix = publishSingle(msg);
-                                } else {
-                                    AIRequest aiRequest = new AIRequest(session, prompt, ragResult, history);
-                                    Flow.Publisher<String> stream =
-                                            aiPort.generateContextualResponse(aiRequest);
-                                    String sourcesAppendix = RagSourceFormatter.sourcesAppendix(ragResult);
-                                    withAppendix = new AppendOnCompletePublisher(stream, sourcesAppendix);
-                                }
-                                return (Flow.Publisher<String>) new AccumulatingOnCompletePublisher(
-                                        withAppendix,
-                                        fullResponse -> {
-                                            long llmLatencyMs =
-                                                    System.currentTimeMillis() - llmStart;
-                                            ChatMessage assistantMsg = new ChatMessage(
-                                                    session, fullResponse,
-                                                    ChatMessage.MessageType.ASSISTANT);
-                                            return memoryPort.saveMessage(assistantMsg)
-                                                    .thenCompose(v2 -> requestLogPort.log(
-                                                            phoneNumber, session, userName,
-                                                            email, prompt, messageTimestamp,
-                                                            ragResult, ragResponse.getScore(), ragLatencyMs,
-                                                            handoffRequired, handoffReason,
-                                                            fullResponse, llmLatencyMs, null, urgency));
-                                        });
-                            });
-                    })
-                )
-        );
-    }
-
-    @Override
-    public Flow.Publisher<String> executeWithPhone(String userId, String conversationId,
-            String prompt, String phoneNumber, String userName, String email) {
+    public Flow.Publisher<String> execute(String userId, String conversationId,
+            String prompt, String userName, String email) {
         LOG.info("ChatbotUseCase (user: " + userId + ", conversation: " + conversationId + ")");
         Instant messageTimestamp = Instant.now();
         ChatMessage userMsg = new ChatMessage(userId, conversationId, prompt,
@@ -239,7 +158,7 @@ Telefone: (51) 3930-6002
                                             assistantMsg.setUserId(null);
                                             return memoryPort.saveMessage(assistantMsg)
                                                     .thenCompose(v2 -> requestLogPort.log(
-                                                            phoneNumber, userId, userName,
+                                                            userId, userName,
                                                             email, prompt, messageTimestamp,
                                                             ragResult, ragResponse.getScore(), ragLatencyMs,
                                                             handoffRequired, handoffReason,

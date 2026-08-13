@@ -24,15 +24,6 @@ import java.util.concurrent.Flow.Publisher;
 public interface ChatbotPort {
 
     /**
-     * Sends a prompt to the chatbot and streams the response for an anonymous session.
-     *
-     * @param session session identifier
-     * @param prompt  user's message
-     * @return token-by-token response stream
-     */
-    Publisher<String> execute(String session, String prompt);
-
-    /**
      * Sends a prompt to the chatbot and streams the response for an authenticated user/conversation.
      *
      * @param userId         authenticated user identifier
@@ -44,42 +35,15 @@ public interface ChatbotPort {
         prompt);
 
     /**
-     * Sends a prompt to the chatbot with a phone-number tag for audit logging.
-     *
-     * @param session     session identifier
-     * @param prompt      user's message
-     * @param phoneNumber caller's phone number for audit logging (may be null)
-     * @return token-by-token response stream
-     */
-    Publisher<String> executeWithPhone(String session, String prompt, String
-        phoneNumber);
-
-    /**
-     * Sends a prompt to the chatbot with full caller metadata for audit logging (session-based).
-     *
-     * @param session     session identifier
-     * @param prompt      user's message
-     * @param phoneNumber caller's phone number (may be null)
-     * @param userName    caller's display name (may be null)
-     * @param email       caller's e-mail address (may be null)
-     * @return token-by-token response stream
-     */
-    Publisher<String> executeWithPhone(String session, String prompt, String
-        phoneNumber,
-            String userName, String email);
-
-    /**
-     * Sends a prompt to the chatbot with full caller metadata (authenticated user/conversation).
+     * Sends a prompt to the chatbot with caller metadata for audit logging.
      *
      * @param userId         authenticated user identifier
      * @param conversationId identifier of the persisted conversation
      * @param prompt         user's message
-     * @param phoneNumber    caller's phone number (may be null)
      * @param userName       caller's display name (may be null)
      * @param email          caller's e-mail address (may be null)
      * @return token-by-token response stream
      */
-    Publisher<String> executeWithPhone(String userId, String conversationId,
-        String prompt,
-            String phoneNumber, String userName, String email);
+    Publisher<String> execute(String userId, String conversationId,
+        String prompt, String userName, String email);
 }

@@ -18,67 +18,22 @@ package dev.orion.rag.domain.port.out;
 
 import dev.orion.rag.domain.model.User;
 
-import java.util.List;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Driven port (out) — service contract for managing {@link User} entities.
+ * Driven port (out) — service contract for the local {@link User} projection.
+ *
+ * <p>Accounts are owned by Orion Users; this service only mirrors an authenticated user
+ * locally so conversations and audit logs can reference them.
  */
 public interface UserServicePort {
 
     /**
-     * Creates a new user with the given username and e-mail.
+     * Creates the local projection of a user with the given username and e-mail.
      *
      * @param username desired login username
      * @param email    user's e-mail address
      * @return a CompletionStage emitting the newly created user
      */
     CompletionStage<User> createUser(String username, String email);
-
-    /**
-     * Retrieves a user by their unique identifier.
-     *
-     * @param userId user identifier
-     * @return a CompletionStage emitting the user, or an error if not found
-     */
-    CompletionStage<User> getUserById(String userId);
-
-    /**
-     * Retrieves a user by their login username.
-     *
-     * @param username login username
-     * @return a CompletionStage emitting the user, or an error if not found
-     */
-    CompletionStage<User> getUserByUsername(String username);
-
-    /**
-     * Retrieves a user by their e-mail address.
-     *
-     * @param email e-mail address
-     * @return a CompletionStage emitting the user, or an error if not found
-     */
-    CompletionStage<User> getUserByEmail(String email);
-
-    /**
-     * Persists updated fields for the given user.
-     *
-     * @param user the user object with the updated fields
-     * @return a CompletionStage that completes when the update is flushed
-     */
-    CompletionStage<Void> updateUser(User user);
-
-    /**
-     * Deletes the user identified by the given ID.
-     *
-     * @param userId user identifier
-     * @return a CompletionStage that completes when the user is deleted
-     */
-    CompletionStage<Void> deleteUser(String userId);
-
-    /**
-     * Returns all users in the system.
-     *
-     * @return a CompletionStage emitting the complete list of users (may be empty)
-     */
-    CompletionStage<List<User>> listUsers();
 }

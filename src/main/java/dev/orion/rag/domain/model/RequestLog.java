@@ -25,8 +25,6 @@ public class RequestLog {
 
     /** Unique identifier assigned by the persistence layer. */
     private String id;
-    /** WhatsApp or external phone number that originated the request. */
-    private String phoneNumber;
     /** Identifier of the authenticated user associated with this request. */
     private String userId;
     /** Display name of the user at the time of the request. */
@@ -69,14 +67,6 @@ public class RequestLog {
 
     public void setId(String id) {
         this.id = id;
-    }
-
-    public String getPhoneNumber() {
-        return phoneNumber;
-    }
-
-    public void setPhoneNumber(String phoneNumber) {
-        this.phoneNumber = phoneNumber;
     }
 
     public String getUserId() {

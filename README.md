@@ -13,7 +13,7 @@ rag/
 ├── src/main/resources/
 │   ├── rag/               # Sample documents for ingestion
 │   └── db/migration/      # Flyway migrations (PostgreSQL)
-├── docs/                  # Documentation (MCP, TestPlan)
+├── docs/                  # Documentation
 └── pom.xml
 ```
 
@@ -214,7 +214,6 @@ src/main/java/dev/orion/rag/
 │   ├── port/              # Interfaces/Contracts
 │   └── usecase/           # Use cases/Business rules
 ├── application/           # Application layer
-│   ├── mcp/               # MCP tools (course-aware Q&A)
 │   └── rest/              # REST controllers
 └── infrastructure/        # Infrastructure layer
     ├── adapter/           # External adapters (AI, etc.)
@@ -235,7 +234,7 @@ concepts:
 The application core, containing pure business logic independent of external frameworks:
 
 - **Domain Entities**: Classes such as `ChatMessage`, `RagQuery`, `RagResponse`, `ConversationMemory`
-- **Use Cases**: Orchestrate business logic (`ChatbotUseCase`, `AskQuestionUseCase`)
+- **Use Cases**: Orchestrate business logic (`ChatbotUseCase`, `IngestDocumentsUseCase`)
 - **Ports (Interfaces)**: Contracts that define how the domain communicates with the external world
 
 ```text
@@ -251,9 +250,9 @@ domain/
 │   ├── EmbeddingRepository.java # Interface for embedding repository
 │   └── MemoryService.java      # Interface for memory services
 └── usecase/
-    ├── AskQuestionUseCase.java     # Use case: questions
     ├── ChatbotUseCase.java         # Use case: chatbot
-    └── IngestDocumentsUseCase.java # Use case: ingestion
+    ├── IngestDocumentsUseCase.java # Use case: ingestion from local files
+    └── IngestFromUrlsUseCase.java  # Use case: ingestion from URLs
 ```
 
 #### 🔹 **Application Layer**
@@ -305,11 +304,9 @@ Hexagonal RAG System:
 
 ┌─────────────────────────┐
 │    REST Controllers     │ ← Interface Layer
-│    MCP Tools            │
 ├─────────────────────────┤
 │      Use Cases          │ ← RAG Orchestration
 │  • ChatbotUseCase       │
-│  • AskQuestionUseCase   │
 │  • IngestUseCase        │
 ├─────────────────────────┤
 │       Ports             │ ← Contracts
@@ -327,7 +324,6 @@ Hexagonal RAG System:
 ### Main Use Cases
 
 - **ChatbotUseCase**: Implements conversations with context memory
-- **AskQuestionUseCase**: Answers questions based on documents
 - **IngestDocumentsUseCase**: Processes and indexes documents
 
 ### 🔍 **Architecture Practical Examples**
@@ -384,41 +380,46 @@ public interface EmbeddingRepository {
 
 ### Available Endpoints
 
+All `/ai/*` endpoints require a JWT issued by Orion Users.
+
 #### 1. Chatbot with Memory
 
 ```bash
-# Conversation with context maintained per session
-curl "http://localhost:8081/ai/chatbot?session=user123&prompt=Hello, how can you help me?"
+# Streams the answer for a conversation owned by the authenticated user
+curl -N -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
+  -d '{"conversationId":"'"$CONVERSATION_ID"'","prompt":"Como funciona o TCC?"}' \
+  http://localhost:8081/ai/chatbot
 ```
 
-#### 2. Questions about Documents
-
-```bash
-# Query based on ingested documents
-curl "http://localhost:8081/ai/ask?session=user123&prompt=What is Vue.js?"
-```
-
-#### 3. Memory Management
+#### 2. Memory Management
 
 ```bash
 # Get conversation history
-curl "http://localhost:8081/ai/memory?session=user123"
+curl -H "Authorization: Bearer $JWT" \
+  "http://localhost:8081/ai/memory?userId=$USER_ID&conversationId=$CONVERSATION_ID"
 ```
 
-#### 4. Context Retrieval (MCP / Course-Aware Q&A)
+#### 3. Context Retrieval
 
 ```bash
-# Retrieve semantically relevant course content for a query (used by MCP tools)
-curl "http://localhost:8081/ai/context?session=user123&prompt=What%20are%20variables%20in%20JavaScript?&maxResults=5"
+# Retrieve the semantically relevant chunks that ground an answer
+curl -H "Authorization: Bearer $JWT" \
+  "http://localhost:8081/ai/context?session=user123&prompt=Como%20funciona%20o%20TCC?&maxResults=5"
 ```
 
 ### Usage Examples
 
 ```javascript
 // JavaScript/Frontend
-const response = await fetch(
-  'http://localhost:8081/ai/chatbot?session=user123&prompt=Explain generative AI'
-);
+const response = await fetch('http://localhost:8081/ai/chatbot', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`,
+    'Content-Type': 'application/json',
+    'Accept': 'text/event-stream'
+  },
+  body: JSON.stringify({ conversationId, prompt: 'Como funciona o TCC?' })
+});
 
 const reader = response.body.getReader();
 const decoder = new TextDecoder();
@@ -475,18 +476,6 @@ memory.ttl.hours=48
 # Tests with native profile
 ./mvnw verify -Dnative
 ```
-
-## 🔌 MCP Server (Course-Aware Q&A)
-
-The Quarkus backend includes an MCP (Model Context Protocol) server for integrating the RAG system with LLM platforms (e.g., Claude, Cursor). It exposes tools for course-aware question answering via HTTP/SSE.
-
-**Endpoint:** `http://localhost:8081/mcp/sse` (or `/mcp` for Streamable HTTP)
-
-**Tools:**
-- `retrieve_course_context` — Retrieves semantically relevant course content for a query
-- `ask_course_question` — Asks a question and returns the RAG-generated answer
-
-See [docs/MCP.md](docs/MCP.md) for Cursor/Claude configuration.
 
 ## 📖 Additional Documentation
 

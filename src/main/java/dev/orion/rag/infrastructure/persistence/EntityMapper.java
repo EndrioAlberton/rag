@@ -207,7 +207,6 @@ public final class EntityMapper {
         }
         RequestLog log = new RequestLog();
         log.setId(entity.getId());
-        log.setPhoneNumber(entity.getPhoneNumber());
         log.setUserId(entity.getUserId());
         log.setUserName(entity.getUserName());
         log.setEmail(entity.getEmail());
@@ -237,7 +236,6 @@ public final class EntityMapper {
         }
         RequestLogEntity entity = new RequestLogEntity();
         entity.setId(domain.getId());
-        entity.setPhoneNumber(domain.getPhoneNumber());
         entity.setUserId(domain.getUserId());
         entity.setUserName(domain.getUserName());
         entity.setEmail(domain.getEmail());

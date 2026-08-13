@@ -13,7 +13,6 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.34.1</quarkus.platform.version>
-        <quarkus.mcp-server.version>1.10.0</quarkus.mcp-server.version>
         <skipITs>false</skipITs>
         <skipFrontend>false</skipFrontend>
         <surefire-plugin.version>3.5.3</surefire-plugin.version>
@@ -35,13 +34,6 @@
                 <groupId>${quarkus.platform.group-id}</groupId>
                 <artifactId>quarkus-langchain4j-bom</artifactId>
                 <version>${quarkus.platform.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>io.quarkiverse.mcp</groupId>
-                <artifactId>quarkus-mcp-server-bom</artifactId>
-                <version>${quarkus.mcp-server.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -127,10 +119,6 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-smallrye-jwt</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkiverse.mcp</groupId>
-            <artifactId>quarkus-mcp-server-http</artifactId>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>

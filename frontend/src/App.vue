@@ -9,9 +9,6 @@
       <v-btn v-if="isAuthenticated" to="/dashboard" icon>
         <v-icon>mdi-chart-bar</v-icon>
       </v-btn>
-      <v-btn v-if="isAuthenticated" to="/settings" icon>
-        <v-icon>mdi-cog</v-icon>
-      </v-btn>
       <v-btn v-if="isAuthenticated" @click="logout" icon>
         <v-icon>mdi-logout</v-icon>
       </v-btn>

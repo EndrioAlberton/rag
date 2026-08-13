@@ -1,8 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import Login from '../components/Login.vue';
 import Register from '../components/Register.vue';
-import Settings from '../components/Settings.vue';
-import TwoFactorSettings from '../components/TwoFactorSettings.vue';
 import ChatInterface from '../components/ChatInterface.vue';
 import ConversationList from '../components/ConversationList.vue';
 import Dashboard from '../components/Dashboard.vue';
@@ -21,18 +19,6 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: Login
-  },
-  {
-    path: '/settings',
-    name: 'Settings',
-    component: Settings,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/settings/2fa',
-    name: 'TwoFactorSettings',
-    component: TwoFactorSettings,
-    meta: { requiresAuth: true }
   },
   {
     path: '/chat/:conversationId?',

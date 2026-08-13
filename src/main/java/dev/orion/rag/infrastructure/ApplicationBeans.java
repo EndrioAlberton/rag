@@ -16,7 +16,6 @@
 
 package dev.orion.rag.infrastructure;
 
-import dev.orion.rag.domain.port.in.AskQuestionPort;
 import dev.orion.rag.domain.port.in.ChatbotPort;
 import dev.orion.rag.domain.port.in.IngestDocumentsPort;
 import dev.orion.rag.domain.port.in.IngestFromUrlsPort;
@@ -26,7 +25,6 @@ import dev.orion.rag.domain.port.out.MemoryPort;
 import dev.orion.rag.domain.port.out.RequestLogPort;
 import dev.orion.rag.domain.port.out.TriagemPort;
 import dev.orion.rag.domain.port.out.WebScraperPort;
-import dev.orion.rag.domain.usecase.AskQuestionUseCase;
 import dev.orion.rag.domain.usecase.ChatbotUseCase;
 import dev.orion.rag.domain.usecase.IngestDocumentsUseCase;
 import dev.orion.rag.domain.usecase.IngestFromUrlsUseCase;
@@ -65,12 +63,6 @@ public class ApplicationBeans {
     /** Port for web content scraping. */
     @Inject
     WebScraperPort webScraperPort;
-
-    @Produces
-    @ApplicationScoped
-    public AskQuestionPort askQuestionPort() {
-        return new AskQuestionUseCase(embeddingRepository, aiPort, requestLogPort);
-    }
 
     @Produces
     @ApplicationScoped

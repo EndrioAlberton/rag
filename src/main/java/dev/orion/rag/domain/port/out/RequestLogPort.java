@@ -29,10 +29,9 @@ public interface RequestLogPort {
     /**
      * Persists a request log entry.
      *
-     * @param phoneNumber      phone number (WhatsApp) or null for REST/MCP
      * @param userId           unique user identifier (UUID, hash, or session)
-     * @param userName         display name of the user (username for REST, profile name for WhatsApp, null for MCP)
-     * @param email            email of the user (available for REST via JWT, null for WhatsApp and MCP)
+     * @param userName         display name of the user, nullable
+     * @param email            email of the user (available via JWT), nullable
      * @param userMessage      message sent by the user
      * @param messageTimestamp when the message was received
      * @param ragResult        content retrieved from RAG
@@ -43,7 +42,7 @@ public interface RequestLogPort {
      * @param urgency          triagem urgency classification (BAIXA/MEDIA/ALTA), nullable
      * @return CompletionStage that completes when the log is persisted
      */
-    CompletionStage<Void> log(String phoneNumber, String userId, String userName, String email,
+    CompletionStage<Void> log(String userId, String userName, String email,
             String userMessage, Instant messageTimestamp,
             String ragResult, Double ragScore, long ragLatencyMs,
             boolean handoffRequired, String handoffReason,

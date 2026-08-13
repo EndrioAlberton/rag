@@ -37,14 +37,6 @@ public interface MemoryPort {
     CompletionStage<Void> saveMessage(ChatMessage message);
 
     /**
-     * Retrieves the conversation memory for a specific session.
-     *
-     * @param sessionId the session identifier (for backward compatibility)
-     * @return a CompletionStage containing the conversation memory, or null if not found
-     */
-    CompletionStage<ConversationMemory> getConversationMemory(String sessionId);
-
-    /**
      * Retrieves the conversation memory for a specific conversation.
      *
      * @param userId         the user identifier
@@ -71,14 +63,6 @@ public interface MemoryPort {
      * @return a CompletionStage containing list of the last N messages
      */
     CompletionStage<List<ChatMessage>> getLastMessages(String userId, String conversationId, int count);
-
-    /**
-     * Gets the conversation history as a formatted string.
-     *
-     * @param sessionId the session identifier (for backward compatibility)
-     * @return a CompletionStage containing the conversation history
-     */
-    CompletionStage<String> getHistory(String sessionId);
 
     /**
      * Gets the conversation history as a formatted string.

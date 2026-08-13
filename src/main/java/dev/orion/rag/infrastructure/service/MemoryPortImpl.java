@@ -251,11 +251,12 @@ public class MemoryPortImpl implements MemoryPort {
     // getConversationMemory
     // -------------------------------------------------------------------------
 
-    @Override
-    public CompletionStage<ConversationMemory> getConversationMemory(String sessionId) {
-        return getConversationMemoryUni(sessionId).subscribeAsCompletionStage();
-    }
-
+    /**
+     * Reads the Redis-cached memory for a raw cache key (the message's session ID).
+     *
+     * @param sessionId the Redis cache key suffix
+     * @return a {@link Uni} emitting the cached memory, or {@code null} when absent
+     */
     private Uni<ConversationMemory> getConversationMemoryUni(String sessionId) {
         String key = CONVERSATION_PREFIX + sessionId;
         ReactiveValueCommands<String, ConversationMemory> valueCommands =
@@ -362,13 +363,6 @@ public class MemoryPortImpl implements MemoryPort {
     // -------------------------------------------------------------------------
     // getHistory
     // -------------------------------------------------------------------------
-
-    @Override
-    public CompletionStage<String> getHistory(String session) {
-        return getConversationMemoryUni(session)
-                .onItem().transform(memory -> memory == null ? "" : memory.getHistory())
-                .subscribeAsCompletionStage();
-    }
 
     @Override
     public CompletionStage<String> getHistory(String userId, String conversationId) {

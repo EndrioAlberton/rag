@@ -40,10 +40,6 @@ public class RequestLogEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    /** WhatsApp or external phone number that originated the request (nullable for REST/MCP). */
-    @Column(name = "phone_number", length = 50)
-    private String phoneNumber;
-
     /** Identifier of the user who made the request (UUID, hash or session token). */
     @Column(name = "user_id", nullable = false, length = 255)
     private String userId;
@@ -52,7 +48,7 @@ public class RequestLogEntity {
     @Column(name = "user_name", length = 255)
     private String userName;
 
-    /** E-mail of the user (available via JWT for REST; null for WhatsApp and MCP). */
+    /** E-mail of the user, resolved from the JWT (nullable). */
     @Column(name = "email", length = 255)
     private String email;
 

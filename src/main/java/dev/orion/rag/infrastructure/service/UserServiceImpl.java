@@ -24,7 +24,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.hibernate.reactive.mutiny.Mutiny;
 
-import java.util.List;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -80,70 +79,4 @@ public class UserServiceImpl implements UserServicePort {
         ).subscribeAsCompletionStage();
     }
 
-    @Override
-    public CompletionStage<User> getUserById(String userId) {
-        return sessionFactory.withSession(session ->
-            Uni.createFrom().completionStage(() -> userRepository.findById(userId))
-                    .onItem().ifNull().failWith(
-                            () -> new IllegalArgumentException("Usuário não encontrado"))
-        ).subscribeAsCompletionStage();
-    }
-
-    @Override
-    public CompletionStage<User> getUserByUsername(String username) {
-        return sessionFactory.withSession(session ->
-            Uni.createFrom().completionStage(() -> userRepository.findByUsername(username))
-                    .onItem().ifNull().failWith(
-                            () -> new IllegalArgumentException("Usuário não encontrado"))
-        ).subscribeAsCompletionStage();
-    }
-
-    @Override
-    public CompletionStage<User> getUserByEmail(String email) {
-        return sessionFactory.withSession(session ->
-            Uni.createFrom().completionStage(() -> userRepository.findByEmail(email))
-                    .onItem().ifNull().failWith(
-                            () -> new IllegalArgumentException("Usuário não encontrado"))
-        ).subscribeAsCompletionStage();
-    }
-
-    @Override
-    public CompletionStage<Void> updateUser(User user) {
-        return sessionFactory.withTransaction(session ->
-            Uni.createFrom().completionStage(() -> userRepository.findById(user.getId()))
-                .onItem().ifNull().failWith(
-                        () -> new IllegalArgumentException("Usuário não encontrado"))
-                .onItem().transformToUni(existing ->
-                        Uni.createFrom().completionStage(() -> userRepository.merge(user))
-                                .onItem().transformToUni(u ->
-                                        Uni.createFrom()
-                                                .completionStage(() -> userRepository.flush())))
-        ).subscribeAsCompletionStage();
-    }
-
-    @Override
-    public CompletionStage<Void> deleteUser(String userId) {
-        return sessionFactory.withTransaction(session ->
-            Uni.createFrom().completionStage(() -> userRepository.findById(userId))
-                .onItem().ifNull().failWith(
-                        () -> new IllegalArgumentException("Usuário não encontrado"))
-                .onItem().transformToUni(existing ->
-                        Uni.createFrom().completionStage(() -> userRepository.deleteById(userId))
-                                .onItem().transformToUni(deleted -> {
-                                    if (!deleted) {
-                                        return Uni.createFrom().failure(
-                                                new IllegalArgumentException("Usuário não encontrado"));
-                                    }
-                                    return Uni.createFrom()
-                                            .completionStage(() -> userRepository.flush());
-                                }))
-        ).subscribeAsCompletionStage();
-    }
-
-    @Override
-    public CompletionStage<List<User>> listUsers() {
-        return sessionFactory.withSession(session ->
-            Uni.createFrom().completionStage(() -> userRepository.listAll())
-        ).subscribeAsCompletionStage();
-    }
 }

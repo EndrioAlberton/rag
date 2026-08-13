@@ -94,7 +94,6 @@ services:
       QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://${POSTGRES_USER:-orion}:${POSTGRES_PASSWORD:-orion}@postgres:5432/${POSTGRES_DB:-orion_rag}
       QUARKUS_DATASOURCE_USERNAME: ${POSTGRES_USER:-orion}
       QUARKUS_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-orion}
-      QUARKUS_MAILER_MOCK: "${QUARKUS_MAILER_MOCK:-true}"
     depends_on:
       postgres:
         condition: service_healthy

@@ -38,13 +38,17 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -76,46 +80,47 @@ class ChatbotUseCaseTest {
     @BeforeEach
     void setUp() {
         useCase = new ChatbotUseCase(embeddingRepository, aiPort, memoryPort, requestLogPort, triagemPort);
-        // Default: triagem returns AUTO_RESPONDER BAIXA
-        when(triagemPort.classify(any(), any())).thenReturn(CompletableFuture.completedFuture(
+        // Default: triagem returns AUTO_RESPONDER BAIXA. Lenient so the PEDIR_INFO test can override it.
+        lenient().when(triagemPort.classify(any(), any())).thenReturn(CompletableFuture.completedFuture(
             new TriagemResult(TriagemResult.Decisao.AUTO_RESPONDER, TriagemResult.Urgencia.BAIXA, null)));
     }
 
     @Test
-    void sessionFlow_savesUserAndAssistant_andLogs() throws Exception {
+    void authenticatedFlow_savesUserAndAssistant_andLogs() throws Exception {
         when(memoryPort.saveMessage(any())).thenReturn(CompletableFuture.completedFuture(null));
         when(embeddingRepository.searchChunks(any()))
                 .thenReturn(CompletableFuture.completedFuture(
                         new RagResponse("q", List.of("rag-text"), 0.9)));
-        when(memoryPort.getHistory(eq("sess-x")))
+        when(memoryPort.getHistory(eq("user-1"), eq("conv-1")))
                 .thenReturn(CompletableFuture.completedFuture("hist-line"));
         when(aiPort.generateContextualResponse(any()))
                 .thenReturn(FlowTestSupport.emitTokens("A", "I"));
-        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), any(), anyLong(),
+        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), anyLong(),
                 anyBoolean(), any(), any(), anyLong(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         List<String> tokens = FlowTestSupport.collectAll(
-                useCase.executeWithPhone("sess-x", "hi", "+99", "N", "n@e")).get();
+                useCase.execute("user-1", "conv-1", "hi", "N", "n@e")).get();
 
-        assertEquals(List.of("A", "I"), tokens);
+        // The LLM tokens come first; the pipeline appends the sources block on completion (RF03).
+        assertEquals(List.of("A", "I"), tokens.subList(0, 2));
+        assertTrue(tokens.get(tokens.size() - 1).contains("Fontes consultadas"));
 
         verify(memoryPort, atLeast(1)).saveMessage(messageCaptor.capture());
         List<ChatMessage> saved = messageCaptor.getAllValues();
         assertEquals(ChatMessage.MessageType.USER, saved.get(0).getType());
-        assertEquals("sess-x", saved.get(0).getSessionId());
+        assertEquals("conv-1", saved.get(0).getConversationId());
         assertEquals(ChatMessage.MessageType.ASSISTANT, saved.get(saved.size() - 1).getType());
-        assertEquals("AI", saved.get(saved.size() - 1).getContent());
+        assertTrue(saved.get(saved.size() - 1).getContent().startsWith("AI"));
 
         verify(aiPort).generateContextualResponse(aiRequestCaptor.capture());
         AIRequest req = aiRequestCaptor.getValue();
-        assertEquals("sess-x", req.getSession());
+        assertEquals("conv-1", req.getSession());
         assertEquals("rag-text", req.getContext());
         assertEquals("hist-line", req.getHistory());
 
         verify(requestLogPort).log(
-                eq("+99"),
-                eq("sess-x"),
+                eq("user-1"),
                 eq("N"),
                 eq("n@e"),
                 eq("hi"),
@@ -125,9 +130,9 @@ class ChatbotUseCaseTest {
                 anyLong(),
                 eq(false),
                 isNull(),
-                eq("AI"),
+                startsWith("AI"),
                 anyLong(),
-                isNull(),
+                eq("conv-1"),
                 any());
     }
 
@@ -141,18 +146,17 @@ class ChatbotUseCaseTest {
                 .thenReturn(CompletableFuture.completedFuture(""));
         when(aiPort.generateContextualResponse(any()))
                 .thenReturn(FlowTestSupport.emitTokens("x"));
-        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), any(), anyLong(),
+        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), anyLong(),
                 anyBoolean(), any(), any(), anyLong(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         FlowTestSupport.collectAll(
-                useCase.executeWithPhone("user-1", "conv-1", "q", null, null, null)).get();
+                useCase.execute("user-1", "conv-1", "q")).get();
 
         verify(aiPort).generateContextualResponse(aiRequestCaptor.capture());
         assertEquals("conv-1", aiRequestCaptor.getValue().getSession());
 
         verify(requestLogPort).log(
-                isNull(),
                 eq("user-1"),
                 isNull(),
                 isNull(),
@@ -163,7 +167,72 @@ class ChatbotUseCaseTest {
                 anyLong(),
                 eq(false),
                 isNull(),
-                eq("x"),
+                startsWith("x"),
+                anyLong(),
+                eq("conv-1"),
+                any());
+    }
+
+    @Test
+    void pedirInfo_persistsClarification_andSkipsRag() throws Exception {
+        when(triagemPort.classify(any(), any())).thenReturn(CompletableFuture.completedFuture(
+                new TriagemResult(TriagemResult.Decisao.PEDIR_INFO,
+                        TriagemResult.Urgencia.BAIXA, "curso")));
+        when(memoryPort.saveMessage(any())).thenReturn(CompletableFuture.completedFuture(null));
+        when(memoryPort.getHistory(eq("user-1"), eq("conv-1")))
+                .thenReturn(CompletableFuture.completedFuture(""));
+
+        List<String> tokens = FlowTestSupport.collectAll(
+                useCase.execute("user-1", "conv-1", "e ai?", null, null)).get();
+
+        assertEquals(1, tokens.size());
+        assertTrue(tokens.get(0).contains("preciso de mais detalhes"));
+        assertTrue(tokens.get(0).contains("curso"));
+
+        // The clarification must land in the history, otherwise triagem repeats the request forever.
+        verify(memoryPort, atLeast(2)).saveMessage(messageCaptor.capture());
+        ChatMessage clarification = messageCaptor.getAllValues().get(1);
+        assertEquals(ChatMessage.MessageType.ASSISTANT, clarification.getType());
+        assertEquals("conv-1", clarification.getConversationId());
+
+        // RAG and the LLM are skipped entirely on this branch.
+        verifyNoInteractions(embeddingRepository, aiPort, requestLogPort);
+    }
+
+    @Test
+    void emptyRagContext_answersWithHumanHandoff_andLogsIt() throws Exception {
+        when(memoryPort.saveMessage(any())).thenReturn(CompletableFuture.completedFuture(null));
+        when(embeddingRepository.searchChunks(any()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        new RagResponse("q", List.of(), 0.0)));
+        when(memoryPort.getHistory(eq("user-1"), eq("conv-1")))
+                .thenReturn(CompletableFuture.completedFuture(""));
+        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), anyLong(),
+                anyBoolean(), any(), any(), anyLong(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        List<String> tokens = FlowTestSupport.collectAll(
+                useCase.execute("user-1", "conv-1", "algo fora da base", null, null)).get();
+
+        assertEquals(1, tokens.size());
+        assertTrue(tokens.get(0).contains("Não encontrei informação suficiente"));
+        assertTrue(tokens.get(0).contains("comunicacao@poa.ifrs.edu.br"));
+
+        // The LLM is never called when there is no grounding context.
+        verifyNoInteractions(aiPort);
+
+        verify(requestLogPort).log(
+                eq("user-1"),
+                isNull(),
+                isNull(),
+                eq("algo fora da base"),
+                any(),
+                eq(""),
+                eq(0.0),
+                anyLong(),
+                eq(true),
+                eq("no_context"),
+                any(),
                 anyLong(),
                 eq("conv-1"),
                 any());
