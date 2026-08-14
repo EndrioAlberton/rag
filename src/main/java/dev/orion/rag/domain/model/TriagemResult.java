@@ -3,7 +3,7 @@ package dev.orion.rag.domain.model;
 public class TriagemResult {
 
     public enum Decisao {
-        AUTO_RESPONDER, PEDIR_INFO, REDIRECIONAR
+        AUTO_RESPONDER, PEDIR_INFO, REDIRECIONAR, SOBRE_ASSISTENTE
     }
 
     public enum Urgencia {

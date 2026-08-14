@@ -23,18 +23,25 @@ Retorne SOMENTE um JSON com este formato exato:
 {"decisao":"AUTO_RESPONDER","urgencia":"BAIXA","camposFaltantes":""}
 
 Regras de decisão:
+- SOBRE_ASSISTENTE: use quando a pergunta é sobre o PRÓPRIO CHATBOT, não sobre o curso.
+  Exemplos: "o que você faz", "para que você serve", "quais informações você pode me dar",
+  "quais assuntos você cobre", "como você funciona", "quem é você", "o que você sabe",
+  "em que você pode me ajudar". Essas perguntas NUNCA são PEDIR_INFO nem AUTO_RESPONDER —
+  o sistema responde com uma descrição fixa do escopo do assistente, sem consultar a base.
+
 - AUTO_RESPONDER: use em QUALQUER uma das situações abaixo:
   * O histórico não está vazio (já há conversa em andamento).
   * A mensagem menciona o IFRS, SSI, PPC, disciplina, semestre, TCC, estágio, frequência, reprovação, grade curricular ou atividades complementares.
   * A mensagem trata da vida acadêmica do estudante: abono de faltas, justificativa de faltas, atestado, matrícula, rematrícula, avaliação, segunda chamada, prazos, calendário, horários, notas, documentos ou coordenação.
   * A mensagem é uma continuação, refinamento ou pergunta de acompanhamento de qualquer tópico anterior.
-  * Em caso de QUALQUER dúvida → sempre prefira AUTO_RESPONDER.
+  * Em caso de QUALQUER dúvida (que não seja sobre o assistente em si) → sempre prefira AUTO_RESPONDER.
 
 - PEDIR_INFO: use SOMENTE quando TODAS as condições abaixo forem verdadeiras ao mesmo tempo:
   1. O histórico está completamente vazio (primeiro contato).
   2. A mensagem é tão genérica que é impossível dar qualquer resposta útil (ex: "quero saber sobre inscrição" sem mencionar instituição, curso ou contexto).
   3. Perguntar o dado faltante é estritamente necessário para responder.
   4. A mensagem NÃO cita nenhum tópico acadêmico concreto (se citar abono, falta, atestado, TCC, estágio, disciplina, matrícula, nota, prazo, etc., vá direto para AUTO_RESPONDER e deixe a base de conhecimento responder).
+  5. A mensagem NÃO é uma pergunta sobre o próprio assistente (nesse caso é SOBRE_ASSISTENTE, nunca PEDIR_INFO).
   NUNCA use PEDIR_INFO se o histórico tiver qualquer mensagem anterior.
   NUNCA peça dados irrelevantes para uma dúvida institucional (ex: nome do professor, unidade, tipo de curso) — na dúvida, use AUTO_RESPONDER.
 

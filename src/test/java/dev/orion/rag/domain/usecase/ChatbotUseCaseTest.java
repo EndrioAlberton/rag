@@ -200,6 +200,32 @@ class ChatbotUseCaseTest {
     }
 
     @Test
+    void sobreAssistente_answersWithScopeDescription_andSkipsRag() throws Exception {
+        when(triagemPort.classify(any(), any())).thenReturn(CompletableFuture.completedFuture(
+                new TriagemResult(TriagemResult.Decisao.SOBRE_ASSISTENTE,
+                        TriagemResult.Urgencia.BAIXA, null)));
+        when(memoryPort.saveMessage(any())).thenReturn(CompletableFuture.completedFuture(null));
+        when(memoryPort.getHistory(eq("user-1"), eq("conv-1")))
+                .thenReturn(CompletableFuture.completedFuture(""));
+
+        List<String> tokens = FlowTestSupport.collectAll(
+                useCase.execute("user-1", "conv-1", "para que voce serve?", null, null)).get();
+
+        assertEquals(1, tokens.size());
+        assertTrue(tokens.get(0).contains("Sistemas para Internet"));
+        // A question about the bot itself must never carry a sources footer — no document was consulted.
+        assertTrue(!tokens.get(0).contains("Fontes consultadas"));
+
+        verify(memoryPort, atLeast(2)).saveMessage(messageCaptor.capture());
+        ChatMessage saved = messageCaptor.getAllValues().get(1);
+        assertEquals(ChatMessage.MessageType.ASSISTANT, saved.getType());
+        assertEquals("conv-1", saved.getConversationId());
+
+        // RAG and the LLM are skipped entirely on this branch.
+        verifyNoInteractions(embeddingRepository, aiPort, requestLogPort);
+    }
+
+    @Test
     void emptyRagContext_answersWithHumanHandoff_andLogsIt() throws Exception {
         when(memoryPort.saveMessage(any())).thenReturn(CompletableFuture.completedFuture(null));
         when(embeddingRepository.searchChunks(any()))

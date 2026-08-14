@@ -32,6 +32,7 @@ import dev.orion.rag.domain.support.RagSourceFormatter;
 import dev.orion.rag.domain.support.DeferredPublisher;
 
 import java.time.Instant;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Flow;
 import java.util.logging.Logger;
 
@@ -50,6 +51,26 @@ public class ChatbotUseCase implements ChatbotPort {
 Suporte humano (IFRS POA)
 E-mail: comunicacao@poa.ifrs.edu.br
 Telefone: (51) 3930-6002
+""";
+    /**
+     * Fixed answer for questions about the assistant itself (scope, purpose, capabilities).
+     * Returned directly by triagem's {@code SOBRE_ASSISTENTE} decision, bypassing RAG and
+     * the LLM entirely: these questions have nothing to do with the knowledge base, so
+     * running a similarity search for them only risks surfacing unrelated chunks that the
+     * LLM would then either misuse or, more often, correctly ignore while still getting a
+     * "Fontes consultadas" footer appended — a response that contradicts itself.
+     */
+    private static final String ABOUT_ASSISTANT_MESSAGE = """
+Sou o assistente virtual do curso de Sistemas para Internet (SSI) do IFRS – Campus Porto Alegre.
+
+Posso ajudar com:
+- Grade curricular, disciplinas e pré-requisitos
+- Trabalho de Conclusão de Curso (TCC) e estágio
+- Matrícula, rematrícula e calendário acadêmico
+- Frequência, faltas, reprovação e atividades complementares
+- Regulamentos, editais e dúvidas frequentes do curso
+
+Minhas respostas são baseadas nos documentos oficiais do IFRS (PPC, editais e FAQ). Quando não encontro a resposta na base, oriento você a procurar o suporte humano.
 """;
 
     /** Repository used to search embedding chunks relevant to the prompt. */
@@ -103,20 +124,17 @@ Telefone: (51) 3930-6002
                 .thenCompose(v -> memoryPort.getHistory(userId, conversationId))
                 .thenCompose(history -> triagemPort.classify(prompt, history)
                     .thenCompose(triage -> {
+                        // SOBRE_ASSISTENTE: question about the bot itself, not the course — skip RAG entirely
+                        if (triage.getDecisao() == Decisao.SOBRE_ASSISTENTE) {
+                            return saveCannedAssistantMessage(conversationId, ABOUT_ASSISTANT_MESSAGE);
+                        }
                         // PEDIR_INFO: ask user for more info, skip RAG
                         if (triage.getDecisao() == Decisao.PEDIR_INFO) {
                             String campos = triage.getCamposFaltantes() != null
                                     ? " Para continuar, informe: " + triage.getCamposFaltantes() + "."
                                     : "";
                             String pedirMsg = "Para responder melhor, preciso de mais detalhes." + campos;
-                            ChatMessage clarificationMsg = new ChatMessage();
-                            clarificationMsg.setConversationId(conversationId);
-                            clarificationMsg.setSessionId(conversationId);
-                            clarificationMsg.setContent(pedirMsg);
-                            clarificationMsg.setType(ChatMessage.MessageType.ASSISTANT);
-                            clarificationMsg.setUserId(null);
-                            return memoryPort.saveMessage(clarificationMsg)
-                                    .thenApply(v2 -> publishSingle(pedirMsg));
+                            return saveCannedAssistantMessage(conversationId, pedirMsg);
                         }
                         RagQuery query = new RagQuery(prompt, 6, 0.55);
                         long ragStart = System.currentTimeMillis();
@@ -169,6 +187,27 @@ Telefone: (51) 3930-6002
                     })
                 )
         );
+    }
+
+    /**
+     * Persists a fixed assistant message — no RAG lookup, no LLM call — and returns a
+     * publisher that streams it as a single item. Shared by the {@code PEDIR_INFO} and
+     * {@code SOBRE_ASSISTENTE} triagem branches.
+     *
+     * @param conversationId conversation to persist the message under
+     * @param message        fixed message content
+     * @return a CompletionStage emitting a single-item publisher of the message
+     */
+    private CompletionStage<Flow.Publisher<String>> saveCannedAssistantMessage(
+            String conversationId, String message) {
+        ChatMessage assistantMsg = new ChatMessage();
+        assistantMsg.setConversationId(conversationId);
+        assistantMsg.setSessionId(conversationId);
+        assistantMsg.setContent(message);
+        assistantMsg.setType(ChatMessage.MessageType.ASSISTANT);
+        assistantMsg.setUserId(null);
+        return memoryPort.saveMessage(assistantMsg)
+                .thenApply(v -> publishSingle(message));
     }
 
     /** Helper to create a single-item publisher for fixed messages. */
