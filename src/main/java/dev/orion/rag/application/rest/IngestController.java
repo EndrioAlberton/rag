@@ -57,7 +57,7 @@ public class IngestController {
     @Path("/urls")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @RolesAllowed("user")
+    @RolesAllowed("admin")
     public Response ingestFromUrls(@Valid IngestUrlsRequest request) {
         IngestFromUrlsPort.IngestFromUrlsResult result =
             ingestFromUrlsUseCase.execute(request.urls);
