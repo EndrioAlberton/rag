@@ -11,10 +11,46 @@ import jakarta.inject.Inject;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 
+import java.text.Normalizer;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.regex.Pattern;
 
 @ApplicationScoped
 public class TriagemServiceImpl implements TriagemPort {
+
+    /** Matches combining diacritical marks left behind by NFD decomposition. */
+    private static final Pattern DIACRITICS = Pattern.compile("\\p{M}");
+
+    /**
+     * Deterministic patterns for the most common ways students ask about the assistant
+     * itself ("para que você serve", "o que você faz", "quem é você"...), checked before
+     * the LLM triagem call. Matched against the message AFTER {@link #normalize}, so the
+     * patterns below are written accent-free and lowercase on purpose — do not add
+     * accented characters here.
+     *
+     * <p>In practice gpt-4o-mini does not reliably follow the {@code SOBRE_ASSISTENTE}
+     * rule below for these phrasings — observed failure: "para oq vc serve" came back as
+     * {@code PEDIR_INFO} with {@code camposFaltantes} echoing, almost verbatim, the
+     * example text from the {@code PEDIR_INFO} rule ("instituição, curso ou contexto")
+     * instead of reasoning about the actual message. A short-circuit here is immune to
+     * that kind of classification noise and is also cheaper (no LLM call at all for a
+     * hit). The LLM rule stays as a best-effort fallback for phrasings these patterns
+     * don't cover.
+     *
+     * <p>Accepts common Brazilian Portuguese chat contractions ("vc", "oq") and "tu"
+     * alongside "você" — colloquial in Rio Grande do Sul, where IFRS Porto Alegre is
+     * located.
+     */
+    private static final List<Pattern> SOBRE_ASSISTENTE_PATTERNS = List.of(
+            Pattern.compile("\\bpara\\s+((o\\s*)?que|oq)\\s+(voce|vc|tu)\\s+serve\\b"),
+            Pattern.compile("\\b(o\\s*que|oq)\\s+(voce|vc|tu)\\s+(faz|e|sabe|pode|consegue)\\b"),
+            Pattern.compile("\\bquem\\s+e\\s+(voce|vc|tu)\\b"),
+            Pattern.compile("\\bquais\\s+.{0,25}(voce|vc|tu)\\s+(pode|consegue|sabe)\\b"),
+            Pattern.compile("\\bcomo\\s+(voce|vc|tu)\\s+funciona\\b"),
+            Pattern.compile("\\bem\\s+que\\s+(voce|vc|tu)\\s+(pode|consegue)\\s+(me\\s+)?ajudar\\b"));
 
     private static final String TRIAGEM_SYSTEM_PROMPT = """
 Você é um triador de Service Desk para dúvidas institucionais do IFRS.
@@ -38,7 +74,7 @@ Regras de decisão:
 
 - PEDIR_INFO: use SOMENTE quando TODAS as condições abaixo forem verdadeiras ao mesmo tempo:
   1. O histórico está completamente vazio (primeiro contato).
-  2. A mensagem é tão genérica que é impossível dar qualquer resposta útil (ex: "quero saber sobre inscrição" sem mencionar instituição, curso ou contexto).
+  2. A mensagem é tão genérica que é impossível dar qualquer resposta útil (ex: "quero saber sobre inscrição" sem dizer se é matrícula, edital de ingresso ou inscrição em atividade complementar).
   3. Perguntar o dado faltante é estritamente necessário para responder.
   4. A mensagem NÃO cita nenhum tópico acadêmico concreto (se citar abono, falta, atestado, TCC, estágio, disciplina, matrícula, nota, prazo, etc., vá direto para AUTO_RESPONDER e deixe a base de conhecimento responder).
   5. A mensagem NÃO é uma pergunta sobre o próprio assistente (nesse caso é SOBRE_ASSISTENTE, nunca PEDIR_INFO).
@@ -71,6 +107,10 @@ Retorne SOMENTE o JSON, sem explicações.
 
     @Override
     public CompletionStage<TriagemResult> classify(String userMessage, String history) {
+        if (matchesAboutAssistant(userMessage)) {
+            return CompletableFuture.completedFuture(
+                    new TriagemResult(Decisao.SOBRE_ASSISTENTE, Urgencia.BAIXA, null));
+        }
         String safeHistory = (history == null || history.isBlank()) ? "(sem histórico)" : history;
         return Uni.createFrom().item(() -> {
             try {
@@ -82,6 +122,39 @@ Retorne SOMENTE o JSON, sem explicações.
             }
         }).runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool())
           .subscribeAsCompletionStage();
+    }
+
+    /**
+     * Checks whether the message matches one of the deterministic self-referential
+     * patterns, without calling the LLM.
+     *
+     * @param message the raw user message
+     * @return true if the message asks about the assistant itself
+     */
+    private boolean matchesAboutAssistant(String message) {
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        String normalized = normalize(message);
+        for (Pattern pattern : SOBRE_ASSISTENTE_PATTERNS) {
+            if (pattern.matcher(normalized).find()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Lowercases and strips diacritics (accents) so matching is immune to spelling
+     * variants like "você"/"voce" or "é"/"e" — Brazilian Portuguese chat messages mix
+     * both freely.
+     *
+     * @param message raw message
+     * @return lowercase, accent-free version of the message
+     */
+    private static String normalize(String message) {
+        String decomposed = Normalizer.normalize(message, Normalizer.Form.NFD);
+        return DIACRITICS.matcher(decomposed).replaceAll("").toLowerCase(Locale.ROOT);
     }
 
     private TriagemResult parseTriagem(String json) {
