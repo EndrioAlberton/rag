@@ -355,8 +355,21 @@ public class RagController {
     public Uni<Conversation> getConversation(
             @PathParam("conversationId") String conversationId) {
         Log.info("Getting conversation: " + conversationId);
-        return Uni.createFrom().completionStage(
-                () -> conversationServicePort.getConversation(conversationId));
+        return syncUserFromRequest()
+                .onItem().transformToUni(syncedUser ->
+                        Uni.createFrom()
+                                .completionStage(() -> conversationServicePort
+                                        .userHasAccess(syncedUser.getId(), conversationId))
+                                .onItem().transformToUni(hasAccess -> {
+                                    if (!hasAccess) {
+                                        Log.warn("Access denied for user " + syncedUser.getId()
+                                                + " to conversation " + conversationId);
+                                        return Uni.createFrom().<Conversation>failure(
+                                                new SecurityException("Acesso negado"));
+                                    }
+                                    return Uni.createFrom().completionStage(
+                                            () -> conversationServicePort.getConversation(conversationId));
+                                }));
     }
 
     /**

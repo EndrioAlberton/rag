@@ -7,6 +7,7 @@ import dev.orion.rag.domain.port.out.DashboardPort;
 import dev.orion.rag.domain.port.out.FeedbackPort;
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
@@ -38,6 +39,7 @@ public class DashboardController {
     @Path("/feedback")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("user")
     public Uni<Response> submitFeedback(@Valid FeedbackRequest req) {
         return Uni.createFrom().completionStage(() ->
                         feedbackPort.submit(req.userId, req.conversationId, req.userMessage, req.value))
@@ -51,6 +53,7 @@ public class DashboardController {
     @GET
     @Path("/dashboard/metrics")
     @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("admin")
     public Uni<DashboardMetricsResponse> metrics() {
         return Uni.createFrom().completionStage(() -> dashboardPort.metrics())
                 .map(m -> {
@@ -74,6 +77,7 @@ public class DashboardController {
     @GET
     @Path("/dashboard/interactions")
     @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("admin")
     public Uni<Response> interactions(
             @QueryParam("urgency") String urgency,
             @QueryParam("feedback") String feedback) {
