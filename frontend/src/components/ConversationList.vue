@@ -4,29 +4,29 @@
       <v-col cols="12">
         <v-card>
           <v-card-title class="d-flex align-center">
-            <span>My Conversations</span>
+            <span>Minhas conversas</span>
             <v-spacer></v-spacer>
-            <v-btn 
+            <v-btn
               type="button"
-              color="primary" 
+              color="primary"
               @click.stop.prevent="createNewConversation"
               :loading="creatingConversation"
               :disabled="creatingConversation"
             >
               <v-icon left>mdi-plus</v-icon>
-              New Conversation
+              Nova conversa
             </v-btn>
           </v-card-title>
           <v-card-text>
             <v-text-field
               v-model="search"
-              label="Search conversations"
+              label="Buscar conversas"
               prepend-inner-icon="mdi-magnify"
               clearable
               class="mb-4"
             ></v-text-field>
 
-            <v-list v-if="conversations.length > 0">
+            <div v-if="conversations.length > 0" class="conv-list">
               <ConversationItem
                 v-for="conversation in filteredConversations"
                 :key="conversation.id"
@@ -35,10 +35,10 @@
                 @select="handleSelect"
                 @renamed="loadConversations"
               />
-            </v-list>
+            </div>
 
             <v-alert v-else-if="!loading" type="info">
-              You don't have any conversations yet. Create a new conversation to get started!
+              Você ainda não tem conversas. Crie uma nova conversa para começar!
             </v-alert>
 
             <div v-if="loading" class="text-center mt-4">
@@ -61,7 +61,7 @@
               v-bind="attrs"
               @click="showError = false"
             >
-              Close
+              Fechar
             </v-btn>
           </template>
         </v-snackbar>
@@ -143,19 +143,19 @@ export default {
       try {
         console.log('Creating new conversation for user:', user.id);
         // Create conversation in database before navigating
-        const conversation = await apiService.createConversation(user.id, 'New Conversation');
+        const conversation = await apiService.createConversation(user.id, 'Nova conversa');
         console.log('Conversation created successfully:', conversation);
         console.log('Response type:', typeof conversation);
         console.log('Conversation ID:', conversation?.id);
         
         // Validate response
         if (!conversation) {
-          throw new Error('Empty response from server');
+          throw new Error('Resposta vazia do servidor');
         }
-        
+
         if (!conversation.id) {
           console.error('Response without ID:', conversation);
-          throw new Error('Invalid server response: conversation created without ID');
+          throw new Error('Resposta inválida do servidor: conversa criada sem ID');
         }
         
         // Navigate to chat screen with the created conversation ID
@@ -166,7 +166,7 @@ export default {
       } catch (error) {
         console.error('Error creating new conversation:', error);
         console.error('Stack trace:', error.stack);
-        const errorMsg = error.message || error.response?.data?.message || 'Error creating conversation. Please try again.';
+        const errorMsg = error.message || error.response?.data?.message || 'Erro ao criar conversa. Tente novamente.';
         this.errorMessage = errorMsg;
         this.showError = true;
         // Do not navigate on error - leave user on conversations page
@@ -195,4 +195,12 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+.conv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+</style>
 

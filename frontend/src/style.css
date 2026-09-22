@@ -1,8 +1,47 @@
+/* Design tokens — identidade visual Consulta AI */
+:root {
+  --verde-900: #00351C;
+  --verde-800: #00512B;
+  --verde-700: #00703C;
+  --verde-600: #118A4C;
+  --verde-200: #BFE2CB;
+  --verde-100: #E4F3E8;
+  --vermelho-600: #D8322A;
+  --bg: #F5F8F5;
+  --surface: #FFFFFF;
+  --ink-900: #0E1F16;
+  --ink-700: #33453B;
+  --ink-500: #657868;
+  --border: #DAE6DC;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0C1712;
+    --surface: #122019;
+    --ink-900: #EAF3ED;
+    --ink-700: #C4D3CA;
+    --ink-500: #8CA396;
+    --border: #233830;
+    --verde-100: #16281F;
+    --verde-200: #1E3A2A;
+  }
+}
+
 /* Global Styles */
 body {
   margin: 0;
   padding: 0;
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--ink-900);
+}
+h1, h2, h3, h4, h5, h6,
+.v-card-title,
+.text-h5, .text-h6 {
+  font-family: 'Fraunces', Georgia, serif;
 }
 
 .markdown-content h1,
@@ -50,9 +89,19 @@ body {
 }
 
 .markdown-content blockquote {
-  border-left: 3px solid #1976d2;
+  border-left: 3px solid var(--verde-700);
   padding-left: 1rem;
   margin: 0.5rem 0;
   font-style: italic;
 }
 
+/* Neutraliza o fundo que o Chrome/Edge pinta em campos com autofill —
+   ignora border-radius do campo e cria a "caixa" vazando pra fora do input. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink-900);
+  -webkit-box-shadow: 0 0 0 1000px transparent inset;
+  box-shadow: 0 0 0 1000px transparent inset;
+  transition: background-color 600000s 0s, color 600000s 0s;
+}

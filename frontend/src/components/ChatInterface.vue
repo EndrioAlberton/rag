@@ -15,14 +15,14 @@
               @click="initializeChat"
               class="ml-2"
             >
-              Try Again
+              Tentar novamente
             </v-btn>
           </div>
         </v-alert>
       </div>
       <div v-if="initializing" class="text-center mt-4">
         <v-progress-circular indeterminate color="primary"></v-progress-circular>
-        <div class="mt-2 text-body-2">Initializing conversation...</div>
+        <div class="mt-2 text-body-2">Iniciando conversa...</div>
       </div>
       <div v-else>
         <div
@@ -55,7 +55,7 @@
                 @click="rateAssistantMessage(index, 'LIKE')"
               >
                 <v-icon start>mdi-thumb-up-outline</v-icon>
-                Like
+                Curtir
               </v-btn>
               <v-btn
                 variant="text"
@@ -65,7 +65,7 @@
                 @click="rateAssistantMessage(index, 'DISLIKE')"
               >
                 <v-icon start>mdi-thumb-down-outline</v-icon>
-                Dislike
+                Não curtir
               </v-btn>
               <span v-if="message.feedbackValue" class="feedback-saved">
                 Avaliado: {{ message.feedbackValue }}
@@ -87,7 +87,7 @@
     <div class="input-container">
       <v-text-field
         v-model="prompt"
-        label="Type your message..."
+        label="Escreva sua mensagem..."
         outlined
         dense
         hide-details
@@ -200,7 +200,7 @@ export default {
         
         if (!this.userId) {
           console.error('User without valid identifier:', user);
-          this.error = 'Error: user without valid identifier. Please log in again.';
+          this.error = 'Erro: usuário sem identificador válido. Faça login novamente.';
           this.initializing = false;
           setTimeout(() => {
             this.$router.push('/login');
@@ -226,7 +226,7 @@ export default {
           // If no conversationId, create new conversation
           console.log('Creating new conversation for user:', this.userId);
           try {
-            const conversation = await apiService.createConversation(this.userId, 'New Conversation');
+            const conversation = await apiService.createConversation(this.userId, 'Nova conversa');
             console.log('Conversation created:', conversation);
             
             if (conversation && conversation.id) {
@@ -234,11 +234,11 @@ export default {
               // Usar replace para não adicionar ao histórico de navegação
               await this.$router.replace(`/chat/${this.conversationId}`);
             } else {
-              throw new Error('Invalid response when creating conversation: no ID');
+              throw new Error('Resposta inválida ao criar conversa: sem ID');
             }
           } catch (error) {
             console.error('Error creating conversation:', error);
-            const errorMessage = error.message || error.response?.data?.message || 'Error creating conversation. Please try again.';
+            const errorMessage = error.message || error.response?.data?.message || 'Erro ao criar conversa. Tente novamente.';
             this.error = errorMessage;
             this.initializing = false;
             // Redirect after showing error
@@ -251,7 +251,7 @@ export default {
 
       } catch (error) {
         console.error('Error initializing chat:', error);
-        this.error = error.message || 'Error initializing chat. Please reload the page.';
+        this.error = error.message || 'Erro ao iniciar a conversa. Recarregue a página.';
       } finally {
         this.initializing = false;
         this.$nextTick(() => {
@@ -412,7 +412,7 @@ export default {
     async sendMessage() {
       if (!this.prompt.trim() || this.isLoading || !this.conversationId) {
         if (!this.conversationId) {
-          this.error = 'Conversation not initialized. Please reload the page.';
+          this.error = 'Conversa não inicializada. Recarregue a página.';
         }
         return;
       }
@@ -472,9 +472,9 @@ export default {
           (error) => {
             console.error('Stream error:', error);
             if (this.messages[botMessageIndex]) {
-              this.messages[botMessageIndex].content = 'Error processing message. Please try again.';
+              this.messages[botMessageIndex].content = 'Erro ao processar a mensagem. Tente novamente.';
             }
-            this.error = error.message || 'Error processing message. Check your connection and try again.';
+            this.error = error.message || 'Erro ao processar a mensagem. Verifique sua conexão e tente novamente.';
             this.isLoading = false;
           },
           () => {
@@ -498,9 +498,9 @@ export default {
       } catch (error) {
         console.error('Error sending message:', error);
         if (this.messages[botMessageIndex]) {
-          this.messages[botMessageIndex].content = 'Error sending message. Please try again.';
+          this.messages[botMessageIndex].content = 'Erro ao enviar a mensagem. Tente novamente.';
         }
-        this.error = error.response?.data?.message || error.message || 'Error sending message. Check your connection and try again.';
+        this.error = error.response?.data?.message || error.message || 'Erro ao enviar a mensagem. Verifique sua conexão e tente novamente.';
         this.isLoading = false;
       }
     }
@@ -552,6 +552,7 @@ export default {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  background: var(--bg);
 }
 
 .messages-container {
@@ -567,12 +568,12 @@ export default {
   align-items: center;
   gap: 0.5rem;
   padding: 1rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.12);
-  background-color: white;
+  border-top: 1px solid var(--border);
+  background-color: var(--surface);
 }
 
-.input-field {
-  flex: 1;
+.input-field :deep(.v-field) {
+  border-radius: var(--radius-md);
 }
 
 .send-button {
@@ -596,9 +597,9 @@ export default {
 }
 
 .user-message-bubble {
-  background-color: #e0e0e0 !important;
-  border-radius: 18px !important;
-  color: #333 !important;
+  background-color: var(--verde-700) !important;
+  border-radius: var(--radius-md) !important;
+  color: #fff !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
@@ -612,6 +613,9 @@ export default {
   line-height: 1.6;
   margin: 0 auto;
   overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .assistant-block {
@@ -637,7 +641,7 @@ export default {
 .markdown-content {
   word-wrap: break-word;
   overflow-wrap: anywhere;
-  color: rgba(0, 0, 0, 0.87);
+  color: var(--ink-900);
 }
 
 /* Paragraphs */
@@ -677,18 +681,18 @@ export default {
   margin-bottom: 0.75rem;
   font-weight: 600;
   line-height: 1.25;
-  color: #1a1a1a;
+  color: var(--ink-900);
 }
 
 .markdown-content :deep(h1) {
   font-size: 1.75rem;
-  border-bottom: 1px solid #eaecef;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.3rem;
 }
 
 .markdown-content :deep(h2) {
   font-size: 1.5rem;
-  border-bottom: 1px solid #eaecef;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.3rem;
 }
 
@@ -706,7 +710,7 @@ export default {
 
 .markdown-content :deep(h6) {
   font-size: 0.9rem;
-  color: #666;
+  color: var(--ink-500);
 }
 
 .markdown-content :deep(h1:first-child),
@@ -717,12 +721,12 @@ export default {
 
 /* Inline code */
 .markdown-content :deep(code) {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(127, 127, 127, 0.14);
   padding: 0.2em 0.4em;
   border-radius: 3px;
   font-family: 'Courier New', Courier, monospace;
   font-size: 0.9em;
-  color: #e83e8c;
+  color: var(--ink-900);
 }
 
 /* Code blocks */
@@ -774,9 +778,9 @@ export default {
 .markdown-content :deep(blockquote) {
   margin: 1rem 0;
   padding: 0.5rem 1rem;
-  border-left: 4px solid #dfe2e5;
-  background-color: rgba(0, 0, 0, 0.02);
-  color: #6a737d;
+  border-left: 4px solid var(--border);
+  background-color: var(--surface);
+  color: var(--ink-500);
   font-style: italic;
 }
 
@@ -794,37 +798,33 @@ export default {
 }
 
 .markdown-content :deep(thead) {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(127, 127, 127, 0.12);
 }
 
 .markdown-content :deep(th),
 .markdown-content :deep(td) {
-  border: 1px solid #dfe2e5;
+  border: 1px solid var(--border);
   padding: 0.5rem 0.75rem;
   text-align: left;
 }
 
 .markdown-content :deep(th) {
   font-weight: 600;
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(127, 127, 127, 0.12);
 }
 
 .markdown-content :deep(tr:nth-child(even)) {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: rgba(127, 127, 127, 0.06);
 }
 
 /* Links */
 .markdown-content :deep(a) {
-  color: #0366d6;
+  color: var(--verde-700);
   text-decoration: none;
 }
 
 .markdown-content :deep(a:hover) {
   text-decoration: underline;
-}
-
-.markdown-content :deep(a:visited) {
-  color: #6f42c1;
 }
 
 /* Images */
@@ -839,7 +839,7 @@ export default {
 /* Horizontal rule */
 .markdown-content :deep(hr) {
   border: none;
-  border-top: 1px solid #eaecef;
+  border-top: 1px solid var(--border);
   margin: 1.5rem 0;
 }
 
@@ -850,7 +850,7 @@ export default {
 .markdown-content :deep(b) {
   font-weight: 700 !important;
   font-weight: bold !important;
-  color: #1a1a1a !important;
+  color: var(--ink-900) !important;
   display: inline;
 }
 
@@ -876,8 +876,9 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background-color: #f0f0f0;
-  border-radius: 18px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   padding: 12px 18px;
   margin: 0 auto;
 }
@@ -886,7 +887,7 @@ export default {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #999;
+  background-color: var(--ink-500);
   animation: typingBounce 1.2s infinite ease-in-out;
 }
 

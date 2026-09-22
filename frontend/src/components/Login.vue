@@ -1,71 +1,64 @@
 <template>
-  <v-container class="fill-height" fluid>
-    <v-row align="center" justify="center">
-      <v-col cols="12" sm="8" md="6" lg="4">
-        <v-card>
-          <v-card-title class="text-h5 text-center pa-4">
-            Login
-          </v-card-title>
-          <v-card-text>
-            <v-form ref="form" v-model="valid" lazy-validation>
-              <v-text-field
-                v-model="email"
-                :rules="emailRules"
-                label="Email"
-                required
-                prepend-inner-icon="mdi-email"
-                type="email"
-              ></v-text-field>
+  <AuthLayout>
+    <h2 class="text-h5 mb-1" style="font-family:'Fraunces',Georgia,serif;">Bem-vindo(a) de volta</h2>
+    <p class="text-body-2 text-medium-emphasis mb-6">Acesse para tirar suas dúvidas sobre o curso.</p>
 
-              <v-text-field
-                v-model="password"
-                :rules="passwordRules"
-                label="Password"
-                required
-                prepend-inner-icon="mdi-lock"
-                :type="showPassword ? 'text' : 'password'"
-                :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
-                @click:append-inner="showPassword = !showPassword"
-                @keyup.enter="login"
-                hint="Password must be at least 8 characters"
-                persistent-hint
-              ></v-text-field>
+    <v-form ref="form" v-model="valid" lazy-validation>
+      <v-text-field
+        v-model="email"
+        :rules="emailRules"
+        label="E-mail"
+        required
+        prepend-inner-icon="mdi-email-outline"
+        type="email"
+        class="mb-2"
+      ></v-text-field>
 
-              <v-alert v-if="error" type="error" class="mt-4">
-                {{ error }}
-              </v-alert>
+      <v-text-field
+        v-model="password"
+        :rules="passwordRules"
+        label="Senha"
+        required
+        prepend-inner-icon="mdi-lock-outline"
+        :type="showPassword ? 'text' : 'password'"
+        :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
+        @click:append-inner="showPassword = !showPassword"
+        @keyup.enter="login"
+      ></v-text-field>
 
-              <v-btn
-                :disabled="!valid || loading"
-                :loading="loading"
-                color="primary"
-                block
-                class="mt-4"
-                @click="login"
-              >
-                Sign In
-              </v-btn>
-            </v-form>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn text to="/register">
-              Don't have an account? Sign up
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-    </v-row>
-  </v-container>
+      <v-alert v-if="error" type="error" density="compact" class="mb-2">
+        {{ error }}
+      </v-alert>
+
+      <v-btn
+        :disabled="!valid || loading"
+        :loading="loading"
+        color="primary"
+        block
+        size="large"
+        class="mt-2"
+        @click="login"
+      >
+        Entrar
+      </v-btn>
+    </v-form>
+
+    <div class="text-center mt-4">
+      <span class="text-body-2 text-medium-emphasis">Ainda não tem conta?</span>
+      <v-btn variant="text" color="primary" to="/register" size="small">Criar conta</v-btn>
+    </div>
+  </AuthLayout>
 </template>
 
 <script>
 import { orionUsersService } from '../services/orionUsers';
 import { authService } from '../services/auth';
 import { useAuthStore } from '../stores/auth';
+import AuthLayout from './AuthLayout.vue';
 
 export default {
   name: 'Login',
+  components: { AuthLayout },
   data() {
     return {
       valid: false,
@@ -75,12 +68,11 @@ export default {
       loading: false,
       error: null,
       emailRules: [
-        v => !!v || 'Email is required',
-        v => /.+@.+\..+/.test(v) || 'Email must be valid'
+        v => !!v || 'E-mail é obrigatório',
+        v => /.+@.+\..+/.test(v) || 'Digite um e-mail válido'
       ],
       passwordRules: [
-        v => !!v || 'Password is required',
-        v => !v || (v && v.length >= 8) || 'Password must be at least 8 characters'
+        v => !!v || 'Senha é obrigatória'
       ]
     };
   },
@@ -96,41 +88,35 @@ export default {
       try {
         const response = await orionUsersService.login(this.email, this.password);
 
-        // Login bem-sucedido
         if (response.authentication && response.authentication.token) {
           const token = response.authentication.token;
-          const user = response.authentication.user; // User is inside authentication
+          const user = response.authentication.user;
 
-          // Create user object with id based on hash
           const userData = user ? {
             ...user,
-            id: user.hash || user.email // Usar hash como id, ou email como fallback
+            id: user.hash || user.email
           } : null;
 
-          // Update authService (localStorage)
           authService.setToken(token);
           if (userData) {
             authService.setUser(userData);
           }
 
-          // Update authStore (Pinia) to sync with navigation guard
           const authStore = useAuthStore();
           authStore.setToken(token);
           if (userData) {
             authStore.setUser(userData);
           }
 
-          // Wait a bit to ensure store was updated
           await this.$nextTick();
 
-          // Redirect to conversations
           this.$router.push('/conversations');
         } else {
-          this.error = 'Error signing in. Please try again.';
+          this.error = 'Não foi possível entrar. Tente novamente.';
         }
       } catch (error) {
         console.error('Error signing in:', error);
-        this.error = error.response?.data?.message || 'Error signing in. Please check your credentials.';
+        this.error = error.response?.data?.message || 'Não foi possível entrar. Verifique suas credenciais.';
       } finally {
         this.loading = false;
       }

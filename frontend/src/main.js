@@ -10,10 +10,38 @@ import App from './App.vue';
 import { useAuthStore } from './stores/auth';
 import router from './router';
 
-// Configurar Vuetify
+// Configurar Vuetify — identidade visual Consulta AI (fork do Orion)
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 const vuetify = createVuetify({
   theme: {
-    defaultTheme: 'light'
+    defaultTheme: prefersDark ? 'dark' : 'light',
+    themes: {
+      light: {
+        colors: {
+          primary: '#00703C',
+          'primary-darken-1': '#00512B',
+          secondary: '#118A4C',
+          error: '#D8322A',
+          background: '#F5F8F5',
+          surface: '#FFFFFF'
+        }
+      },
+      dark: {
+        colors: {
+          primary: '#118A4C',
+          'primary-darken-1': '#00351C',
+          secondary: '#1E3A2A',
+          error: '#D8322A',
+          background: '#0C1712',
+          surface: '#122019'
+        }
+      }
+    }
+  },
+  defaults: {
+    VCard: { rounded: 'lg' },
+    VBtn: { rounded: 'lg' },
+    VTextField: { variant: 'outlined', rounded: 'lg' }
   }
 });
 

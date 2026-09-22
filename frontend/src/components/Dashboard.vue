@@ -12,88 +12,98 @@
 
     <div v-else class="d-flex flex-wrap" style="gap: 12px;">
       <!-- Total -->
-      <v-card class="pa-3" style="min-width: 220px;">
+      <v-card variant="outlined" class="pa-3" style="min-width: 220px;">
         <div class="text-caption">Total interações</div>
         <div class="text-h6">{{ metrics.totalRequests }}</div>
       </v-card>
 
       <!-- Conversas -->
-      <v-card class="pa-3" style="min-width: 220px;">
+      <v-card variant="outlined" class="pa-3" style="min-width: 220px;">
         <div class="text-caption">Conversas</div>
         <div class="text-h6">{{ metrics.totalConversations }}</div>
       </v-card>
 
       <!-- Handoff -->
-      <v-card class="pa-3" style="min-width: 220px;">
+      <v-card variant="outlined" class="pa-3" style="min-width: 220px;">
         <div class="text-caption">Encaminhadas (suporte humano)</div>
-        <div class="text-h6">{{ metrics.handoffRequired }}</div>
+        <div class="text-h6" :class="{ 'text-warning': metrics.handoffRequired > 0 }">{{ metrics.handoffRequired }}</div>
       </v-card>
 
       <!-- Likes / Dislikes - clicáveis -->
       <v-card
+        variant="outlined"
         class="pa-3 cursor-pointer"
         style="min-width: 220px;"
         :class="{ 'card-active': detail.type === 'LIKE' }"
         @click="loadDetail('LIKE')"
       >
         <div class="text-caption">
-          👍 Likes
+          <v-icon size="small" color="primary" start>mdi-thumb-up-outline</v-icon>
+          Likes
           <v-icon size="small" color="grey" end>mdi-chevron-right</v-icon>
         </div>
         <div class="text-h6">{{ metrics.likes }}</div>
       </v-card>
 
       <v-card
+        variant="outlined"
         class="pa-3 cursor-pointer"
         style="min-width: 220px;"
         :class="{ 'card-active': detail.type === 'DISLIKE' }"
         @click="loadDetail('DISLIKE')"
       >
         <div class="text-caption">
-          👎 Dislikes
+          <v-icon size="small" color="error" start>mdi-thumb-down-outline</v-icon>
+          Dislikes
           <v-icon size="small" color="grey" end>mdi-chevron-right</v-icon>
         </div>
-        <div class="text-h6">{{ metrics.dislikes }}</div>
+        <div class="text-h6" :class="{ 'text-error': metrics.dislikes > 0 }">{{ metrics.dislikes }}</div>
       </v-card>
 
       <!-- Urgências - clicáveis -->
       <v-card
+        variant="outlined"
         class="pa-3 cursor-pointer"
         style="min-width: 220px;"
         :class="{ 'card-active': detail.type === 'urgency-BAIXA' }"
         @click="loadDetail('urgency-BAIXA')"
       >
         <div class="text-caption">
-          🟢 Urgência Baixa
+          <v-icon size="small" color="success" start>mdi-circle</v-icon>
+          Urgência Baixa
           <v-icon size="small" color="grey" end>mdi-chevron-right</v-icon>
         </div>
         <div class="text-h6">{{ metrics.urgencyLow }}</div>
       </v-card>
 
       <v-card
+        variant="outlined"
         class="pa-3 cursor-pointer"
         style="min-width: 220px;"
         :class="{ 'card-active': detail.type === 'urgency-MEDIA' }"
         @click="loadDetail('urgency-MEDIA')"
       >
         <div class="text-caption">
-          🟡 Urgência Média
+          <v-icon size="small" color="warning" start>mdi-circle</v-icon>
+          Urgência Média
           <v-icon size="small" color="grey" end>mdi-chevron-right</v-icon>
         </div>
-        <div class="text-h6">{{ metrics.urgencyMedium }}</div>
+        <div class="text-h6" :class="{ 'text-warning': metrics.urgencyMedium > 0 }">{{ metrics.urgencyMedium }}</div>
       </v-card>
 
       <v-card
+        variant="outlined"
         class="pa-3 cursor-pointer"
         style="min-width: 220px;"
         :class="{ 'card-active': detail.type === 'urgency-ALTA' }"
         @click="loadDetail('urgency-ALTA')"
       >
         <div class="text-caption">
-          🔴 Urgência Alta
+          <v-icon size="small" color="error" start>mdi-circle</v-icon>
+          Urgência Alta
           <v-icon size="small" color="grey" end>mdi-chevron-right</v-icon>
         </div>
-        <div class="text-h6">{{ metrics.urgencyHigh }}</div>
+        <div class="text-h6" :class="{ 'text-error': metrics.urgencyHigh > 0 }">{{ metrics.urgencyHigh }}</div>
       </v-card>
     </div>
 
@@ -120,11 +130,13 @@
                 class="mb-2 border-b"
               >
                 <template #title>
-                  <span class="text-body-2 font-weight-medium">👤 {{ item.userMessage }}</span>
+                  <span class="text-body-2 font-weight-medium">
+                    <v-icon size="x-small" start>mdi-account-outline</v-icon>{{ item.userMessage }}
+                  </span>
                 </template>
                 <template #subtitle>
                   <div class="text-body-2 mt-1" style="white-space: pre-wrap;">
-                    🤖 {{ item.llmResponse ? item.llmResponse.slice(0, 300) + (item.llmResponse.length > 300 ? '…' : '') : '—' }}
+                    <v-icon size="x-small" color="primary" start>mdi-robot-outline</v-icon>{{ item.llmResponse ? item.llmResponse.slice(0, 300) + (item.llmResponse.length > 300 ? '…' : '') : '—' }}
                   </div>
                   <div class="text-caption text-grey mt-1">{{ item.createdAt }}</div>
                 </template>
@@ -141,11 +153,11 @@
 import { apiService } from '../services/api';
 
 const DETAIL_TITLES = {
-  'LIKE': '👍 Interações com Like',
-  'DISLIKE': '👎 Interações com Dislike',
-  'urgency-BAIXA': '🟢 Interações - Urgência Baixa',
-  'urgency-MEDIA': '🟡 Interações - Urgência Média',
-  'urgency-ALTA': '🔴 Interações - Urgência Alta',
+  'LIKE': 'Interações com Like',
+  'DISLIKE': 'Interações com Dislike',
+  'urgency-BAIXA': 'Interações - Urgência Baixa',
+  'urgency-MEDIA': 'Interações - Urgência Média',
+  'urgency-ALTA': 'Interações - Urgência Alta',
 };
 
 export default {
@@ -223,16 +235,16 @@ export default {
 <style scoped>
 .cursor-pointer {
   cursor: pointer;
-  transition: box-shadow 0.15s;
+  transition: border-color 0.15s;
 }
 .cursor-pointer:hover {
-  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  border-color: rgb(var(--v-theme-primary));
 }
 .card-active {
   outline: 2px solid rgb(var(--v-theme-primary));
 }
 .border-b {
-  border-bottom: 1px solid rgba(0,0,0,0.08);
+  border-bottom: 1px solid var(--border);
 }
 </style>
 

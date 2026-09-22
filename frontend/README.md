@@ -1,5 +1,7 @@
 # Frontend RAG Chatbot
 
+> **Nota:** a UI deste frontend foi customizada como um fork independente, sob a marca **Consulta AI**. Isso é só identidade visual (cores, tipografia, layout) — a integração de autenticação com o serviço externo "Orion Users" (ver `VITE_ORION_USERS_URL` abaixo) não muda de nome nem de comportamento.
+
 This is the frontend for the RAG Chatbot application, built with Vue.js 3, Vuetify and Vite. The frontend provides a modern and responsive interface to interact with the RAG system through a conversational chatbot.
 
 ## ⚡ Quick Start
