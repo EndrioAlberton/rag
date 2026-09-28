@@ -37,7 +37,7 @@
               />
             </div>
 
-            <v-alert v-else-if="!loading" type="info">
+            <v-alert v-else-if="!loading" color="primary" icon="mdi-information-outline">
               Você ainda não tem conversas. Crie uma nova conversa para começar!
             </v-alert>
 
