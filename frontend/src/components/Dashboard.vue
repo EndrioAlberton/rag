@@ -123,25 +123,24 @@
             <div v-else-if="detail.items.length === 0" class="text-center text-grey py-4">
               Nenhuma interação encontrada.
             </div>
-            <v-list v-else lines="three" density="compact">
-              <v-list-item
-                v-for="item in detail.items"
-                :key="item.id"
-                class="mb-2 border-b"
-              >
-                <template #title>
-                  <span class="text-body-2 font-weight-medium">
-                    <v-icon size="x-small" start>mdi-account-outline</v-icon>{{ item.userMessage }}
-                  </span>
-                </template>
-                <template #subtitle>
-                  <div class="text-body-2 mt-1" style="white-space: pre-wrap;">
-                    <v-icon size="x-small" color="primary" start>mdi-robot-outline</v-icon>{{ item.llmResponse ? item.llmResponse.slice(0, 300) + (item.llmResponse.length > 300 ? '…' : '') : '—' }}
+            <v-expansion-panels v-else variant="accordion">
+              <v-expansion-panel v-for="item in detail.items" :key="item.id">
+                <v-expansion-panel-title>
+                  <div class="w-100">
+                    <div class="text-body-2 font-weight-medium text-truncate">
+                      <v-icon size="x-small" start>mdi-account-outline</v-icon>{{ item.userMessage }}
+                    </div>
+                    <div class="text-caption text-grey mt-1">{{ item.createdAt }}</div>
                   </div>
-                  <div class="text-caption text-grey mt-1">{{ item.createdAt }}</div>
-                </template>
-              </v-list-item>
-            </v-list>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
+                  <div class="text-caption text-grey">Pergunta</div>
+                  <div class="text-body-2 mb-3 full-text">{{ item.userMessage }}</div>
+                  <div class="text-caption text-grey">Resposta</div>
+                  <div class="text-body-2 full-text">{{ item.llmResponse || '—' }}</div>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
           </v-card-text>
         </v-card>
       </div>
@@ -242,6 +241,10 @@ export default {
 }
 .card-active {
   outline: 2px solid rgb(var(--v-theme-primary));
+}
+.full-text {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .border-b {
   border-bottom: 1px solid var(--border);
