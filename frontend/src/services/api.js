@@ -158,34 +158,56 @@ export const apiService = {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    // Pela especificação SSE, um evento com quebras de linha chega como várias linhas "data:"
+    // seguidas de uma linha em branco; elas devem ser unidas com nova linha (senão o markdown perde
+    // listas e títulos durante o streaming).
+    let pending = [];
+
+    // Emite o evento acumulado; retorna true se o stream terminou ([DONE])
+    const flush = () => {
+      if (pending.length === 0) {
+        return false;
+      }
+      const payload = pending.join('\n');
+      pending = [];
+      if (payload.trim() === '[DONE]') {
+        onComplete();
+        return true;
+      }
+      if (payload) {
+        onMessage(payload);
+      }
+      return false;
+    };
+
+    const handleLine = (line) => {
+      const l = line.replace(/\r$/, '');
+      if (l === '') {
+        return flush();
+      }
+      const payload = sseDataPayload(l);
+      if (payload !== null) {
+        pending.push(payload);
+      } else if (!l.startsWith(':') && !l.startsWith('event:')) {
+        onMessage(l);
+      }
+      return false;
+    };
 
     try {
       while (true) {
         const { done, value } = await reader.read();
-        
+
         if (done) {
-          // Processar buffer restante
-          if (buffer.length > 0) {
-            const lines = buffer.split('\n');
-            for (const line of lines) {
-              const payload = sseDataPayload(line);
-              if (payload !== null) {
-                if (payload.trim() === '[DONE]') {
-                  onComplete();
-                  return;
-                }
-                if (payload) {
-                  onMessage(payload);
-                }
-              } else {
-                const raw = line.replace(/\r$/, '');
-                if (raw && !raw.startsWith(':') && !raw.startsWith('event:')) {
-                  onMessage(raw);
-                }
-              }
+          // Processar buffer restante e o último evento (pode não terminar em linha em branco)
+          for (const line of buffer.split('\n')) {
+            if (handleLine(line)) {
+              return;
             }
           }
-          onComplete();
+          if (!flush()) {
+            onComplete();
+          }
           break;
         }
 
@@ -194,20 +216,8 @@ export const apiService = {
         buffer = lines.pop() || '';
 
         for (const line of lines) {
-          const payload = sseDataPayload(line);
-          if (payload !== null) {
-            if (payload.trim() === '[DONE]') {
-              onComplete();
-              return;
-            }
-            if (payload) {
-              onMessage(payload);
-            }
-          } else {
-            const raw = line.replace(/\r$/, '');
-            if (raw && !raw.startsWith(':') && !raw.startsWith('event:')) {
-              onMessage(raw);
-            }
+          if (handleLine(line)) {
+            return;
           }
         }
       }
