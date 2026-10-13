@@ -122,57 +122,13 @@ export default {
       }
     },
 
-    async createNewConversation(event) {
-      // Prevent default behavior (navigation, submit, etc)
+    createNewConversation(event) {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
-        event.stopImmediatePropagation();
       }
-
-      const user = authService.getUser();
-      if (!user || !user.id) {
-        this.$router.push('/login');
-        return;
-      }
-
-      this.creatingConversation = true;
-      this.showError = false;
-      this.errorMessage = '';
-
-      try {
-        console.log('Creating new conversation for user:', user.id);
-        // Create conversation in database before navigating
-        const conversation = await apiService.createConversation(user.id, 'Nova conversa');
-        console.log('Conversation created successfully:', conversation);
-        console.log('Response type:', typeof conversation);
-        console.log('Conversation ID:', conversation?.id);
-        
-        // Validate response
-        if (!conversation) {
-          throw new Error('Resposta vazia do servidor');
-        }
-
-        if (!conversation.id) {
-          console.error('Response without ID:', conversation);
-          throw new Error('Resposta inválida do servidor: conversa criada sem ID');
-        }
-        
-        // Navigate to chat screen with the created conversation ID
-        const chatRoute = `/chat/${conversation.id}`;
-        console.log('Navigating to:', chatRoute);
-        await this.$router.push(chatRoute);
-        console.log('Navigation completed');
-      } catch (error) {
-        console.error('Error creating new conversation:', error);
-        console.error('Stack trace:', error.stack);
-        const errorMsg = error.message || error.response?.data?.message || 'Erro ao criar conversa. Tente novamente.';
-        this.errorMessage = errorMsg;
-        this.showError = true;
-        // Do not navigate on error - leave user on conversations page
-      } finally {
-        this.creatingConversation = false;
-      }
+      // A conversa só é criada no primeiro envio (ver ChatInterface.vue)
+      this.$router.push('/chat');
     },
 
     handleSelect(conversationId) {

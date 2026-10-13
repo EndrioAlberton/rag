@@ -92,14 +92,14 @@
         dense
         hide-details
         @keyup.enter="sendMessage"
-        :disabled="isLoading || initializing || !conversationId"
+        :disabled="isLoading || initializing"
         class="input-field"
       ></v-text-field>
       <v-btn
         color="primary"
         icon
         @click="sendMessage"
-        :disabled="!prompt.trim() || isLoading || initializing || !conversationId"
+        :disabled="!prompt.trim() || isLoading || initializing"
         :loading="isLoading"
         class="send-button"
       >
@@ -147,7 +147,8 @@ export default {
       initializing: true,
       error: null,
       conversationId: null,
-      userId: null
+      userId: null,
+      skipNextInit: false
     };
   },
   async mounted() {
@@ -159,6 +160,10 @@ export default {
         // Always reinitialize when conversationId changes
         // This includes when changing from an ID to undefined (new conversation)
         if (newId !== oldId) {
+          if (this.skipNextInit) {
+            this.skipNextInit = false;
+            return;
+          }
           this.initializeChat();
         }
       },
@@ -222,31 +227,6 @@ export default {
           this.conversationId = routeConversationId;
           // Load message history
           await this.loadHistory();
-        } else {
-          // If no conversationId, create new conversation
-          console.log('Creating new conversation for user:', this.userId);
-          try {
-            const conversation = await apiService.createConversation(this.userId, 'Nova conversa');
-            console.log('Conversation created:', conversation);
-            
-            if (conversation && conversation.id) {
-              this.conversationId = conversation.id;
-              // Usar replace para não adicionar ao histórico de navegação
-              await this.$router.replace(`/chat/${this.conversationId}`);
-            } else {
-              throw new Error('Resposta inválida ao criar conversa: sem ID');
-            }
-          } catch (error) {
-            console.error('Error creating conversation:', error);
-            const errorMessage = error.message || error.response?.data?.message || 'Erro ao criar conversa. Tente novamente.';
-            this.error = errorMessage;
-            this.initializing = false;
-            // Redirect after showing error
-            setTimeout(() => {
-              this.$router.push('/conversations');
-            }, 3000);
-            return;
-          }
         }
 
       } catch (error) {
@@ -409,17 +389,40 @@ export default {
       });
     },
 
+    titleFromMessage(text) {
+      const t = text.replace(/\s+/g, ' ').trim();
+      return t.length > 50 ? t.slice(0, 50).trimEnd() + '…' : t;
+    },
+
     async sendMessage() {
-      if (!this.prompt.trim() || this.isLoading || !this.conversationId) {
-        if (!this.conversationId) {
-          this.error = 'Conversa não inicializada. Recarregue a página.';
-        }
+      if (!this.prompt.trim() || this.isLoading) {
         return;
       }
 
       const userMessage = this.prompt.trim();
-      this.prompt = '';
       this.error = null;
+
+      // Conversa só é criada no primeiro envio; o título é um trecho da mensagem
+      if (!this.conversationId) {
+        this.isLoading = true;
+        try {
+          const conversation = await apiService.createConversation(
+            this.userId, this.titleFromMessage(userMessage));
+          if (!conversation || !conversation.id) {
+            throw new Error('Resposta inválida ao criar conversa: sem ID');
+          }
+          this.conversationId = conversation.id;
+          this.skipNextInit = true;
+          await this.$router.replace(`/chat/${conversation.id}`);
+        } catch (error) {
+          console.error('Error creating conversation:', error);
+          this.error = error.message || 'Erro ao criar conversa. Tente novamente.';
+          this.isLoading = false;
+          return;
+        }
+      }
+
+      this.prompt = '';
       
       // Add user message
       const userMsgIndex = this.messages.length;
