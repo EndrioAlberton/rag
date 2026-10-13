@@ -49,12 +49,12 @@ public class GoogleRolesAugmentor implements SecurityIdentityAugmentor {
         if (identity.isAnonymous() || !(identity.getPrincipal() instanceof JsonWebToken jwt)) {
             return Uni.createFrom().item(identity);
         }
-        String email = jwt.getClaim("email");
+        String claimEmail = jwt.getClaim("email");
         Boolean verified = jwt.getClaim("email_verified");
-        if (email == null || !Boolean.TRUE.equals(verified)) {
+        if (claimEmail == null || !Boolean.TRUE.equals(verified)) {
             return Uni.createFrom().item(identity);
         }
-        email = email.toLowerCase(Locale.ROOT);
+        final String email = claimEmail.toLowerCase(Locale.ROOT);
         if (!allowedDomain.isBlank() && !email.endsWith("@" + allowedDomain.toLowerCase(Locale.ROOT))) {
             return Uni.createFrom().item(identity);
         }
