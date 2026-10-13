@@ -27,6 +27,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Assigns application roles to Google-authenticated users, since Google ID tokens carry no
@@ -37,12 +38,12 @@ import java.util.Locale;
 public class GoogleRolesAugmentor implements SecurityIdentityAugmentor {
 
     /** Comma-separated e-mails that receive the admin role. */
-    @ConfigProperty(name = "rag.admin-emails", defaultValue = "")
-    List<String> adminEmails;
+    @ConfigProperty(name = "rag.admin-emails")
+    Optional<List<String>> adminEmails;
 
     /** Optional e-mail domain restriction; empty accepts any Google account. */
-    @ConfigProperty(name = "rag.allowed-email-domain", defaultValue = "")
-    String allowedDomain;
+    @ConfigProperty(name = "rag.allowed-email-domain")
+    Optional<String> allowedDomain;
 
     @Override
     public Uni<SecurityIdentity> augment(SecurityIdentity identity, AuthenticationRequestContext context) {
@@ -55,11 +56,12 @@ public class GoogleRolesAugmentor implements SecurityIdentityAugmentor {
             return Uni.createFrom().item(identity);
         }
         final String email = claimEmail.toLowerCase(Locale.ROOT);
-        if (!allowedDomain.isBlank() && !email.endsWith("@" + allowedDomain.toLowerCase(Locale.ROOT))) {
+        if (allowedDomain.filter(d -> !d.isBlank())
+                .map(d -> !email.endsWith("@" + d.toLowerCase(Locale.ROOT))).orElse(false)) {
             return Uni.createFrom().item(identity);
         }
         QuarkusSecurityIdentity.Builder builder = QuarkusSecurityIdentity.builder(identity).addRole("user");
-        if (adminEmails.stream().anyMatch(a -> a.trim().equalsIgnoreCase(email))) {
+        if (adminEmails.orElse(List.of()).stream().anyMatch(a -> a.trim().equalsIgnoreCase(email))) {
             builder.addRole("admin");
         }
         return Uni.createFrom().item(builder.build());
