@@ -28,9 +28,14 @@ public class FeedbackServiceImpl implements FeedbackPort {
     }
 
     @Override
-    public CompletionStage<Void> submit(String userId, String conversationId, String userMessage, String value) {
+    public CompletionStage<Void> submit(String userId, String conversationId, String userMessage, String value, String comment) {
         RequestLogFeedbackEntity.FeedbackValue v =
                 RequestLogFeedbackEntity.FeedbackValue.valueOf(value.trim().toUpperCase());
+        boolean report = (v == RequestLogFeedbackEntity.FeedbackValue.REPORT);
+        if (report && (comment == null || comment.isBlank())) {
+            return java.util.concurrent.CompletableFuture.failedFuture(
+                    new IllegalArgumentException("comentário obrigatório para reportar"));
+        }
         boolean liked = (v == RequestLogFeedbackEntity.FeedbackValue.LIKE);
 
         return sessionFactory.withTransaction(session ->
@@ -42,7 +47,9 @@ public class FeedbackServiceImpl implements FeedbackPort {
                             fb.setUserId(userId);
                             fb.setConversationId(conversationId);
                             fb.setValue(v);
-                            fb.setLiked(liked);
+                            // REPORT is neither like nor dislike: keep liked null so dashboard counts ignore it
+                            fb.setLiked(report ? null : liked);
+                            fb.setComment(report ? comment.trim() : null);
                             fb.setUserMessage(log.getUserMessage());
                             fb.setLlmResponse(log.getLlmResponse());
                             return feedbackRepo.persist(fb).replaceWithVoid();

@@ -65,6 +65,10 @@ public class RequestLogFeedbackEntity {
     @Column(name = "llm_response", columnDefinition = "TEXT")
     private String llmResponse;
 
+    /** Free-text report written by the user (value = REPORT). */
+    @Column(name = "comment", columnDefinition = "TEXT")
+    private String comment;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "value", nullable = false)
     private FeedbackValue value;
@@ -81,7 +85,8 @@ public class RequestLogFeedbackEntity {
 
     public enum FeedbackValue {
         LIKE,
-        DISLIKE
+        DISLIKE,
+        REPORT
     }
 }
 

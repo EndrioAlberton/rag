@@ -223,12 +223,13 @@ export const apiService = {
     }
   },
 
-  async submitFeedback(userId, conversationId, userMessage, value) {
+  async submitFeedback(userId, conversationId, userMessage, value, comment) {
     const response = await api.post(`/ai/feedback`, {
       userId,
       conversationId,
       userMessage,
-      value
+      value,
+      comment
     });
     return response.data;
   },

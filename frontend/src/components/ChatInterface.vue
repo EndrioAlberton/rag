@@ -67,6 +67,13 @@
                 <v-icon start>mdi-thumb-down-outline</v-icon>
                 Não curtir
               </v-btn>
+              <a
+                v-if="!message.reported"
+                href="#"
+                class="report-link"
+                @click.prevent="openReport(index)"
+              >Reportar</a>
+              <span v-else class="feedback-saved">Relato enviado</span>
               <span v-if="message.feedbackValue" class="feedback-saved">
                 Avaliado: {{ message.feedbackValue }}
               </span>
@@ -82,6 +89,37 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal de relato sobre uma resposta -->
+    <v-dialog v-model="report.open" max-width="520">
+      <v-card>
+        <v-card-title>Reportar resposta</v-card-title>
+        <v-card-text>
+          <p class="text-body-2 mb-3">
+            Conte o que está errado ou faltando nesta resposta. Seu relato será avaliado individualmente.
+          </p>
+          <v-textarea
+            v-model="report.text"
+            label="Seu relato"
+            rows="4"
+            auto-grow
+            counter="2000"
+            maxlength="2000"
+          ></v-textarea>
+          <v-alert v-if="report.error" type="error" density="compact">{{ report.error }}</v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="report.open = false">Cancelar</v-btn>
+          <v-btn
+            color="primary"
+            :loading="report.sending"
+            :disabled="!report.text.trim()"
+            @click="sendReport"
+          >Enviar</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Message input - Always visible at the bottom -->
     <div class="input-container">
@@ -148,7 +186,8 @@ export default {
       error: null,
       conversationId: null,
       userId: null,
-      skipNextInit: false
+      skipNextInit: false,
+      report: { open: false, index: null, text: '', sending: false, error: null }
     };
   },
   async mounted() {
@@ -532,6 +571,31 @@ export default {
       }
     }
     ,
+    openReport(index) {
+      this.report = { open: true, index, text: '', sending: false, error: null };
+    },
+
+    async sendReport() {
+      const msg = this.messages[this.report.index];
+      if (!msg || !this.report.text.trim()) return;
+      this.report.sending = true;
+      this.report.error = null;
+      try {
+        const linked = msg._userMessage || this.findPreviousUserMessage(this.report.index);
+        if (!linked) {
+          throw new Error('Não foi possível vincular o relato a uma pergunta.');
+        }
+        await apiService.submitFeedback(
+          this.userId, this.conversationId, linked, 'REPORT', this.report.text.trim());
+        msg.reported = true;
+        this.report.open = false;
+      } catch (e) {
+        this.report.error = e.response?.data?.message || e.message || 'Erro ao enviar relato';
+      } finally {
+        this.report.sending = false;
+      }
+    },
+
     findPreviousUserMessage(assistantIndex) {
       if (assistantIndex == null || assistantIndex <= 0) {
         return null;
@@ -639,6 +703,18 @@ export default {
 .feedback-saved {
   font-size: 0.8rem;
   opacity: 0.7;
+}
+
+.report-link {
+  font-size: 0.875rem;
+  text-decoration: underline;
+  color: inherit;
+  opacity: 0.8;
+  cursor: pointer;
+}
+
+.report-link:hover {
+  opacity: 1;
 }
 
 .markdown-content {

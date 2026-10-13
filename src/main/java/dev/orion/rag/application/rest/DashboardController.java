@@ -42,7 +42,7 @@ public class DashboardController {
     @RolesAllowed("user")
     public Uni<Response> submitFeedback(@Valid FeedbackRequest req) {
         return Uni.createFrom().completionStage(() ->
-                        feedbackPort.submit(req.userId, req.conversationId, req.userMessage, req.value))
+                        feedbackPort.submit(req.userId, req.conversationId, req.userMessage, req.value, req.comment))
                 .replaceWith(Response.ok("{\"ok\":true}").build())
                 .onFailure(IllegalArgumentException.class).recoverWithItem(t ->
                         Response.status(400).entity("{\"message\":\"" + t.getMessage() + "\"}").build())

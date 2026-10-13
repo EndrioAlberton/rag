@@ -13,6 +13,10 @@ public class FeedbackRequest {
     public String userMessage;
 
     @NotBlank
-    public String value; // LIKE | DISLIKE
+    public String value; // LIKE | DISLIKE | REPORT
+
+    /** Free-text report; only used when value is REPORT. */
+    @jakarta.validation.constraints.Size(max = 2000)
+    public String comment;
 }
 

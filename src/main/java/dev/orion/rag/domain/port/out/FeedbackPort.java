@@ -4,6 +4,6 @@ import java.util.concurrent.CompletionStage;
 
 public interface FeedbackPort {
 
-    CompletionStage<Void> submit(String userId, String conversationId, String userMessage, String value);
+    CompletionStage<Void> submit(String userId, String conversationId, String userMessage, String value, String comment);
 }
 
