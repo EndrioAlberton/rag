@@ -76,11 +76,11 @@ public class AuthServiceImpl implements AuthPort {
             }
             String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
             JsonNode jsonNode = objectMapper.readTree(payload);
-            if (!jsonNode.has("c_hash")) {
+            if (!jsonNode.has("sub")) {
                 throw new IllegalArgumentException(
-                        "Hash not found in JWT token. Available claims: " + jsonNode.fieldNames());
+                        "Subject (sub) not found in JWT token. Available claims: " + jsonNode.fieldNames());
             }
-            return jsonNode.get("c_hash").asText();
+            return jsonNode.get("sub").asText();
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to extract hash from JWT token", e);
         }

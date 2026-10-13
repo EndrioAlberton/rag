@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import Login from '../components/Login.vue';
-import Register from '../components/Register.vue';
 import ChatInterface from '../components/ChatInterface.vue';
 import ConversationList from '../components/ConversationList.vue';
 import Dashboard from '../components/Dashboard.vue';
@@ -9,11 +8,6 @@ const routes = [
   {
     path: '/',
     redirect: '/conversations'
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: Register
   },
   {
     path: '/login',

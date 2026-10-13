@@ -1,124 +1,80 @@
 <template>
   <AuthLayout>
-    <h2 class="text-h5 mb-1" style="font-family:'Fraunces',Georgia,serif;">Bem-vindo(a) de volta</h2>
-    <p class="text-body-2 text-medium-emphasis mb-6">Acesse para tirar suas dúvidas sobre o curso.</p>
+    <h2 class="text-h5 mb-1" style="font-family:'Fraunces',Georgia,serif;">Bem-vindo(a)</h2>
+    <p class="text-body-2 text-medium-emphasis mb-6">Entre com sua conta Google para tirar suas dúvidas sobre o curso.</p>
 
-    <v-form ref="form" v-model="valid" lazy-validation>
-      <v-text-field
-        v-model="email"
-        :rules="emailRules"
-        label="E-mail"
-        required
-        prepend-inner-icon="mdi-email-outline"
-        type="email"
-        class="mb-2"
-      ></v-text-field>
+    <v-alert v-if="error" type="error" density="compact" class="mb-4">
+      {{ error }}
+    </v-alert>
 
-      <v-text-field
-        v-model="password"
-        :rules="passwordRules"
-        label="Senha"
-        required
-        prepend-inner-icon="mdi-lock-outline"
-        :type="showPassword ? 'text' : 'password'"
-        :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
-        @click:append-inner="showPassword = !showPassword"
-        @keyup.enter="login"
-      ></v-text-field>
-
-      <v-alert v-if="error" type="error" density="compact" class="mb-2">
-        {{ error }}
-      </v-alert>
-
-      <v-btn
-        :disabled="!valid || loading"
-        :loading="loading"
-        color="primary"
-        block
-        size="large"
-        class="mt-2"
-        @click="login"
-      >
-        Entrar
-      </v-btn>
-    </v-form>
-
-    <div class="text-center mt-4">
-      <span class="text-body-2 text-medium-emphasis">Ainda não tem conta?</span>
-      <v-btn variant="text" color="primary" to="/register" size="small">Criar conta</v-btn>
-    </div>
+    <div ref="googleBtn" class="d-flex justify-center"></div>
   </AuthLayout>
 </template>
 
 <script>
-import { orionUsersService } from '../services/orionUsers';
 import { authService } from '../services/auth';
 import { useAuthStore } from '../stores/auth';
 import AuthLayout from './AuthLayout.vue';
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+// O ID token do Google é um JWT: o payload (2ª parte) é JSON em base64url
+function decodeJwtPayload(token) {
+  const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0))));
+}
 
 export default {
   name: 'Login',
   components: { AuthLayout },
   data() {
-    return {
-      valid: false,
-      email: '',
-      password: '',
-      showPassword: false,
-      loading: false,
-      error: null,
-      emailRules: [
-        v => !!v || 'E-mail é obrigatório',
-        v => /.+@.+\..+/.test(v) || 'Digite um e-mail válido'
-      ],
-      passwordRules: [
-        v => !!v || 'Senha é obrigatória'
-      ]
-    };
+    return { error: null };
+  },
+  mounted() {
+    this.initGoogle();
   },
   methods: {
-    async login() {
-      if (!this.$refs.form.validate()) {
+    initGoogle() {
+      // O script do Google (index.html) carrega de forma assíncrona
+      if (!window.google?.accounts?.id) {
+        setTimeout(this.initGoogle, 200);
         return;
       }
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: this.onCredential
+      });
+      window.google.accounts.id.renderButton(this.$refs.googleBtn, {
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        locale: 'pt-BR'
+      });
+    },
 
-      this.loading = true;
-      this.error = null;
-
+    async onCredential(response) {
       try {
-        const response = await orionUsersService.login(this.email, this.password);
+        const token = response.credential;
+        const payload = decodeJwtPayload(token);
+        const userData = {
+          id: payload.sub,
+          hash: payload.sub,
+          email: payload.email,
+          name: payload.name,
+          picture: payload.picture
+        };
 
-        if (response.authentication && response.authentication.token) {
-          const token = response.authentication.token;
-          const user = response.authentication.user;
+        authService.setToken(token);
+        authService.setUser(userData);
+        const authStore = useAuthStore();
+        authStore.setToken(token);
+        authStore.setUser(userData);
 
-          const userData = user ? {
-            ...user,
-            id: user.hash || user.email
-          } : null;
-
-          authService.setToken(token);
-          if (userData) {
-            authService.setUser(userData);
-          }
-
-          const authStore = useAuthStore();
-          authStore.setToken(token);
-          if (userData) {
-            authStore.setUser(userData);
-          }
-
-          await this.$nextTick();
-
-          this.$router.push('/conversations');
-        } else {
-          this.error = 'Não foi possível entrar. Tente novamente.';
-        }
-      } catch (error) {
-        console.error('Error signing in:', error);
-        this.error = error.response?.data?.message || 'Não foi possível entrar. Verifique suas credenciais.';
-      } finally {
-        this.loading = false;
+        await this.$nextTick();
+        this.$router.push('/conversations');
+      } catch (e) {
+        console.error('Error signing in with Google:', e);
+        this.error = 'Não foi possível entrar. Tente novamente.';
       }
     }
   }
