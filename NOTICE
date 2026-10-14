@@ -1,0 +1,10 @@
+RAG
+Copyright 2026 Endrio Alberton
+
+This project is a fork of orion-services/rag
+(https://github.com/orion-services/rag), originally developed by
+Rodrigo Prestes Machado and licensed under the Apache License, Version 2.0.
+
+The original code has been modified. Changes made after the fork are
+recorded in the git history of this repository, starting after upstream
+commit 876cf06.

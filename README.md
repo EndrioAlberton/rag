@@ -1,5 +1,9 @@
 # RAG - RAG System with Generative AI
 
+> Fork of [orion-services/rag](https://github.com/orion-services/rag) by
+> Rodrigo Prestes Machado, licensed under Apache 2.0. This version contains
+> modifications; see [NOTICE](NOTICE) and [LICENSE](LICENSE).
+
 This project implements a RAG (Retrieval-Augmented Generation) system
 using Quarkus, LangChain4j and OpenAI to create an intelligent chatbot that
 can answer questions based on ingested documents.
