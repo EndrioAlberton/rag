@@ -17,6 +17,7 @@
 package dev.orion.rag.infrastructure.repository;
 
 import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.document.loader.FileSystemDocumentLoader;
 import dev.langchain4j.data.segment.TextSegment;
@@ -24,7 +25,6 @@ import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.embedding.onnx.HuggingFaceTokenCountEstimator;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingStore;
-import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder;
 import dev.orion.rag.domain.model.DocumentData;
 import dev.orion.rag.domain.model.RagQuery;
@@ -55,6 +55,9 @@ import static dev.langchain4j.data.document.splitter.DocumentSplitters.recursive
  */
 @ApplicationScoped
 public class EmbeddingRepositoryImpl implements EmbeddingRepository {
+
+    /** Segments embedded per OpenAI request (keeps each request well under the 300k-token limit). */
+    private static final int EMBEDDING_BATCH_SIZE = 64;
 
     /** LangChain4j store that holds vectorised text segments. */
     private final EmbeddingStore<TextSegment> embeddingStore;
@@ -220,14 +223,20 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
             return;
         }
 
-        EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
-                .embeddingStore(embeddingStore)
-                .embeddingModel(embeddingModel)
-                .documentSplitter(recursive(800, 300,
-                        new HuggingFaceTokenCountEstimator()))
-                .build();
-        ingestor.ingest(changed.stream().map(FingerprintedDocument::document).toList());
-        changed.forEach(c -> sourceTracker.recordIngestion(c.source(), c.sha256()));
+        DocumentSplitter splitter = recursive(800, 300, new HuggingFaceTokenCountEstimator());
+        for (FingerprintedDocument doc : changed) {
+            // Drop leftovers from an interrupted earlier run so chunks are never duplicated
+            embeddingStore.removeAll(
+                    MetadataFilterBuilder.metadataKey("source").isEqualTo(doc.source()));
+            List<TextSegment> segments = splitter.split(doc.document());
+            // The OpenAI embeddings API rejects requests above 300k tokens, so embed in small batches
+            for (int i = 0; i < segments.size(); i += EMBEDDING_BATCH_SIZE) {
+                List<TextSegment> batch =
+                        segments.subList(i, Math.min(i + EMBEDDING_BATCH_SIZE, segments.size()));
+                embeddingStore.addAll(embeddingModel.embedAll(batch).content(), batch);
+            }
+            sourceTracker.recordIngestion(doc.source(), doc.sha256());
+        }
 
         Log.info("✅ Ingested " + changed.size() + " new/changed source(s); "
                 + unchanged + " unchanged source(s) skipped.");
