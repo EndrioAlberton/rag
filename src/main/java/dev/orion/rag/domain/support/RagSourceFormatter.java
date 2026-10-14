@@ -49,6 +49,10 @@ public final class RagSourceFormatter {
 
     private static String formatSource(String src) {
         String trimmed = src == null ? "" : src.trim();
+        // Base files are Markdown conversions of the original PDFs: show the original name.
+        if (trimmed.endsWith(".md")) {
+            trimmed = trimmed.substring(0, trimmed.length() - ".md".length()) + ".pdf";
+        }
         if (trimmed.isBlank()) {
             return "Base de conhecimento (RAG)";
         }
