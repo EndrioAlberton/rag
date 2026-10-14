@@ -22,6 +22,22 @@ function sseDataPayload(line) {
   return m ? m[1] : null;
 }
 
+/**
+ * O servidor envia cada token como string JSON (quebras de linha escapadas). Erros em texto puro
+ * não são JSON e seguem como vieram.
+ */
+function decodeToken(payload) {
+  try {
+    const value = JSON.parse(payload);
+    if (typeof value === 'string') {
+      return value;
+    }
+  } catch (e) {
+    // texto puro
+  }
+  return payload;
+}
+
 // Interceptor para adicionar token JWT
 api.interceptors.request.use(
   (config) => {
@@ -175,7 +191,7 @@ export const apiService = {
         return true;
       }
       if (payload) {
-        onMessage(payload);
+        onMessage(decodeToken(payload));
       }
       return false;
     };

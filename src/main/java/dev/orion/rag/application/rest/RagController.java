@@ -16,6 +16,8 @@
 
 package dev.orion.rag.application.rest;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.orion.rag.application.rest.dto.ChatbotRequest;
 import dev.orion.rag.application.rest.dto.ContextResponse;
 import dev.orion.rag.application.rest.dto.ConversationRequest;
@@ -62,6 +64,9 @@ import java.util.List;
  */
 @Path("/ai")
 public class RagController {
+
+    /** Encodes streamed tokens as JSON strings. */
+    private static final ObjectMapper TOKEN_MAPPER = new ObjectMapper();
 
     /** Use case that handles streaming chatbot responses within a conversation. */
     private final ChatbotPort chatbotUseCase;
@@ -157,7 +162,8 @@ public class RagController {
                                         chatbotUseCase.execute(
                                                 syncedUserId, request.conversationId,
                                                 request.prompt,
-                                                syncedUserName, syncedEmail));
+                                                syncedUserName, syncedEmail))
+                                    .onItem().transform(RagController::encodeToken);
                             })
                             .onFailure().recoverWithMulti(e -> {
                                 String msg = e instanceof SecurityException
@@ -174,6 +180,21 @@ public class RagController {
         } else {
             Log.warn("JWT token not found in POST /chatbot request");
             return Multi.createFrom().item("data: Erro: Token de autenticação não encontrado\n\n");
+        }
+    }
+
+    /**
+     * Encodes a streamed token as a JSON string, so line breaks inside the token survive
+     * the SSE framing (the client decodes it back before rendering the markdown).
+     *
+     * @param token raw token emitted by the model
+     * @return the token as a single-line JSON string
+     */
+    private static String encodeToken(String token) {
+        try {
+            return TOKEN_MAPPER.writeValueAsString(token);
+        } catch (JsonProcessingException e) {
+            return token;
         }
     }
 
@@ -213,7 +234,8 @@ public class RagController {
                             return Multi.createFrom().publisher(
                                     chatbotUseCase.execute(
                                             syncedUserId, conversationId, prompt,
-                                            syncedUserName, syncedEmail));
+                                            syncedUserName, syncedEmail))
+                                    .onItem().transform(RagController::encodeToken);
                         })
                         .onFailure().recoverWithMulti(e -> {
                             String msg = e instanceof SecurityException
