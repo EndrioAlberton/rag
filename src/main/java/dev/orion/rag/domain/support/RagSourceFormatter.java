@@ -15,6 +15,10 @@ public final class RagSourceFormatter {
             "https://poa.ifrs.edu.br/attachments/article/2808/Res_2025_Anexo.pdf";
     private static final String ANEXO_69_URL =
             "https://poa.ifrs.edu.br/attachments/article/2808/69_ANEXO_DE_RESOLUCAO.pdf";
+    private static final String HORARIOS_2026_2_URL =
+            "https://poa.ifrs.edu.br/attachments/article/100/Hor%C3%A1rios_Aulas_2026-2_VERSAO-FINAL_10_07_2026.pdf";
+    private static final String ANEXO_24_2026_URL =
+            "https://poa.ifrs.edu.br/attachments/article/3129/Anexo%20da%20Resolu%C3%A7%C3%A3o%2024_2026%20(07-08-2026).pdf";
     private static final String DUVIDAS_RESPOSTAS_URL =
             "https://poa.ifrs.edu.br/index.php/duvidas-respostas";
 
@@ -63,6 +67,12 @@ public final class RagSourceFormatter {
         }
         if (lower.contains("69_anexo_de_resolucao")) {
             return "[" + trimmed + "](" + ANEXO_69_URL + ")";
+        }
+        if (lower.contains("horarios_aulas_2026-2")) {
+            return "[" + trimmed + "](" + HORARIOS_2026_2_URL + ")";
+        }
+        if (lower.contains("anexo_resolucao_24_2026")) {
+            return "[" + trimmed + "](" + ANEXO_24_2026_URL + ")";
         }
         if (lower.contains("duvidas") && lower.contains("respostas")) {
             return "[Dúvidas e Respostas — IFRS POA](" + DUVIDAS_RESPOSTAS_URL + ")";
