@@ -2,6 +2,7 @@ package dev.orion.rag.infrastructure.service;
 
 import dev.orion.rag.domain.model.TriagemResult;
 import dev.orion.rag.domain.model.TriagemResult.Decisao;
+import dev.orion.rag.domain.model.TriagemResult.Setor;
 import dev.orion.rag.domain.model.TriagemResult.Urgencia;
 import dev.orion.rag.domain.port.out.TriagemPort;
 import io.quarkiverse.langchain4j.RegisterAiService;
@@ -56,7 +57,7 @@ public class TriagemServiceImpl implements TriagemPort {
 Você é um triador de Service Desk para dúvidas institucionais do IFRS.
 Avalie a mensagem atual JUNTO com o histórico da conversa fornecido.
 Retorne SOMENTE um JSON com este formato exato:
-{"decisao":"AUTO_RESPONDER","urgencia":"BAIXA","camposFaltantes":""}
+{"decisao":"AUTO_RESPONDER","urgencia":"BAIXA","camposFaltantes":"","setor":"GERAL"}
 
 Regras de decisão:
 - SOBRE_ASSISTENTE: use quando a pergunta é sobre o PRÓPRIO CHATBOT, não sobre o curso.
@@ -87,6 +88,10 @@ Regras de urgência:
 - BAIXA: perguntas gerais sem prazo imediato.
 - MEDIA: dúvidas sobre processos em andamento.
 - ALTA: prazo imediato ou situação urgente.
+
+Regras de setor (para quem encaminhar a dúvida se o assistente não souber responder):
+- SSI: assuntos do curso de Sistemas para Internet — disciplinas, grade curricular, pré-requisitos, planos de ensino, professores e horários das disciplinas, TCC, estágio, atividades complementares, matriz e PPC do curso.
+- GERAL: todo o resto (assuntos gerais do campus, biblioteca, documentos, assistência estudantil, serviços, eventos). Em caso de dúvida, use GERAL.
 
 Retorne SOMENTE o JSON, sem explicações.
 """;
@@ -178,7 +183,13 @@ Retorne SOMENTE o JSON, sem explicações.
             if (c != null && !c.isBlank()) campos = c.trim();
         } catch (Exception ignored) {}
 
-        return new TriagemResult(decisao, urgencia, campos);
+        Setor setor = Setor.GERAL;
+        try {
+            String s = extractJsonValue(json, "setor");
+            if (s != null) setor = Setor.valueOf(s.trim().toUpperCase());
+        } catch (Exception ignored) {}
+
+        return new TriagemResult(decisao, urgencia, campos, setor);
     }
 
     private String extractJsonValue(String json, String key) {

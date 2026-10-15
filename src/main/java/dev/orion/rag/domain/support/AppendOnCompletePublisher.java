@@ -19,6 +19,7 @@ package dev.orion.rag.domain.support;
 import java.util.Objects;
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 /**
  * Wraps an upstream publisher and emits a final appendix token before completing.
@@ -27,11 +28,28 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class AppendOnCompletePublisher implements Flow.Publisher<String> {
 
     private final Flow.Publisher<String> upstream;
-    private final String appendix;
+    private final Function<String, String> appendixFor;
 
+    /**
+     * Appends a fixed appendix when the stream completes.
+     *
+     * @param upstream stream whose tokens are forwarded
+     * @param appendix text emitted after the last token (blank means none)
+     */
     public AppendOnCompletePublisher(Flow.Publisher<String> upstream, String appendix) {
+        this(upstream, text -> appendix);
+    }
+
+    /**
+     * Appends an appendix chosen from the complete streamed text, e.g. to omit the sources
+     * when the answer says the information was not found.
+     *
+     * @param upstream    stream whose tokens are forwarded
+     * @param appendixFor receives the full streamed text and returns the appendix (null or blank means none)
+     */
+    public AppendOnCompletePublisher(Flow.Publisher<String> upstream, Function<String, String> appendixFor) {
         this.upstream = Objects.requireNonNull(upstream, "upstream");
-        this.appendix = appendix == null ? "" : appendix;
+        this.appendixFor = Objects.requireNonNull(appendixFor, "appendixFor");
     }
 
     @Override
@@ -39,6 +57,7 @@ public final class AppendOnCompletePublisher implements Flow.Publisher<String> {
         upstream.subscribe(new Flow.Subscriber<String>() {
             private Flow.Subscription upstreamSub;
             private final AtomicBoolean cancelled = new AtomicBoolean(false);
+            private final StringBuilder streamed = new StringBuilder();
 
             @Override
             public void onSubscribe(Flow.Subscription subscription) {
@@ -59,6 +78,7 @@ public final class AppendOnCompletePublisher implements Flow.Publisher<String> {
 
             @Override
             public void onNext(String item) {
+                streamed.append(item);
                 subscriber.onNext(item);
             }
 
@@ -69,7 +89,8 @@ public final class AppendOnCompletePublisher implements Flow.Publisher<String> {
 
             @Override
             public void onComplete() {
-                if (!cancelled.get() && !appendix.isBlank()) {
+                String appendix = cancelled.get() ? null : appendixFor.apply(streamed.toString());
+                if (appendix != null && !appendix.isBlank()) {
                     subscriber.onNext(appendix);
                 }
                 subscriber.onComplete();

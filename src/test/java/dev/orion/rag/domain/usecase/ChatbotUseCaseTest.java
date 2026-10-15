@@ -226,6 +226,69 @@ class ChatbotUseCaseTest {
     }
 
     @Test
+    void modelAnswersNotFound_marksHandoff_andOmitsSources() throws Exception {
+        when(memoryPort.saveMessage(any())).thenReturn(CompletableFuture.completedFuture(null));
+        when(embeddingRepository.searchChunks(any()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        new RagResponse("q", List.of("rag-text"), 0.7)));
+        when(memoryPort.getHistory(eq("user-1"), eq("conv-1")))
+                .thenReturn(CompletableFuture.completedFuture(""));
+        when(aiPort.generateContextualResponse(any()))
+                .thenReturn(FlowTestSupport.emitTokens(
+                        "Não encontrei essa informação ", "na base de conhecimento."));
+        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), anyLong(),
+                anyBoolean(), any(), any(), anyLong(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        List<String> tokens = FlowTestSupport.collectAll(
+                useCase.execute("user-1", "conv-1", "horario da biblioteca?", null, null)).get();
+
+        // Retrieval found context, but the model found no answer: no sources, human contact instead.
+        String text = String.join("", tokens);
+        assertTrue(!text.contains("Fontes consultadas"));
+        assertTrue(text.contains("comunicacao@poa.ifrs.edu.br"));
+
+        verify(requestLogPort).log(
+                eq("user-1"),
+                isNull(),
+                isNull(),
+                eq("horario da biblioteca?"),
+                any(),
+                eq("rag-text"),
+                eq(0.7),
+                anyLong(),
+                eq(true),
+                eq("model_not_found"),
+                any(),
+                anyLong(),
+                any(),
+                any());
+    }
+
+    @Test
+    void handoffOfSsiQuestion_pointsToCourseCoordination() throws Exception {
+        when(triagemPort.classify(any(), any())).thenReturn(CompletableFuture.completedFuture(
+                new TriagemResult(TriagemResult.Decisao.AUTO_RESPONDER, TriagemResult.Urgencia.BAIXA,
+                        null, TriagemResult.Setor.SSI)));
+        when(memoryPort.saveMessage(any())).thenReturn(CompletableFuture.completedFuture(null));
+        when(embeddingRepository.searchChunks(any()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        new RagResponse("q", List.of(), 0.0)));
+        when(memoryPort.getHistory(eq("user-1"), eq("conv-1")))
+                .thenReturn(CompletableFuture.completedFuture(""));
+        when(requestLogPort.log(any(), any(), any(), any(), any(), any(), any(), anyLong(),
+                anyBoolean(), any(), any(), anyLong(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        List<String> tokens = FlowTestSupport.collectAll(
+                useCase.execute("user-1", "conv-1", "quem da aula de optativa?", null, null)).get();
+
+        // SSI questions go to the course coordinator, not to the general campus contact.
+        assertTrue(tokens.get(0).contains("ssi@poa.ifrs.edu.br"));
+        assertTrue(!tokens.get(0).contains("comunicacao@poa.ifrs.edu.br"));
+    }
+
+    @Test
     void emptyRagContext_answersWithHumanHandoff_andLogsIt() throws Exception {
         when(memoryPort.saveMessage(any())).thenReturn(CompletableFuture.completedFuture(null));
         when(embeddingRepository.searchChunks(any()))

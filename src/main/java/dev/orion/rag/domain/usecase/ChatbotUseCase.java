@@ -19,6 +19,7 @@ package dev.orion.rag.domain.usecase;
 import dev.orion.rag.domain.model.AIRequest;
 import dev.orion.rag.domain.model.ChatMessage;
 import dev.orion.rag.domain.model.RagQuery;
+import dev.orion.rag.domain.model.TriagemResult;
 import dev.orion.rag.domain.model.TriagemResult.Decisao;
 import dev.orion.rag.domain.port.in.ChatbotPort;
 import dev.orion.rag.domain.port.out.AIPort;
@@ -32,6 +33,7 @@ import dev.orion.rag.domain.support.RagSourceFormatter;
 import dev.orion.rag.domain.support.DeferredPublisher;
 
 import java.time.Instant;
+import java.util.Locale;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Flow;
 import java.util.logging.Logger;
@@ -45,13 +47,32 @@ public class ChatbotUseCase implements ChatbotPort {
     private static final Logger LOG = Logger.getLogger(ChatbotUseCase.class.getName());
     /** Fallback context string used when no RAG result is found. */
     private static final String DEFAULT_CONTEXT = "";
-    private static final String HUMAN_SUPPORT_CONTACT = """
+    private static final String GENERAL_SUPPORT_CONTACT = """
 
 ---
 Suporte humano (IFRS POA)
 E-mail: comunicacao@poa.ifrs.edu.br
 Telefone: (51) 3930-6002
 """;
+    private static final String SSI_SUPPORT_CONTACT = """
+
+---
+Coordenação do curso de Sistemas para Internet
+Coordenador: Timóteo Alberto Peters Lange
+E-mail: ssi@poa.ifrs.edu.br
+Sala: 816 - Torre Norte
+""";
+
+    /**
+     * Picks the human contact for the question's sector: the SSI coordination for course matters,
+     * the general campus contact for everything else.
+     *
+     * @param setor sector chosen by the triagem
+     * @return the contact block appended to an answer that forwards the user to a person
+     */
+    private static String supportContact(TriagemResult.Setor setor) {
+        return setor == TriagemResult.Setor.SSI ? SSI_SUPPORT_CONTACT : GENERAL_SUPPORT_CONTACT;
+    }
     /**
      * Fixed answer for questions about the assistant itself (scope, purpose, capabilities).
      * Returned directly by triagem's {@code SOBRE_ASSISTENTE} decision, bypassing RAG and
@@ -152,7 +173,7 @@ Minhas respostas são baseadas nos documentos oficiais do IFRS (PPC, editais e F
                                 Flow.Publisher<String> withAppendix;
                                 if (handoffRequired) {
                                     String msg = "Não encontrei informação suficiente na base para responder com segurança."
-                                            + HUMAN_SUPPORT_CONTACT;
+                                            + supportContact(triage.getSetor());
                                     withAppendix = publishSingle(msg);
                                 } else {
                                     AIRequest aiRequest = new AIRequest(
@@ -160,13 +181,21 @@ Minhas respostas são baseadas nos documentos oficiais do IFRS (PPC, editais e F
                                     Flow.Publisher<String> stream =
                                             aiPort.generateContextualResponse(aiRequest);
                                     String sourcesAppendix = RagSourceFormatter.sourcesAppendix(ragResult);
-                                    withAppendix = new AppendOnCompletePublisher(stream, sourcesAppendix);
+                                    // When the model says it found nothing, cite no sources: show the human contact
+                                    withAppendix = new AppendOnCompletePublisher(stream,
+                                            text -> isNotFoundAnswer(text)
+                                                    ? supportContact(triage.getSetor()) : sourcesAppendix);
                                 }
                                 return (Flow.Publisher<String>) new AccumulatingOnCompletePublisher(
                                         withAppendix,
                                         fullResponse -> {
                                             long llmLatencyMs =
                                                     System.currentTimeMillis() - llmStart;
+                                            // Retrieval returned context, but the model may still find no answer in it
+                                            boolean notFound = isNotFoundAnswer(fullResponse);
+                                            boolean handoff = handoffRequired || notFound;
+                                            String reason = handoffRequired
+                                                    ? handoffReason : (notFound ? "model_not_found" : null);
                                             ChatMessage assistantMsg = new ChatMessage();
                                             assistantMsg.setConversationId(conversationId);
                                             assistantMsg.setSessionId(conversationId);
@@ -179,7 +208,7 @@ Minhas respostas são baseadas nos documentos oficiais do IFRS (PPC, editais e F
                                                             userId, userName,
                                                             email, prompt, messageTimestamp,
                                                             ragResult, ragResponse.getScore(), ragLatencyMs,
-                                                            handoffRequired, handoffReason,
+                                                            handoff, reason,
                                                             fullResponse, llmLatencyMs,
                                                             conversationId, urgency));
                                         });
@@ -208,6 +237,19 @@ Minhas respostas são baseadas nos documentos oficiais do IFRS (PPC, editais e F
         assistantMsg.setUserId(null);
         return memoryPort.saveMessage(assistantMsg)
                 .thenApply(v -> publishSingle(message));
+    }
+
+    /** Start of the model's canned answer when the context lacks the information (see the system prompt). */
+    private static final String NOT_FOUND_PREFIX = "não encontrei essa informação";
+
+    /**
+     * Tells whether the model answered that it found no information in the retrieved context.
+     *
+     * @param text the (possibly partial) answer text
+     * @return true if the answer starts with the "not found" sentence
+     */
+    static boolean isNotFoundAnswer(String text) {
+        return text != null && text.stripLeading().toLowerCase(Locale.ROOT).startsWith(NOT_FOUND_PREFIX);
     }
 
     /** Helper to create a single-item publisher for fixed messages. */
