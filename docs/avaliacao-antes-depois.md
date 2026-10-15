@@ -1,56 +1,63 @@
 # Avaliação antes e depois da conversão dos PDFs para Markdown
 
-Objetivo: medir se converter os PDFs para Markdown (e mostrar trecho e página) melhora as respostas do chatbot.
+Objetivo: medir se converter os PDFs para Markdown melhora as respostas do chatbot.
 
-- **Antes** (linha de base): 14/10/2026, base com os 9 PDFs ingeridos como texto puro (PDFBox). Preenchido abaixo.
-- **Depois**: mesma base, mesmos PDFs convertidos para Markdown. Coluna em branco, a preencher.
+- **Antes** (linha de base): 14/10/2026 por volta das 19h20, base com os PDFs ingeridos como texto puro (PDFBox).
+- **Depois**: 14/10/2026 entre 20h05 e 20h11, mesma base de 10 documentos, agora em Markdown (pymupdf4llm). Trechos de 800 tokens com sobreposição de 300, embeddings em lotes de 64.
 
-## Como repetir
+Legenda: **✓** correta, **~** parcial/incompleta, **✗** errada, **?** não verificável. As respostas esperadas foram conferidas no PDF (o cronograma de S.O. foi conferido visualmente, abrindo a página).
 
-1. Fazer a conversão e reingerir a base (limpar `embeddings` e subir o app).
-2. Rodar **as mesmas perguntas, na mesma ordem**, em conversas novas (uma pergunta por conversa, para a memória não interferir).
-3. Extrair com a query:
-   ```sql
-   SELECT r.created_at, r.user_message, left(r.llm_response, 300) AS resposta,
-          r.rag_score, r.llm_latency_ms, r.handoff_required
-   FROM request_logs r ORDER BY r.created_at DESC LIMIT 20;
-   ```
-4. Preencher a coluna "Depois" com a nota: **✓** correta, **~** parcial/incompleta, **✗** errada, **?** não verificável.
+## Resultado por pergunta
 
-Critérios: correção do conteúdo (conferido no PDF), recusa correta quando a base não tem a informação, fontes citadas relevantes, latência (RNF01: até 5 s).
-
-## Linha de base (antes)
-
-| # | Pergunta | Esperado (conferido no PDF) | Resposta do chatbot (resumo) | Antes | Depois |
+| # | Pergunta | Esperado | Antes | Depois | Observação do "Depois" |
 |---|---|---|---|---|---|
-| 1 | Qual o horário de funcionamento da biblioteca do campus? | Não consta na base: deve recusar | Recusou corretamente, mas listou PPC e Horários como fontes e `handoff_required = f` | ✓ | |
-| 2 | Quais disciplinas obrigatórias não têm pré-requisito? | CPW I, Fundamentos, Inglês Técnico, IHC, Lógica, Intro. Extensão, Redes, S.O., Leitura e Prod. Textual, Metodologia, Empreendedorismo, Governança de TI, Informática e Sociedade, **Probabilidade e Estatística**, **Segurança e Auditoria** (e optativas) | Lista de 15, sem Probabilidade e Estatística nem Segurança e Auditoria; incluiu "Atividades Complementares" | ~ | |
-| 3 | Quais os pré-requisitos de Programação para Dispositivos Móveis? | Programação para Web II | Programação para Web II | ✓ | |
-| 4 | Em quais situações a matrícula pode ser cancelada? | Normas 2011, cap. XI | Lista longa (solicitação, não matrícula, conceito D/E por 3 períodos, prazo máximo, etc.) | ? | |
-| 5 | Quantas horas de atividades complementares o curso exige? | 70 h (PPC) | 70 h; "podem ser feitas desde o 1º semestre" (confere) | ✓ | |
-| 6 | Qual o tempo mínimo e o máximo para concluir o curso? | 3 anos mín.; 6 anos máx. (6 e 12 semestres) | 6 e 12 semestres; a "observação" (dobro menos um) é incoerente com 12 | ✓ | |
-| 7 | Qual a carga horária total do curso? | 2.218 h (2.148 de componentes + 70 de AC; o TCC, 132 h, está dentro dos componentes) | 2.218 h, mas somou o TCC (132 h) como parcela à parte | ~ | |
-| 8 | Qual a carga horária de Sistemas Operacionais? | 66 h (PPC: 66 = 39 + 27, colunas provavelmente teórica e prática) | 66 h; os números 39 e 27 vêm do PPC, mas rotulou como "presencial" e "a distância" (rótulo provavelmente trocado) | ~ | |
-| 9 | Qual a bibliografia básica de Sistemas Operacionais? | Tanenbaum (2007), Oliveira et al. (2010), Ferreira (2008) | Confere | ✓ | |
-| 10 | Em que aulas do cronograma de S.O. há avaliação? | Aulas 08 (09/09), 13 (21/10) e 19 (02/12), conferido visualmente no PDF | 09/09 (1ª), 21/10 (2ª) e 02/12 (avaliação). Confere | ✓ | |
-| 11 | Qual conteúdo será trabalhado na aula de 11/11/2026 em S.O.? | Aula 16: Linux. Kernel (conferido visualmente no PDF) | "Linux. Kernel". Confere | ✓ | |
-| 12 | Quais as datas dos exames finais da graduação em 2026/2? | 16 a 18 de dezembro | 16 a 18 de dezembro | ✓ | |
-| 13 | O dia 08/08/2026 é sábado letivo? Substitui qual dia? | Sim, referente à segunda-feira 07/09 | Confere | ✓ | |
-| 14 | Qual o período de ajuste de matrícula em 2026/2? | 03 a 05 de agosto | Confere | ✓ | |
-| 15 | Qual o primeiro dia letivo de 2026/2 na graduação? | 03 de agosto | Confere | ✓ | |
-| 16 | Qual o horário de Inglês Técnico do 1º semestre e quem é a professora? | Está na grade de horários (POA-SSI113); professora a conferir no PDF | Respondeu "não encontrei" | ? | |
-| 17 | Em quais dias são as aulas de Lógica do 1º semestre e quem são os professores? | A conferir na grade de horários (a extração do PDF sai ilegível) | Seg. e qua., prof. Okuyama; acrescentou LPOO (não pedido) | ? | |
-| 18 a 20 | (faltam as 3 perguntas restantes da rodada de 14/10) | | | | |
+| 1 | Horário de funcionamento da biblioteca | Não consta: deve recusar | ✓ | ✓ | Recusou. Citou PPC e Horários como fonte e `handoff_required = f` (igual ao antes) |
+| 2 | Disciplinas obrigatórias sem pré-requisito | 15 obrigatórias + 2 optativas | ~ | ~ | Passou a incluir Probabilidade e Estatística e Segurança e Auditoria. Mas as duas execuções diferem: a 1ª está completa, a 2ª omitiu Empreendedorismo, Governança de TI e Informática e Sociedade. Em ambas entra "Atividades Complementares" (não consta na lista) |
+| 3 | Pré-requisitos de Prog. para Dispositivos Móveis | Programação para Web II | ✓ | ✓ | Igual nas duas execuções |
+| 4 | Situações de cancelamento da matrícula | Normas 2011, cap. XI | ? | ? | Lista longa e coerente. Latência de 4,1 s |
+| 5 | Horas de atividades complementares | 70 h | ✓ | ✓ | Acrescentou "não valem atividades anteriores ao ingresso" (não conferido) |
+| 6 | Tempo mínimo e máximo do curso | 6 e 12 semestres | ✓ | ✓ | A observação "dobro menos um" continua incoerente com 12 |
+| 7 | Carga horária total do curso | 2.218 h (TCC 132 h está dentro dos 2.148) | ~ | ~ | Continua somando o TCC como parcela à parte |
+| 8 | Carga horária de Sistemas Operacionais | 66 h | ~ | ✓ | Respondeu só "66 horas-relógio", sem o rótulo trocado de 39/27 |
+| 9 | Bibliografia básica de S.O. | Tanenbaum, Oliveira, Ferreira | ✓ | ✓ | Igual |
+| 10 | Aulas com avaliação em S.O. | 09/09, 21/10, 02/12 | ✓ | ✓ | Igual |
+| 11 | Conteúdo da aula de 11/11 em S.O. | Linux. Kernel | ✓ | ✓ | Igual |
+| 12 | Exames finais da graduação 2026/2 | 16 a 18 de dezembro | ✓ | ✓ | Igual |
+| 13 | 08/08 é sábado letivo? Substitui qual dia? | Sim, segunda-feira 07/09 | ✓ | ✗ | **Regressão:** disse "sexta-feira, dia 07/08" |
+| 14 | Ajuste de matrícula 2026/2 | 03 a 05 de agosto | ✓ | ✓ | Igual |
+| 15 | Primeiro dia letivo 2026/2 | 03 de agosto | ✓ | ✓ | Igual |
+| 16 | Horário de Inglês Técnico e professora | Está na grade de horários | ? | ? | Recusou ("não encontrei"). Provável falso negativo |
+| 17 | Dias de Lógica e professores | Está na grade de horários | ? | ? | Antes respondeu algo (não verificável); agora recusa, e as fontes citadas nem incluem o PDF de horários |
 
-### Resumo da linha de base (17 de 20 respostas)
+## Resumo
 
-- **✓ 11, ~ 3, ✗ 0, ? 3.**
-- **Latência:** média de 1,36 s, máxima de 2,93 s. Todas dentro do RNF01 (5 s).
-- **Problemas concentrados em listas completas, somas e na grade de horários:** a lista de pré-requisitos (2), a soma da carga horária (7), o rótulo das colunas do PPC (8) e a grade de horários (16, 17). O cronograma de S.O. (10, 11) a extração em texto puro já acertou.
-- **Encaminhamento ao humano subnotificado:** 2 recusas (1 e 16) e `handoff_required = 0` nas 17. O limiar de 0,55 não separa: as recusas tiveram `rag_score` 0,79, o mesmo patamar das respostas corretas (0,80 a 0,87).
-- **Fontes citadas indevidas:** a recusa da biblioteca e respostas de S.O. citam documentos que não têm relação (PPC, plano de Informática e Sociedade, normas de 2011).
+| | Antes | Depois |
+|---|---|---|
+| ✓ | 11 | 11 |
+| ~ | 3 | 2 |
+| ✗ | 0 | 1 |
+| ? | 3 | 3 |
+| Latência média | 1,36 s | 1,42 s |
+| Latência máxima | 2,93 s | 4,08 s |
 
-> **Correção (14/10):** a primeira versão desta tabela marcava 10 e 11 como erradas. A conferência tinha usado `pdftotext -layout`, que desalinha as linhas do cronograma. Depois de abrir a página do PDF como imagem, as duas respostas do chatbot estavam certas.
+- **A conversão para Markdown não trouxe ganho claro:** o saldo é 11 corretas nos dois cenários. Houve um ganho (#8), um provável ganho parcial (#2, com mais itens na lista) e uma regressão (#13).
+- **Latência:** praticamente igual, todas as respostas dentro do RNF01 (5 s).
+- **Os pontos fracos continuam:** a grade de horários (#16, #17) não é recuperada pela busca semântica, e a soma da carga horária (#7) segue errada.
+- **Variabilidade entre execuções:** a mesma pergunta (#2) devolveu listas diferentes, com o mesmo contexto recuperado (`rag_score` idêntico, 0,8119). A diferença vem da geração do modelo. Para o artigo, vale registrar que cada resposta deve ser avaliada em mais de uma execução.
+- **Limiar de similaridade não discrimina:** as duas recusas corretas (#1, #16) e a recusa de #17 tiveram `rag_score` entre 0,79 e 0,80, o mesmo patamar de respostas corretas (0,80 a 0,86). `handoff_required` continuou 0 em todas, porque só marca "sem contexto recuperado".
+- **Fontes citadas sem relação:** a recusa da biblioteca cita o PPC e os Horários, e a carga horária total cita o plano de S.O.
+
+## Pergunta extra (fora das 17)
+
+| Pergunta | Resposta | Problema |
+|---|---|---|
+| "datas importantes de novembro" | Lista do calendário de novembro | Misturou itens de outubro: "12 - Nossa Senhora Aparecida" e "10 - Dia Nacional de Luta Contra a Violência à Mulher" são de outubro. O trecho do calendário atravessa a divisão dos meses. `rag_score` 0,69, latência 4,3 s |
+
+## Conclusões para a próxima etapa
+
+1. Converter o PDF inteiro para Markdown não basta para dados em grade (calendário mensal e grade de horários). Dá para testar uma divisão por mês no calendário e por turma na grade, para cada trecho ter um único mês ou uma única turma.
+2. As regressões (#13, a mistura de novembro) nascem dos trechos que juntam linhas vizinhas. Reduzir o tamanho do trecho nesses dois documentos pode ajudar.
+3. Marcar `handoff_required` também quando o modelo responde "não encontrei", e esconder as fontes nesse caso.
 
 ## Observações de 13/10 (base com 4 documentos, antes dos planos, calendário e horários)
 
