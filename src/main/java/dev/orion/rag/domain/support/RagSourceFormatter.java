@@ -1,8 +1,8 @@
 package dev.orion.rag.domain.support;
 
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 
 public final class RagSourceFormatter {
 
@@ -22,29 +22,64 @@ public final class RagSourceFormatter {
     private static final String DUVIDAS_RESPOSTAS_URL =
             "https://poa.ifrs.edu.br/index.php/duvidas-respostas";
 
+    /** Maximum length of the excerpt shown under each source. */
+    static final int EXCERPT_MAX_CHARS = 200;
+
     public static String sourcesAppendix(String ragContext) {
         if (ragContext == null || ragContext.isBlank()) {
             return "";
         }
-        Set<String> sources = new LinkedHashSet<>();
-        String[] lines = ragContext.split("\\R");
-        for (String line : lines) {
+        // Source name -> text of its first (best-ranked) chunk; contexts arrive best match first.
+        Map<String, StringBuilder> sources = new LinkedHashMap<>();
+        StringBuilder current = null;
+        for (String line : ragContext.split("\\R")) {
             String s = line.trim();
             if (s.startsWith("[Fonte:") && s.endsWith("]")) {
                 String name = s.substring("[Fonte:".length(), s.length() - 1).trim();
-                if (!name.isBlank()) {
-                    sources.add(name);
+                if (name.isBlank()) {
+                    current = null;
+                } else if (sources.containsKey(name)) {
+                    current = null; // keep only the best-ranked chunk of each source
+                } else {
+                    current = new StringBuilder();
+                    sources.put(name, current);
                 }
+            } else if (s.matches("-{3,}")) {
+                current = null; // chunk separator: the excerpt ends here
+            } else if (current != null && current.length() < EXCERPT_MAX_CHARS * 2) {
+                current.append(line).append(' ');
             }
         }
         if (sources.isEmpty()) {
             return "\n\n---\nFontes consultadas: Base de conhecimento (RAG)";
         }
         StringBuilder sb = new StringBuilder("\n\n---\nFontes consultadas:");
-        for (String src : sources) {
-            sb.append("\n- ").append(formatSource(src));
+        for (Map.Entry<String, StringBuilder> e : sources.entrySet()) {
+            sb.append("\n- ").append(formatSource(e.getKey()));
+            String excerpt = excerpt(e.getValue().toString());
+            if (!excerpt.isEmpty()) {
+                sb.append("\n  > Trecho: \"").append(excerpt).append('"');
+            }
         }
         return sb.toString();
+    }
+
+    /**
+     * Turns a raw Markdown chunk into a short plain-text excerpt: drops table pipes,
+     * emphasis/heading markers, HTML line breaks and separators, then cuts at a word
+     * boundary.
+     */
+    static String excerpt(String chunk) {
+        String text = chunk
+                .replaceAll("(?i)<br\\s*/?>", " ")
+                .replaceAll("[|*_#>`]", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (text.length() <= EXCERPT_MAX_CHARS) {
+            return text;
+        }
+        int cut = text.lastIndexOf(' ', EXCERPT_MAX_CHARS);
+        return text.substring(0, cut > 0 ? cut : EXCERPT_MAX_CHARS) + "…";
     }
 
     private static String formatSource(String src) {
