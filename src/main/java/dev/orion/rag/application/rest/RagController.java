@@ -32,6 +32,7 @@ import dev.orion.rag.domain.port.out.EmbeddingRepository;
 import dev.orion.rag.domain.port.out.MemoryPort;
 import dev.orion.rag.domain.port.out.RequestLogPort;
 import io.quarkus.logging.Log;
+import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
@@ -52,8 +53,11 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Main REST controller for RAG-powered chat, context retrieval and conversation management.
@@ -84,6 +88,14 @@ public class RagController {
     /** JAX-RS request context used to access HTTP headers and attributes. */
     @Context
     ContainerRequestContext requestContext;
+
+    /** Authenticated identity, used to exempt admins from the question limit. */
+    @Inject
+    SecurityIdentity identity;
+
+    /** Questions each user may ask per 24 h; 0 disables the limit. */
+    @ConfigProperty(name = "rag.max-questions-per-day", defaultValue = "30")
+    int maxQuestionsPerDay;
 
     /**
      * Creates a RagController with all required domain ports.
@@ -158,12 +170,12 @@ public class RagController {
                                     return Multi.createFrom().failure(
                                             new SecurityException("Acesso negado"));
                                 }
-                                return Multi.createFrom().publisher(
+                                return withinLimit(syncedUserId, () -> Multi.createFrom().publisher(
                                         chatbotUseCase.execute(
                                                 syncedUserId, request.conversationId,
                                                 request.prompt,
                                                 syncedUserName, syncedEmail))
-                                    .onItem().transform(RagController::encodeToken);
+                                    .onItem().transform(RagController::encodeToken));
                             })
                             .onFailure().recoverWithMulti(e -> {
                                 String msg = e instanceof SecurityException
@@ -181,6 +193,27 @@ public class RagController {
             Log.warn("JWT token not found in POST /chatbot request");
             return Multi.createFrom().item("data: Erro: Token de autenticação não encontrado\n\n");
         }
+    }
+
+    /**
+     * Runs {@code answer} only if the user is under the daily question limit; admins are exempt.
+     * The count comes from request_logs, which is written when a response finishes, so a burst
+     * of parallel requests can slip a few past the limit.
+     */
+    private Multi<String> withinLimit(String userId, Supplier<Multi<String>> answer) {
+        if (maxQuestionsPerDay <= 0 || identity.hasRole("admin")) {
+            return answer.get();
+        }
+        return Uni.createFrom()
+                .completionStage(() -> requestLogPort.countRecent(userId, Duration.ofHours(24)))
+                .onItem().transformToMulti(count -> {
+                    if (count < maxQuestionsPerDay) {
+                        return answer.get();
+                    }
+                    Log.warn("Rate limit reached for user " + userId + " (" + count + " in 24h)");
+                    return Multi.createFrom().item("data: Erro: Você atingiu o limite de "
+                            + maxQuestionsPerDay + " perguntas em 24 horas. Tente novamente mais tarde.\n\n");
+                });
     }
 
     /**
@@ -231,11 +264,11 @@ public class RagController {
                                 return Multi.createFrom().failure(
                                         new SecurityException("Acesso negado"));
                             }
-                            return Multi.createFrom().publisher(
+                            return withinLimit(syncedUserId, () -> Multi.createFrom().publisher(
                                     chatbotUseCase.execute(
                                             syncedUserId, conversationId, prompt,
                                             syncedUserName, syncedEmail))
-                                    .onItem().transform(RagController::encodeToken);
+                                    .onItem().transform(RagController::encodeToken));
                         })
                         .onFailure().recoverWithMulti(e -> {
                             String msg = e instanceof SecurityException

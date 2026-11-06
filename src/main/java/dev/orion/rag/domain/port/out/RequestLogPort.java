@@ -54,4 +54,13 @@ public interface RequestLogPort {
      * @return CompletionStage emitting the CSV content as a string
      */
     CompletionStage<String> exportToCsv();
+
+    /**
+     * Counts the questions a user asked within the last {@code window} (used for rate limiting).
+     *
+     * @param userId user identifier
+     * @param window how far back to count
+     * @return CompletionStage emitting the number of logged requests
+     */
+    CompletionStage<Long> countRecent(String userId, java.time.Duration window);
 }

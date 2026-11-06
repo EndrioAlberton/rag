@@ -96,6 +96,15 @@ public class RequestLogServiceImpl implements RequestLogPort {
         ).subscribeAsCompletionStage();
     }
 
+    @Override
+    public CompletionStage<Long> countRecent(String userId, java.time.Duration window) {
+        // createdAt is stored with LocalDateTime.now(), so compare in the same clock
+        LocalDateTime since = LocalDateTime.now().minus(window);
+        return sessionFactory.withSession(session ->
+                requestLogPanacheRepository.count("userId = ?1 and createdAt >= ?2", userId, since)
+        ).subscribeAsCompletionStage();
+    }
+
     /**
      * Escapes a CSV field value by wrapping it in double quotes if necessary.
      *
