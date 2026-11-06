@@ -57,7 +57,7 @@ public class GoogleRolesAugmentor implements SecurityIdentityAugmentor {
         }
         final String email = claimEmail.toLowerCase(Locale.ROOT);
         if (allowedDomain.filter(d -> !d.isBlank())
-                .map(d -> !email.endsWith("@" + d.toLowerCase(Locale.ROOT))).orElse(false)) {
+                .map(d -> !matchesDomain(email, d)).orElse(false)) {
             return Uni.createFrom().item(identity);
         }
         QuarkusSecurityIdentity.Builder builder = QuarkusSecurityIdentity.builder(identity).addRole("user");
@@ -65,5 +65,18 @@ public class GoogleRolesAugmentor implements SecurityIdentityAugmentor {
             builder.addRole("admin");
         }
         return Uni.createFrom().item(builder.build());
+    }
+
+    /**
+     * Accepts the configured domain and its subdomains, so {@code poa.ifrs.edu.br} also
+     * covers student accounts at {@code aluno.poa.ifrs.edu.br}.
+     */
+    static boolean matchesDomain(String email, String domain) {
+        String d = domain.trim().toLowerCase(Locale.ROOT);
+        if (d.startsWith("@")) {
+            d = d.substring(1);
+        }
+        String host = email.substring(email.lastIndexOf('@') + 1).toLowerCase(Locale.ROOT);
+        return host.equals(d) || host.endsWith("." + d);
     }
 }

@@ -1,7 +1,7 @@
 <template>
   <AuthLayout>
     <h2 class="text-h5 mb-1" style="font-family:'Fraunces',Georgia,serif;">Bem-vindo(a)</h2>
-    <p class="text-body-2 text-medium-emphasis mb-6">Entre com sua conta Google para tirar suas dúvidas sobre o curso.</p>
+    <p class="text-body-2 text-medium-emphasis mb-6">Entre com seu e-mail institucional do IFRS (@aluno.poa.ifrs.edu.br ou @poa.ifrs.edu.br) para tirar suas dúvidas sobre o curso.</p>
 
     <v-alert v-if="error" type="error" density="compact" class="mb-4">
       {{ error }}
@@ -13,6 +13,7 @@
 
 <script>
 import { authService } from '../services/auth';
+import { apiService } from '../services/api';
 import { useAuthStore } from '../stores/auth';
 import AuthLayout from './AuthLayout.vue';
 
@@ -66,6 +67,20 @@ export default {
 
         authService.setToken(token);
         authService.setUser(userData);
+
+        // O backend só dá o papel "user" a contas do domínio permitido: confirma antes de entrar
+        try {
+          await apiService.getUserConversations(userData.id);
+        } catch (e) {
+          if (e.response?.status === 403) {
+            authService.logout();
+            this.error = 'Acesso permitido apenas com o e-mail institucional do IFRS. '
+              + 'Entre com sua conta @aluno.poa.ifrs.edu.br ou @poa.ifrs.edu.br.';
+            return;
+          }
+          throw e;
+        }
+
         const authStore = useAuthStore();
         authStore.setToken(token);
         authStore.setUser(userData);
@@ -74,7 +89,8 @@ export default {
         this.$router.push('/conversations');
       } catch (e) {
         console.error('Error signing in with Google:', e);
-        this.error = 'Não foi possível entrar. Tente novamente.';
+        this.error = 'Não foi possível entrar. Use seu e-mail institucional do IFRS '
+          + '(@aluno.poa.ifrs.edu.br ou @poa.ifrs.edu.br) e tente novamente.';
       }
     }
   }
