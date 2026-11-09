@@ -75,6 +75,11 @@ router.beforeEach((to, from, next) => {
           }
         }
       }
+      // Dashboard só para admin (a API também bloqueia)
+      if (to.meta.requiresAdmin && !authStore.user?.admin) {
+        next('/conversations');
+        return;
+      }
       next();
     }
   } else {

@@ -6,6 +6,7 @@ import dev.orion.rag.domain.model.InteractionSummary;
 import dev.orion.rag.domain.port.out.DashboardPort;
 import dev.orion.rag.domain.port.out.FeedbackPort;
 import io.quarkus.logging.Log;
+import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -20,6 +21,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import java.util.List;
+import java.util.Map;
 
 @Path("/ai")
 public class DashboardController {
@@ -28,11 +30,23 @@ public class DashboardController {
     private final DashboardPort dashboardPort;
 
     @Inject
+    SecurityIdentity identity;
+
+    @Inject
     public DashboardController(
             FeedbackPort feedbackPort,
             DashboardPort dashboardPort) {
         this.feedbackPort = feedbackPort;
         this.dashboardPort = dashboardPort;
+    }
+
+    /** Lets the frontend know whether to show admin-only screens (the API still enforces roles). */
+    @GET
+    @Path("/me")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("user")
+    public Map<String, Boolean> me() {
+        return Map.of("admin", identity.hasRole("admin"));
     }
 
     @POST

@@ -11,7 +11,7 @@
     <v-list nav density="comfortable" class="sidebar-nav">
       <v-list-item to="/chat" prepend-icon="mdi-chat-outline" title="Assistente" rounded="lg"></v-list-item>
       <v-list-item to="/conversations" prepend-icon="mdi-message-text-outline" title="Minhas conversas" rounded="lg"></v-list-item>
-      <v-list-item to="/dashboard" prepend-icon="mdi-chart-bar" title="Dashboard" rounded="lg"></v-list-item>
+      <v-list-item v-if="isAdmin" to="/dashboard" prepend-icon="mdi-chart-bar" title="Dashboard" rounded="lg"></v-list-item>
     </v-list>
 
     <div class="sidebar-user">
@@ -37,6 +37,9 @@ export default {
     userName() {
       const authStore = useAuthStore();
       return authStore.user?.name || authStore.user?.email || 'Usuário';
+    },
+    isAdmin() {
+      return !!useAuthStore().user?.admin;
     },
     userEmail() {
       const authStore = useAuthStore();

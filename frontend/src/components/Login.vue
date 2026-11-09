@@ -66,11 +66,13 @@ export default {
         };
 
         authService.setToken(token);
-        authService.setUser(userData);
 
         // O backend só dá o papel "user" a contas do domínio permitido: confirma antes de entrar
+        // e descobre se é admin (para mostrar o dashboard)
         try {
-          await apiService.getUserConversations(userData.id);
+          const me = await apiService.getMe();
+          userData.admin = !!me.admin;
+          authService.setUser(userData);
         } catch (e) {
           if (e.response?.status === 403) {
             authService.logout();

@@ -260,6 +260,11 @@ export const apiService = {
     return response.data;
   },
 
+  async getMe() {
+    const response = await api.get(`/ai/me`);
+    return response.data;
+  },
+
   async getDashboardMetrics() {
     const response = await api.get(`/ai/dashboard/metrics`);
     return response.data;
