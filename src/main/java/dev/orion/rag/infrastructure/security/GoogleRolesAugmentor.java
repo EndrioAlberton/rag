@@ -22,8 +22,10 @@ import io.quarkus.security.identity.SecurityIdentityAugmentor;
 import io.quarkus.security.runtime.QuarkusSecurityIdentity;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.hibernate.reactive.mutiny.Mutiny;
 
 import java.util.List;
 import java.util.Locale;
@@ -45,6 +47,9 @@ public class GoogleRolesAugmentor implements SecurityIdentityAugmentor {
     @ConfigProperty(name = "rag.allowed-email-domain")
     Optional<String> allowedDomain;
 
+    @Inject
+    Mutiny.SessionFactory sessionFactory;
+
     @Override
     public Uni<SecurityIdentity> augment(SecurityIdentity identity, AuthenticationRequestContext context) {
         if (identity.isAnonymous() || !(identity.getPrincipal() instanceof JsonWebToken jwt)) {
@@ -62,9 +67,17 @@ public class GoogleRolesAugmentor implements SecurityIdentityAugmentor {
         }
         QuarkusSecurityIdentity.Builder builder = QuarkusSecurityIdentity.builder(identity).addRole("user");
         if (adminEmails.orElse(List.of()).stream().anyMatch(a -> a.trim().equalsIgnoreCase(email))) {
-            builder.addRole("admin");
+            return Uni.createFrom().item(builder.addRole("admin").build());
         }
-        return Uni.createFrom().item(builder.build());
+        return isAdminInDb(email).map(admin -> (admin ? builder.addRole("admin") : builder).build());
+    }
+
+    // ponytail: uma consulta por requisicao autenticada; cachear se virar gargalo
+    private Uni<Boolean> isAdminInDb(String email) {
+        return sessionFactory.withSession(session -> session
+                        .createNativeQuery("SELECT 1 FROM admin_emails WHERE lower(email) = ?1", Integer.class)
+                        .setParameter(1, email).getResultList())
+                .map(rows -> !rows.isEmpty());
     }
 
     /**
