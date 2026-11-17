@@ -265,6 +265,14 @@ export const apiService = {
     return response.data;
   },
 
+  async uploadDocuments(files) {
+    const form = new FormData();
+    files.forEach((f) => form.append('files', f));
+    // Content-Type vazio: o navegador define multipart com o boundary
+    const response = await api.post(`/ai/ingest/files`, form, { headers: { 'Content-Type': undefined } });
+    return response.data;
+  },
+
   async getDashboardMetrics() {
     const response = await api.get(`/ai/dashboard/metrics`);
     return response.data;

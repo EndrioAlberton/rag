@@ -3,6 +3,7 @@ import Login from '../components/Login.vue';
 import ChatInterface from '../components/ChatInterface.vue';
 import ConversationList from '../components/ConversationList.vue';
 import Dashboard from '../components/Dashboard.vue';
+import Documents from '../components/Documents.vue';
 
 const routes = [
   {
@@ -30,6 +31,12 @@ const routes = [
     path: '/dashboard',
     name: 'Dashboard',
     component: Dashboard,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/documents',
+    name: 'Documents',
+    component: Documents,
     meta: { requiresAuth: true, requiresAdmin: true }
   }
 ];

@@ -12,6 +12,7 @@
       <v-list-item to="/chat" prepend-icon="mdi-chat-outline" title="Assistente" rounded="lg"></v-list-item>
       <v-list-item to="/conversations" prepend-icon="mdi-message-text-outline" title="Minhas conversas" rounded="lg"></v-list-item>
       <v-list-item v-if="isAdmin" to="/dashboard" prepend-icon="mdi-chart-bar" title="Dashboard" rounded="lg"></v-list-item>
+      <v-list-item v-if="isAdmin" to="/documents" prepend-icon="mdi-file-upload-outline" title="Documentos" rounded="lg"></v-list-item>
     </v-list>
 
     <div class="sidebar-user">
