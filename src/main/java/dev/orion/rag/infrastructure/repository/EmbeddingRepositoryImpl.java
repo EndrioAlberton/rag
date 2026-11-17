@@ -196,6 +196,17 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
      *
      * @param candidates sources considered for ingestion, with their content fingerprint
      */
+    @Override
+    public List<dev.orion.rag.domain.model.IngestedSourceInfo> listSources() {
+        return sourceTracker.listAll();
+    }
+
+    @Override
+    public void removeSource(String source) {
+        embeddingStore.removeAll(MetadataFilterBuilder.metadataKey("source").isEqualTo(source));
+        sourceTracker.remove(source);
+    }
+
     private void ingestDeduplicated(List<FingerprintedDocument> candidates) {
         if (candidates.isEmpty()) {
             Log.info("✅ Nothing to ingest — no embedding API calls made.");

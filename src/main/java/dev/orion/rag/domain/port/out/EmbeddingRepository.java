@@ -46,4 +46,10 @@ public interface EmbeddingRepository {
      * @param documents the list of documents to ingest
      */
     void ingestDocuments(List<DocumentData> documents);
+
+    /** Lists every ingested source, newest first. */
+    List<dev.orion.rag.domain.model.IngestedSourceInfo> listSources();
+
+    /** Removes all chunks of the given source and forgets its fingerprint. */
+    void removeSource(String source);
 }

@@ -273,6 +273,15 @@ export const apiService = {
     return response.data;
   },
 
+  async listDocuments() {
+    const response = await api.get(`/ai/ingest/sources`);
+    return response.data;
+  },
+
+  async deleteDocument(name) {
+    await api.delete(`/ai/ingest/sources`, { params: { name } });
+  },
+
   async getDashboardMetrics() {
     const response = await api.get(`/ai/dashboard/metrics`);
     return response.data;

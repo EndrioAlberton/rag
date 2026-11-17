@@ -80,6 +80,33 @@ public class IngestedSourceTracker {
      * @param source source identifier (file name or URL)
      * @param sha256 SHA-256 hex digest of the source content
      */
+    public java.util.List<dev.orion.rag.domain.model.IngestedSourceInfo> listAll() {
+        String sql = "SELECT source, ingested_at FROM ingested_sources ORDER BY ingested_at DESC";
+        java.util.List<dev.orion.rag.domain.model.IngestedSourceInfo> out = new java.util.ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                out.add(new dev.orion.rag.domain.model.IngestedSourceInfo(
+                        rs.getString(1), rs.getObject(2, java.time.LocalDateTime.class)));
+            }
+        } catch (SQLException e) {
+            Log.error("Error listing ingested_sources", e);
+        }
+        return out;
+    }
+
+    public void remove(String source) {
+        String sql = "DELETE FROM ingested_sources WHERE source = ?";
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, source);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            Log.error("Error removing ingested_sources entry for " + source, e);
+        }
+    }
+
     public void recordIngestion(String source, String sha256) {
         String sql = "INSERT INTO ingested_sources (source, sha256, ingested_at) VALUES (?, ?, now()) "
                 + "ON CONFLICT (source) DO UPDATE SET sha256 = EXCLUDED.sha256, ingested_at = now()";

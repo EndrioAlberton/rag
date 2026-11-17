@@ -21,6 +21,20 @@
       Ingeridos: {{ result.ingested.join(', ') || 'nenhum' }}
       <div v-if="result.rejected.length">Rejeitados (formato inválido ou sem texto): {{ result.rejected.join(', ') }}</div>
     </v-alert>
+
+    <h3 class="text-h6 mt-8 mb-2">Base atual ({{ sources.length }})</h3>
+    <v-text-field v-model="filter" label="Filtrar" density="compact" clearable hide-details class="mb-2"></v-text-field>
+    <v-table density="compact">
+      <tbody>
+        <tr v-for="s in filtered" :key="s.source">
+          <td style="word-break: break-all">{{ s.source }}</td>
+          <td class="text-no-wrap">{{ fmt(s.ingestedAt) }}</td>
+          <td class="text-right">
+            <v-btn icon="mdi-delete-outline" size="small" variant="text" color="error" title="Remover" @click="remove(s.source)"></v-btn>
+          </td>
+        </tr>
+      </tbody>
+    </v-table>
   </div>
 </template>
 
@@ -30,9 +44,37 @@ import { apiService } from '../services/api';
 export default {
   name: 'Documents',
   data() {
-    return { files: [], loading: false, error: null, result: null };
+    return { files: [], loading: false, error: null, result: null, sources: [], filter: '' };
+  },
+  computed: {
+    filtered() {
+      const f = (this.filter || '').toLowerCase();
+      return this.sources.filter((s) => s.source.toLowerCase().includes(f));
+    },
+  },
+  mounted() {
+    this.load();
   },
   methods: {
+    fmt(d) {
+      return d ? new Date(d).toLocaleString('pt-BR') : '';
+    },
+    async load() {
+      try {
+        this.sources = await apiService.listDocuments();
+      } catch (e) {
+        this.error = e.message || 'Erro ao listar documentos';
+      }
+    },
+    async remove(name) {
+      if (!confirm(`Remover "${name}" da base de conhecimento?`)) return;
+      try {
+        await apiService.deleteDocument(name);
+        await this.load();
+      } catch (e) {
+        this.error = e.message || 'Erro ao remover';
+      }
+    },
     async send() {
       this.loading = true;
       this.error = null;
@@ -40,6 +82,7 @@ export default {
       try {
         this.result = await apiService.uploadDocuments(this.files);
         this.files = [];
+        await this.load();
       } catch (e) {
         this.error = e.response?.data?.message || e.message || 'Erro ao enviar';
       } finally {

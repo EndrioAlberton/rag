@@ -82,6 +82,27 @@ public class IngestController {
         return Response.accepted().entity(result).build();
     }
 
+    /** Lists the ingested sources (uploaded files, local base files and scraped URLs). */
+    @jakarta.ws.rs.GET
+    @Path("/sources")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("admin")
+    public List<dev.orion.rag.domain.model.IngestedSourceInfo> listSources() {
+        return embeddingRepository.listSources();
+    }
+
+    /** Removes a source (by name or URL) from the knowledge base. */
+    @jakarta.ws.rs.DELETE
+    @Path("/sources")
+    @RolesAllowed("admin")
+    public Response removeSource(@jakarta.ws.rs.QueryParam("name") String name) {
+        if (name == null || name.isBlank()) {
+            return Response.status(400).build();
+        }
+        embeddingRepository.removeSource(name);
+        return Response.noContent().build();
+    }
+
     /**
      * Receives PDF, Markdown or text files and ingests them into the vector store. The file name
      * is the source id, so re-uploading a file with the same name replaces its previous chunks.
