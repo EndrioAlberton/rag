@@ -197,6 +197,29 @@ public class EmbeddingRepositoryImpl implements EmbeddingRepository {
      * @param candidates sources considered for ingestion, with their content fingerprint
      */
     @Override
+    public boolean ingestFile(String name, Path file) {
+        String lower = name == null ? "" : name.toLowerCase(java.util.Locale.ROOT);
+        try {
+            String text;
+            if (lower.endsWith(".pdf")) {
+                text = pdfService.extractText(file);
+            } else if (lower.endsWith(".md") || lower.endsWith(".txt")) {
+                text = Files.readString(file, StandardCharsets.UTF_8);
+            } else {
+                return false;
+            }
+            if (text.isBlank()) {
+                return false;
+            }
+            ingestDocuments(List.of(new DocumentData(text, name)));
+            return true;
+        } catch (IOException e) {
+            Log.error("Error reading uploaded file: " + name, e);
+            return false;
+        }
+    }
+
+    @Override
     public List<dev.orion.rag.domain.model.IngestedSourceInfo> listSources() {
         return sourceTracker.listAll();
     }

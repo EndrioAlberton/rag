@@ -47,6 +47,16 @@ public interface EmbeddingRepository {
      */
     void ingestDocuments(List<DocumentData> documents);
 
+    /**
+     * Extracts the text of an uploaded file (.pdf, .md or .txt) and ingests it, using the file
+     * name as the source id (same name replaces the previous version).
+     *
+     * @param name original file name
+     * @param file path of the uploaded content
+     * @return true if the file was ingested; false if the type is unsupported or it has no text
+     */
+    boolean ingestFile(String name, java.nio.file.Path file);
+
     /** Lists every ingested source, newest first. */
     List<dev.orion.rag.domain.model.IngestedSourceInfo> listSources();
 
