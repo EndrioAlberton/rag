@@ -89,7 +89,24 @@ public class DashboardServiceImpl implements DashboardPort {
                             e.getUserMessage(),
                             e.getLlmResponse(),
                             null,
-                            e.getCreatedAt() != null ? e.getCreatedAt().toString() : null))
+                            e.getCreatedAt() != null ? e.getCreatedAt().toString() : null,
+                            e.getComment()))
+                    .collect(Collectors.toList()))
+        ).subscribeAsCompletionStage();
+    }
+
+    @Override
+    public CompletionStage<List<InteractionSummary>> interactionsWithComment() {
+        return sessionFactory.withSession(session ->
+            feedbackRepo.findWithCommentOrderedByDate()
+                .map(entities -> entities.stream()
+                    .map(e -> new InteractionSummary(
+                            e.getId(),
+                            e.getUserMessage(),
+                            e.getLlmResponse(),
+                            null,
+                            e.getCreatedAt() != null ? e.getCreatedAt().toString() : null,
+                            e.getComment()))
                     .collect(Collectors.toList()))
         ).subscribeAsCompletionStage();
     }

@@ -6,6 +6,7 @@ public class InteractionSummary {
     private String llmResponse;
     private String urgency;
     private String createdAt;
+    private String comment;
 
     public InteractionSummary() {}
 
@@ -17,6 +18,15 @@ public class InteractionSummary {
         this.urgency = urgency;
         this.createdAt = createdAt;
     }
+
+    public InteractionSummary(String id, String userMessage, String llmResponse,
+                              String urgency, String createdAt, String comment) {
+        this(id, userMessage, llmResponse, urgency, createdAt);
+        this.comment = comment;
+    }
+
+    public String getComment() { return comment; }
+    public void setComment(String comment) { this.comment = comment; }
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }

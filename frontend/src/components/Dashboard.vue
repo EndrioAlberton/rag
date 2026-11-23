@@ -10,21 +10,21 @@
       <v-progress-circular indeterminate color="primary"></v-progress-circular>
     </div>
 
-    <div v-else class="d-flex flex-wrap" style="gap: 12px;">
+    <div v-else class="stats-grid">
       <!-- Total -->
-      <v-card variant="outlined" class="pa-3" style="min-width: 220px;">
+      <v-card variant="outlined" class="pa-3">
         <div class="text-caption">Total interações</div>
         <div class="text-h6">{{ metrics.totalRequests }}</div>
       </v-card>
 
       <!-- Conversas -->
-      <v-card variant="outlined" class="pa-3" style="min-width: 220px;">
+      <v-card variant="outlined" class="pa-3">
         <div class="text-caption">Conversas</div>
         <div class="text-h6">{{ metrics.totalConversations }}</div>
       </v-card>
 
       <!-- Handoff -->
-      <v-card variant="outlined" class="pa-3" style="min-width: 220px;">
+      <v-card variant="outlined" class="pa-3">
         <div class="text-caption">Encaminhadas (suporte humano)</div>
         <div class="text-h6" :class="{ 'text-warning': metrics.handoffRequired > 0 }">{{ metrics.handoffRequired }}</div>
       </v-card>
@@ -33,7 +33,7 @@
       <v-card
         variant="outlined"
         class="pa-3 cursor-pointer"
-        style="min-width: 220px;"
+       
         :class="{ 'card-active': detail.type === 'LIKE' }"
         @click="loadDetail('LIKE')"
       >
@@ -48,7 +48,7 @@
       <v-card
         variant="outlined"
         class="pa-3 cursor-pointer"
-        style="min-width: 220px;"
+       
         :class="{ 'card-active': detail.type === 'DISLIKE' }"
         @click="loadDetail('DISLIKE')"
       >
@@ -60,11 +60,26 @@
         <div class="text-h6" :class="{ 'text-error': metrics.dislikes > 0 }">{{ metrics.dislikes }}</div>
       </v-card>
 
+      <v-card
+        variant="outlined"
+        class="pa-3 cursor-pointer"
+       
+        :class="{ 'card-active': detail.type === 'REPORT' }"
+        @click="loadDetail('REPORT')"
+      >
+        <div class="text-caption">
+          <v-icon size="small" color="warning" start>mdi-message-alert-outline</v-icon>
+          Relatos dos usuários
+          <v-icon size="small" color="grey" end>mdi-chevron-right</v-icon>
+        </div>
+        <div class="text-h6">{{ reportCount }}</div>
+      </v-card>
+
       <!-- Urgências - clicáveis -->
       <v-card
         variant="outlined"
         class="pa-3 cursor-pointer"
-        style="min-width: 220px;"
+       
         :class="{ 'card-active': detail.type === 'urgency-BAIXA' }"
         @click="loadDetail('urgency-BAIXA')"
       >
@@ -79,7 +94,7 @@
       <v-card
         variant="outlined"
         class="pa-3 cursor-pointer"
-        style="min-width: 220px;"
+       
         :class="{ 'card-active': detail.type === 'urgency-MEDIA' }"
         @click="loadDetail('urgency-MEDIA')"
       >
@@ -94,7 +109,7 @@
       <v-card
         variant="outlined"
         class="pa-3 cursor-pointer"
-        style="min-width: 220px;"
+       
         :class="{ 'card-active': detail.type === 'urgency-ALTA' }"
         @click="loadDetail('urgency-ALTA')"
       >
@@ -134,10 +149,16 @@
                   </div>
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
-                  <div class="text-caption text-grey">Pergunta</div>
-                  <div class="text-body-2 mb-3 full-text">{{ item.userMessage }}</div>
-                  <div class="text-caption text-grey">Resposta</div>
-                  <div class="text-body-2 full-text">{{ item.llmResponse || '—' }}</div>
+                  <div class="bubble-row user">
+                    <div class="bubble user full-text">{{ item.userMessage }}</div>
+                  </div>
+                  <div class="bubble-row">
+                    <div class="bubble assistant md" v-html="render(item.llmResponse)"></div>
+                  </div>
+                  <v-alert v-if="item.comment" type="warning" variant="tonal" density="compact" class="mt-3">
+                    <div class="text-caption">Relato do usuário</div>
+                    <div class="full-text">{{ item.comment }}</div>
+                  </v-alert>
                 </v-expansion-panel-text>
               </v-expansion-panel>
             </v-expansion-panels>
@@ -149,11 +170,27 @@
 </template>
 
 <script>
+import { Marked } from 'marked';
 import { apiService } from '../services/api';
+
+const escapeHtml = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Conteúdo vem do modelo/usuários e é visto por admin: HTML cru é escapado e só links http(s) são mantidos
+const md = new Marked({
+  breaks: true,
+  gfm: true,
+  renderer: {
+    html: (t) => escapeHtml(t),
+    link: (href, title, text) => (/^https?:\/\//i.test(href)
+      ? `<a href="${href.replace(/"/g, '%22')}" target="_blank" rel="noopener noreferrer">${text}</a>`
+      : text),
+  },
+});
 
 const DETAIL_TITLES = {
   'LIKE': 'Interações com Like',
   'DISLIKE': 'Interações com Dislike',
+  'REPORT': 'Relatos dos usuários',
   'urgency-BAIXA': 'Interações - Urgência Baixa',
   'urgency-MEDIA': 'Interações - Urgência Média',
   'urgency-ALTA': 'Interações - Urgência Alta',
@@ -164,6 +201,7 @@ export default {
   data() {
     return {
       loading: true,
+      reportCount: 0,
       error: null,
       metrics: {
         totalRequests: 0,
@@ -188,6 +226,7 @@ export default {
     try {
       this.loading = true;
       this.metrics = await apiService.getDashboardMetrics();
+      this.reportCount = (await apiService.getDashboardInteractionsByFeedback('REPORT')).length;
     } catch (e) {
       this.error = e.message || 'Erro ao carregar métricas';
     } finally {
@@ -195,6 +234,9 @@ export default {
     }
   },
   methods: {
+    render(text) {
+      return text ? md.parse(text) : '—';
+    },
     async loadDetail(type) {
       // Toggle: clicar no mesmo fecha o painel
       if (this.detail.type === type && this.detail.visible) {
@@ -209,7 +251,7 @@ export default {
       this.detail.items = [];
 
       try {
-        if (type === 'LIKE' || type === 'DISLIKE') {
+        if (type === 'LIKE' || type === 'DISLIKE' || type === 'REPORT') {
           this.detail.items = await apiService.getDashboardInteractionsByFeedback(type);
         } else if (type.startsWith('urgency-')) {
           const urgency = type.replace('urgency-', '');
@@ -246,6 +288,44 @@ export default {
   white-space: pre-wrap;
   word-break: break-word;
 }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .stats-grid { grid-template-columns: 1fr; }
+}
+.bubble-row {
+  display: flex;
+  margin-bottom: 10px;
+}
+.bubble-row.user {
+  justify-content: flex-end;
+}
+.bubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.9rem;
+}
+.bubble.user {
+  background: rgb(var(--v-theme-primary));
+  color: #fff;
+}
+.bubble.assistant {
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+.md :deep(p) { margin: 0 0 8px; }
+.md :deep(ul), .md :deep(ol) { margin: 0 0 8px; padding-left: 20px; }
+.md :deep(blockquote) {
+  margin: 4px 0 8px;
+  padding-left: 10px;
+  border-left: 3px solid rgba(var(--v-theme-on-surface), 0.25);
+  font-size: 0.85rem;
+}
+.md :deep(hr) { margin: 10px 0; opacity: 0.3; }
+.md :deep(:last-child) { margin-bottom: 0; }
 .border-b {
   border-bottom: 1px solid var(--border);
 }

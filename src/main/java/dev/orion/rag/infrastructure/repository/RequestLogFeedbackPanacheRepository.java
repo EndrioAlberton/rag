@@ -18,6 +18,10 @@ public class RequestLogFeedbackPanacheRepository implements PanacheRepositoryBas
         return count("liked", false);
     }
 
+    public Uni<List<RequestLogFeedbackEntity>> findWithCommentOrderedByDate() {
+        return find("comment IS NOT NULL AND comment <> '' ORDER BY createdAt DESC").list();
+    }
+
     public Uni<List<RequestLogFeedbackEntity>> findByLikedOrderedByDate(boolean liked) {
         return find("liked = ?1 ORDER BY createdAt DESC", liked).list();
     }

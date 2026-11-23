@@ -14,5 +14,8 @@ public interface DashboardPort {
 
     /** Returns interactions with LIKE (true) or DISLIKE (false) feedback. */
     CompletionStage<List<InteractionSummary>> interactionsByFeedback(boolean liked);
+
+    /** Returns feedback entries where the user wrote a comment (reports), newest first. */
+    CompletionStage<List<InteractionSummary>> interactionsWithComment();
 }
 

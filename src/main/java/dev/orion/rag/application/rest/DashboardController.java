@@ -103,8 +103,11 @@ public class DashboardController {
         }
         if (feedback != null && !feedback.isBlank()) {
             boolean liked = "LIKE".equalsIgnoreCase(feedback);
+            boolean reports = "REPORT".equalsIgnoreCase(feedback);
             return Uni.createFrom()
-                    .completionStage(() -> dashboardPort.interactionsByFeedback(liked))
+                    .completionStage(() -> reports
+                            ? dashboardPort.interactionsWithComment()
+                            : dashboardPort.interactionsByFeedback(liked))
                     .map(list -> Response.ok(list).build())
                     .onFailure().recoverWithItem(Response.serverError().build());
         }
